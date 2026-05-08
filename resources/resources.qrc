@@ -1,0 +1,25 @@
+<RCC>
+  <qresource prefix="/">
+	  <file>fonts/JetBrainsMono-Bold.ttf</file>
+	  <file>fonts/JetBrainsMono-BoldItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-ExtraBold.ttf</file>
+	  <file>fonts/JetBrainsMono-ExtraBoldItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-ExtraLight.ttf</file>
+	  <file>fonts/JetBrainsMono-ExtraLightItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-Italic.ttf</file>
+	  <file>fonts/JetBrainsMono-Light.ttf</file>
+	  <file>fonts/JetBrainsMono-LightItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-Medium.ttf</file>
+	  <file>fonts/JetBrainsMono-MediumItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-Regular.ttf</file>
+	  <file>fonts/JetBrainsMono-SemiBold.ttf</file>
+	  <file>fonts/JetBrainsMono-SemiBoldItalic.ttf</file>
+	  <file>fonts/JetBrainsMono-Thin.ttf</file>
+	  <file>fonts/JetBrainsMono-ThinItalic.ttf</file>
+	  <file>fonts/Syne-Bold.ttf</file>
+	  <file>fonts/Syne-ExtraBold.ttf</file>
+	  <file>fonts/Syne-Medium.ttf</file>
+	  <file>fonts/Syne-Regular.ttf</file>
+	  <file>fonts/Syne-SemiBold.ttf</file>
+  </qresource>
+</RCC>

@@ -17,7 +17,40 @@ static QString normaliseBrackets(QString s) {
     s.replace(QChar(0x230A), '('); s.replace(QChar(0x230B), ')');
     return s;
 }
+// Replace 'x' with '*' when it's used as an explicit multiplication operator.
+// Rules:
+//   1. If 'x' has a space on both sides (e.g., "2 x 3") → "2 * 3"
+//   2. If 'x' has a digit on both sides with no spaces (e.g., "2x3") → "2*3"
+// All other 'x' characters (variable names, part of words) are left unchanged.
+static QString replaceXWithTimes(const QString& s) {
+    QString result;
+    int len = s.length();
+    for (int i = 0; i < len; ++i) {
+        QChar c = s[i];
+        if (c == 'x' || c == 'X') {
+            // Check if it's a multiplication candidate
+            bool leftIsDigitOrSpace = false;
+            bool rightIsDigitOrSpace = false;
+            bool leftIsSpace = (i > 0 && s[i - 1].isSpace());
+            bool rightIsSpace = (i + 1 < len && s[i + 1].isSpace());
+            bool leftIsDigit = (i > 0 && s[i - 1].isDigit());
+            bool rightIsDigit = (i + 1 < len && s[i + 1].isDigit());
 
+            // Rule 1: space on both sides
+            if (leftIsSpace && rightIsSpace) {
+                result += '*';
+                continue;
+            }
+            // Rule 2: digit on both sides (no spaces)
+            if (leftIsDigit && rightIsDigit) {
+                result += '*';
+                continue;
+            }
+        }
+        result += c;
+    }
+    return result;
+}
 // ── Implicit multiply pre-processor ──────────────────────────────────────────
 static QString insertImplicitMul(const QString& s) {
     QString r;
@@ -29,12 +62,15 @@ static QString insertImplicitMul(const QString& s) {
                 r += '*';
             else if (c.isLetter() && n.isDigit())
                 r += '*';
+            // NEW: if c == ')' and n is a digit
+            else if (c == ')' && n.isDigit())
+                r += '*';
         }
     }
-
-
     return r;
 }
+
+
 
 // ── Tokeniser and parser for double expressions ───────────────────────────────
 struct Tok2 {
@@ -75,13 +111,19 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
         };
     auto d2r = [](double d) { return d * M_PI / 180.0; };
     auto r2d = [](double r) { return r * 180.0 / M_PI; };
-
+    
     if (name == "sin") { need(1); return std::sin(d2r(args[0])); }
     if (name == "cos") { need(1); return std::cos(d2r(args[0])); }
     if (name == "tan") { need(1); return std::tan(d2r(args[0])); }
+    if (name == "sinh") { need(1); return std::sinh(args[0]); }
+    if (name == "cosh") { need(1); return std::cosh(args[0]); }
+    if (name == "tanh") { need(1); return std::tanh(args[0]); }
     if (name == "asin") { need(1); return r2d(std::asin(args[0])); }
     if (name == "acos") { need(1); return r2d(std::acos(args[0])); }
     if (name == "atan") { need(1); return r2d(std::atan(args[0])); }
+    if (name == "asinh") { need(1); return r2d(std::asinh(args[0])); }
+    if (name == "acosh") { need(1); return r2d(std::acosh(args[0])); }
+    if (name == "atanh") { need(1); return r2d(std::atanh(args[0])); }
     if (name == "atan2") { need(2); return r2d(std::atan2(args[0], args[1])); }
     if (name == "sinr") { need(1); return std::sin(args[0]); }
     if (name == "cosr") { need(1); return std::cos(args[0]); }
@@ -95,6 +137,7 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     if (name == "log") { need(1); if (args[0] <= 0) throw std::runtime_error("log non-positive"); return std::log10(args[0]); }
     if (name == "ln") { need(1); if (args[0] <= 0) throw std::runtime_error("ln non-positive"); return std::log(args[0]); }
     if (name == "log2") { need(1); return std::log2(args[0]); }
+    if (name == "logbase") { need(2); return std::log(args[1]) / std::log(args[0]); }
     if (name == "exp") { need(1); return std::exp(args[0]); }
     if (name == "floor") { need(1); return std::floor(args[0]); }
     if (name == "ceil") { need(1); return std::ceil(args[0]); }
@@ -159,7 +202,15 @@ static double evalPrimary(Tok2& t, const VarMap& vars) {
         // Postfix ! after parenthesised expression: (5)! → fact(5)
         if (t.peek() == '!') {
             t.get();
-            throw std::runtime_error("__BIGFACT__:" + std::to_string((long long)v));
+            if (v < 0) throw std::runtime_error("Factorial of negative number");
+            double intpart;
+            if (std::modf(v, &intpart) != 0.0) throw std::runtime_error("Factorial of non-integer");
+            long long n = static_cast<long long>(v);
+            // Limit to 20! to keep within double range and performance
+            if (n > 20) throw std::runtime_error("Factorial too large inside expression (max 20). Use fact(n) or n! separately.");
+            long long result = 1;
+            for (long long i = 2; i <= n; ++i) result *= i;
+            return static_cast<double>(result);
         }
         return v;
     }
@@ -171,7 +222,15 @@ static double evalPrimary(Tok2& t, const VarMap& vars) {
         // Postfix ! : 5! → fact(5)
         if (t.peek() == '!') {
             t.get();
-            throw std::runtime_error("__BIGFACT__:" + std::to_string((long long)v));
+            if (v < 0) throw std::runtime_error("Factorial of negative number");
+            double intpart;
+            if (std::modf(v, &intpart) != 0.0) throw std::runtime_error("Factorial of non-integer");
+            long long n = static_cast<long long>(v);
+            // Limit to 20! to keep within double range and performance
+            if (n > 20) throw std::runtime_error("Factorial too large inside expression (max 20). Use fact(n) or n! separately.");
+            long long result = 1;
+            for (long long i = 2; i <= n; ++i) result *= i;
+            return static_cast<double>(result);
         }
         return v;
     }
@@ -271,6 +330,7 @@ double Expr::evalWith(const QString& input, const VarMap& vars, bool& ok) {
         QString s = input.simplified();
         s = normaliseBrackets(s);
         s = s.replace("**", "^");
+        s = replaceXWithTimes(s);
         s = insertImplicitMul(s);
         Tok2 t;
         t.s = s;

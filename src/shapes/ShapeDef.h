@@ -14,16 +14,16 @@ struct Shape {
 inline const QList<Shape> ALL_SHAPES = {
     // 2D shapes
     { "circ",      {"circle"},                      {"r"},         {"d"} },
-    { "ellipse",   {},                               {"a","b"},     {} },
+    { "ellipse",   {"ellpse"},                               {"a","b"},     {}},
     { "tri",       {"triangle"},                    {"a","b"},     {"c"} },
     { "righttri",  {"rtri","righttriangle"},        {"a","b"},     {} },
     { "rect",      {"rectangle"},                   {"w","h"},     {} },
     { "sqre",      {"square"},                      {"s"},         {} },
-    { "parallel",  {"parallelogram","pgram"},       {"b","h","s"}, {} },
+    { "parallel",  {"parallelogram","pgram", "parallelgram"},       {"b","h","s"}, {}},
     { "trap",      {"trapezoid","trapezium"},       {"a","b","h"}, {} },
     { "rhombus",   {"rhomb"},                       {"d1","d2"},   {} },
-    { "regpoly",   {"polygon"},                     {"n","s"},     {} },
-    { "sector",    {},                               {"r","angle"}, {} },
+    { "regpoly",   {"polygon", "regular polygon"},                     {"n","s"},     {}},
+    { "sector",    {"sect"},                               {"r","angle"}, {}},
     { "annulus",   {"ring"},                        {"major","minor"},     {} },
 
     // 3D shapes
@@ -39,9 +39,9 @@ inline const QList<Shape> ALL_SHAPES = {
     { "octa",      {"octahedron"},                  {"s"},         {} },
     { "icosa",     {"icosahedron"},                 {"s"},         {} },
     { "dodeca",    {"dodecahedron"},                {"s"},         {} },
-    { "prism",     {},                               {"n","s","h"}, {} },
+    { "prism",     {},                               {"n","s","h"}, {}},
     { "pyramid",   {"sqpyramid"},                   {"b","h"},     {} },
     { "torus",     {"donut"},                       {"major","minor"},     {} },
-    { "ellipsoid", {},                               {"a","b","c"}, {} },
+    { "ellipsoid", {"ellpsoid"},                               {"a","b","c"}, {}},
     { "capsule",   {"pill"},                        {"r","h"},     {} },
 };

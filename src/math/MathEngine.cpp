@@ -9,7 +9,8 @@
 #include <algorithm>
 #include <set>
 #include "shapes/ShapeDef.h"
-
+#include "NaturalLanguage.h"
+#include "Simplifier.h"
 
 
 struct Tok2 {
@@ -119,67 +120,6 @@ static QString normaliseBrackets(QString s) {
 }
 
 // ----------------------------------------------------------------------
-//  tryConversion – unit conversions
-// ----------------------------------------------------------------------
-CalcResult MathEngine::tryConversion(const QString& expr) {
-    static QRegularExpression re(R"(^([\d.eE+\-]+)\s+(\w+)\s+to\s+(\w+)$)",
-        QRegularExpression::CaseInsensitiveOption);
-    auto m = re.match(expr.trimmed());
-    if (!m.hasMatch()) return {};
-    double val = m.captured(1).toDouble();
-    QString from = m.captured(2).toLower(), to = m.captured(3).toLower();
-
-    QMap<QString, double> lenToM = {
-        {"m",1},{"km",1000},{"cm",0.01},{"mm",0.001},
-        {"miles",1609.344},{"mile",1609.344},{"ft",0.3048},{"feet",0.3048},
-        {"in",0.0254},{"inch",0.0254},{"yd",0.9144}
-    };
-    QMap<QString, double> massToKg = {
-        {"kg",1},{"g",0.001},{"lbs",0.453592},{"lb",0.453592},
-        {"oz",0.0283495},{"t",1000}
-    };
-    QMap<QString, double> dataToB = {
-        {"b",1},{"kb",1024},{"mb",1024 * 1024.0},
-        {"gb",1024 * 1024 * 1024.0},{"tb",1024 * 1024 * 1024 * 1024.0}, {"pb", 1024 * 1024 * 1024 * 1024 * 1024}
-    };
-    QMap<QString, double> speedToMs = {
-        {"m/s",1},{"km/h",1 / 3.6},{"kph",1 / 3.6},
-        {"mph",0.44704},{"knot",0.514444}
-    };
-    QMap<QString, double> volToL = {
-        {"l",1},{"ml",0.001},{"gallon",3.78541},{"gallons",3.78541},
-        {"gal",3.78541},{"cup",0.236588},{"fl_oz",0.0295735}
-    };
-    
-
-    auto tryConv = [&](QMap<QString, double>& tbl) -> QString {
-        if (!tbl.contains(from) || !tbl.contains(to)) return {};
-        return QString("%1 %2 = %3 %4").arg(val).arg(from)
-            .arg(fmt(val * tbl[from] / tbl[to])).arg(to);
-        };
-
-    QString r;
-    if (!(r = tryConv(lenToM)).isEmpty())    return { r,"conv" };
-    if (!(r = tryConv(massToKg)).isEmpty())  return { r,"conv" };
-    if (!(r = tryConv(dataToB)).isEmpty())   return { r,"conv" };
-    if (!(r = tryConv(speedToMs)).isEmpty()) return { r,"conv" };
-    if (!(r = tryConv(volToL)).isEmpty())    return { r,"conv" };
-
-    // Temperature
-    if ((from == "f" || from == "fahrenheit") && (to == "c" || to == "celsius"))
-        return { QString("%1°F = %2°C").arg(val).arg(fmt((val - 32) * 5.0 / 9.0)), "conv" };
-    if ((from == "c" || from == "celsius") && (to == "f" || to == "fahrenheit"))
-        return { QString("%1°C = %2°F").arg(val).arg(fmt(val * 9.0 / 5.0 + 32)), "conv" };
-    if ((from == "c" || from == "celsius") && (to == "k" || to == "kelvin"))
-        return { QString("%1°C = %2 K").arg(val).arg(fmt(val + 273.15)), "conv" };
-    if ((from == "k" || from == "kelvin") && (to == "c" || to == "celsius"))
-        return { QString("%1 K = %2°C").arg(val).arg(fmt(val - 273.15)), "conv" };
-    if (from == "f" && to == "k")
-        return { QString("%1°F = %2 K").arg(val).arg(fmt((val - 32) * 5.0 / 9.0 + 273.15)), "conv" };
-    return {};
-}
-
-// ----------------------------------------------------------------------
 //  tryGeometry – basic geometric calculations (static, not interactive)
 // ----------------------------------------------------------------------
 static QMap<QString, double> parseParams(const QString& s) {
@@ -246,28 +186,6 @@ double MathEngine::evalSide(const QString& side, const QString& varName, double 
     if (!ok) throw std::runtime_error("Evaluation failed");
     return result;
 }
-
-// ── Polynomial simplifier v3 ──────────────────────────────────────────────────
-//
-// Pipeline:
-//   1. expandBrackets(expr)  — recursively simplifies all bracketed
-//      sub-expressions first, substituting each with its flat result.
-//      e.g. "2(x + x)" → "2(2x)" → "4x"
-//           "x + (3x - x)" → "x + 2x"
-//
-//   2. flattenExpr(expanded) — splits on top-level +/- and collects
-//      like terms into a PolyMap.
-//
-//   3. formatPoly(poly)      — renders the PolyMap back to a string.
-//
-// Supported:
-//   - arbitrary nesting of parentheses
-//   - numeric coefficient before parens: 2(x+x), -3(x+1)
-//   - +/- of terms, multi-term expressions
-//   - coefficients: 2x, -x, 0.5x, x, -x (implicit ±1)
-//   - constants mixed with variables: 2x + 3 - x
-//   - single-variable only (x^2, xy rejected cleanly)
-// ─────────────────────────────────────────────────────────────────────────────
 
 using PolyMap = QMap<QString, double>;  // key="" → constant term
 
@@ -396,14 +314,9 @@ static QVector<SignedToken> splitTopLevel(const QString& expr) {
 }
 
 
-// ── Expression flattener ──────────────────────────────────────────────────────
-// Recursively expands parentheses and collects terms into a PolyMap.
-// 'sign' is the current multiplier (+1 or -1) inherited from the context.
-// Forward declaration
+
 static bool flattenExpr(const QString& expr, double signMul, PolyMap& out);
-// ── flattenExpr ───────────────────────────────────────────────────────────────
-// Splits on top-level +/- and accumulates into a PolyMap.
-// Assumes brackets have already been expanded (no parens in tokens).
+
 static bool flattenExpr(const QString& expr, double signMul, PolyMap& out) {
     QString e = expr.trimmed();
     if (e.isEmpty()) return true;
@@ -570,14 +483,21 @@ static QString trySimplify(const QString& expr) {
 // ----------------------------------------------------------------------
 //  tryAlgebra – equation solving using Solver
 // ----------------------------------------------------------------------
+
 CalcResult MathEngine::tryAlgebra(const QString& expr) {
     static QRegularExpression shapeRe = shapePattern();
     if (shapeRe.match(expr).hasMatch()) {
-        // It's a known shape with parameters → let geometry handle it
         return tryGeometry(expr);
     }
     QString e = expr.trimmed();
     if (!e.contains('=')) return {};
+
+    // Preprocess natural language and simplify
+    QString processed = NaturalLanguage::preprocess(expr);
+    QString simplified = Simplifier::simplify(processed);
+    if (!simplified.isEmpty())
+        processed = simplified;
+    e = processed;
 
     auto vars = Expr::detectVariables(e.toLower());
     if (vars.isEmpty()) return {};
@@ -586,15 +506,24 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     if (sides.size() != 2) return {};
     QString lhs = sides[0].trimmed(), rhs = sides[1].trimmed();
 
+    // Convert variable*variable to variable^2 (same variable)
+    static QRegularExpression squareRe(R"(([a-z])\s*\*\s*\1)");
+    lhs.replace(squareRe, "\\1^2");
+    rhs.replace(squareRe, "\\1^2");
+
     // Try quadratic detection
     QString varName = *vars.begin();
     if (vars.size() == 1) {
+        // Bring RHS to LHS to get expression = 0
+        QString combined = "(" + lhs + ")-(" + rhs + ")";
+        QString fullExpr = combined;
+        // Simplify expression? Not needed, but we'll use it as lhs for regex.
         QRegularExpression q2(
             QString(R"(([+-]?\s*[\d.]*)\s*%1\^2\s*([+-]\s*[\d.]*)\s*%1\s*([+-]\s*[\d.]*))")
             .arg(QRegularExpression::escape(varName)),
             QRegularExpression::CaseInsensitiveOption);
-        auto q2m = q2.match(lhs);
-        if (q2m.hasMatch() && rhs.trimmed() == "0") {
+        auto q2m = q2.match(fullExpr);
+        if (q2m.hasMatch()) {
             double a = q2m.captured(1).simplified().replace(" ", "").toDouble();
             if (a == 0) a = 1;
             double b = q2m.captured(2).simplified().replace(" ", "").toDouble();
@@ -604,9 +533,6 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     }
 
     // ── Fast exact linear solver ──────────────────────────────────────────────
-    // For ax + b = 0, f(0)=b and f(1)=a+b, so a=f(1)-f(0), b=f(0).
-    // We verify linearity by checking f(2) == 2a+b.
-    // This handles x+5=2x-3, 4x-7=x+8, 3x+10=2x+25 exactly in O(1).
     if (vars.size() == 1) {
         QString combined = lhs + "-(" + rhs + ")";
         VarMap vm0, vm1, vm2;
@@ -618,11 +544,9 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
         if (ok0 && ok1 && ok2) {
             double a = f1 - f0;
             double b = f0;
-            // Linearity check: f(2) must equal 2a+b
             if (std::abs(f2 - (2.0 * a + b)) < 1e-9) {
                 if (std::abs(a) < 1e-12)
-                    return { std::abs(b) < 1e-9
-                        ? "Infinite solutions" : "No solution", "err" };
+                    return { std::abs(b) < 1e-9 ? "Infinite solutions" : "No solution", "err" };
                 double x = -b / a;
                 double rounded = std::round(x);
                 if (std::abs(x - rounded) < 1e-9) x = rounded;
@@ -631,7 +555,7 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
         }
     }
 
-    // ── Newton solver (non-linear fallback) ───────────────────────────────────
+    // ── Newton solver ────────────────────────────────────────────────────────
     if (vars.size() == 1) {
         bool ok;
         double result = Solver::solveLinear(lhs, rhs, varName, ok);
@@ -647,70 +571,71 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     for (auto& v : vars) varList << v;
     return { QString("Multiple variables: %1\nProvide values for all but one").arg(varList.join(", ")), "err" };
 }
+static QString preprocessNaturalLanguage(const QString& expr) {
+   QString e = expr.toLower();
+   e = NaturalLanguage::preprocess(expr);
+    /* 
 
+    // ------------------------------------------------------------------
+    // TABLE OF SIMPLE WORD REPLACEMENTS (fractions, numbers, etc.)
+    // Add/remove lines here as needed – no other code changes.
+    // Format: { "phrase", "replacement" }
+    // ------------------------------------------------------------------
+    static const struct { const char* phrase; const char* replacement; } wordMap[] = {
+        // Fractions
+        {"half",       "1/2"},
+        {"a half",     "1/2"},
+        {"one half",   "1/2"},
+        {"quarter",    "1/4"},
+        {"a quarter",  "1/4"},
+        {"one quarter","1/4"},
+        {"third",      "1/3"},
+        {"one third",  "1/3"},
+        {"two thirds", "2/3"},
+        {"three quarters", "3/4"},
+        {"eighth",     "1/8"},
+        {"an eighth",  "1/8"},
+        {"dozen",     "12"},
+        {"score",     "20"},
+    };
+
+    for (const auto& w : wordMap) {
+        e.replace(w.phrase, w.replacement);
+    }
+
+
+
+   // ------------------------------------------------------------------
+    // BINARY OPERATOR WORDS: "X word Y" → "X op Y" (with possible reorder)
+    // ------------------------------------------------------------------
+    // "of"  → multiplication (X * Y)
+    static QRegularExpression ofRe(R"(([^\s]+)\s+of\s+([^\s]+))");
+    e.replace(ofRe, "(\\1 * \\2)");
+
+    // "into" → division with swapped operands: X into Y  → (Y / X)
+    static QRegularExpression intoRe(R"(([^\s]+)\s+into\s+([^\s]+))");
+    e.replace(intoRe, "(\\2 * \\1)");
+
+    // "times" → multiplication (same as "of")
+    static QRegularExpression timesRe(R"(([^\s]+)\s+times\s+([^\s]+))");
+    e.replace(timesRe, "(\\1 * \\2)");
+
+
+    static QRegularExpression byRe(R"(([^\s]+)\s+by\s+([^\s]+))");
+    e.replace(byRe, "(\\1 / \\2");
+    */
+    return e;
+}
 // ----------------------------------------------------------------------
 //  tryArithmetic – fallback for numeric expressions
 // ----------------------------------------------------------------------
 CalcResult MathEngine::tryArithmetic(const QString& expr) {
-
-    // ── "X of Y" — fraction/percentage of a number ───────────────────────────
- // Handles: "1/2 of 400" → 200
- //          "3/4 of 80"  → 60
- //          "20% of 300" → 60  (bonus: percent form)
-    {
-        /*std::string neString;
-        QString newString = QString(neString.c_str());
-        
-        if (expr.contains(R"(^[\(\[\{].*[\)\]\}]$)")) {
-            std::string str = expr.toStdString();
-            
-            for (int i = 0; i < str.length(); i++) {
-                if ((str[i] == '{' || str[i] == '}') || (str[i] == '(' || str[i] == ')') || (str[i] == '[' || str[i] == ']')) {
-                    continue;
-                }
-                newString.push_back(str[i]);
-            }
-        }*/
-        static QRegularExpression ofRe(
-            R"(^([\d./%]+)\s*of\s*([\d.]+)$)",
-            QRegularExpression::CaseInsensitiveOption);
-        auto m = ofRe.match(expr.trimmed());
-        if (m.hasMatch()) {
-            QString fracPart = m.captured(1).trimmed();
-            double rhs = m.captured(2).toDouble();
-            double lhs = 0;
-            bool ok = false;
-
-            // Handle percentage: "20%"
-            if (fracPart.contains('%')) {
-                lhs = fracPart.chopped(1).toDouble(&ok) / 100.0;
-            }
-            // Handle fraction: "1/2"
-            else if (fracPart.contains('/')) {
-                QStringList parts = fracPart.split('/');
-                if (parts.size() == 2) {
-                    double num = parts[0].toDouble(&ok);
-                    double den = parts[1].toDouble();
-                    if (ok && den != 0) lhs = num / den;
-                    else ok = false;
-                }
-            }
-            // Handle plain decimal: "0.5"
-            else {
-                lhs = fracPart.toDouble(&ok);
-            }
-
-            if (ok) {
-                double result = lhs * rhs;
-                return { fmt(result), "ok" };
-            }
-        }
-    }
+QString processed = NaturalLanguage::preprocess(expr);
 
     // ── Common measurement conversions (natural language) ────────────────────
 // Handles: "1 furlong", "3 furlongs in meters", "2 nautical miles"
 // These are fixed-unit lookups — no "to" keyword needed
-    {
+    
        
 
         static const QVector<UnitDef> units = {
@@ -744,7 +669,7 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
         static QRegularExpression measRe(
             R"(^([\d.]+)\s+(.+)$)",
             QRegularExpression::CaseInsensitiveOption);
-        auto mm = measRe.match(expr.trimmed());
+        auto mm = measRe.match(processed.trimmed());
         if (mm.hasMatch()) {
             double val = mm.captured(1).toDouble();
             QString unit = mm.captured(2).trimmed().toLower();
@@ -768,26 +693,19 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
                 }
             }
         }
-    }
+    
 
-    // Try high‑precision evaluation first
-    bool bok;
-    QString bigResult = bigEval(expr, bok);
-    if (bok) {
-        bool ok;
-        double dbl = evalSimple(expr, ok);
-        QString dblStr = ok ? fmt(dbl) : "";
-        if (bigResult.length() > dblStr.length() + 3)
-            return { bigResult, "big" };
-        if (ok) return { dblStr, "ok" };
-        return { bigResult, "ok" };
-    }
-
-    // Fallback to double evaluation
+    // Try double evaluation first
     bool ok;
-    double v = evalSimple(expr, ok);
-    if (!ok) return {};
-    return { fmt(v), "ok" };
+    double v = evalSimple(processed, ok);
+    if (ok && std::isfinite(v)) {
+        return { fmt(v), "ok" };
+    }
+    // Fallback to big number evaluation
+    bool bok;
+    QString bigResult = bigEval(processed, bok);
+    if (bok) return { bigResult, "big" };
+    return {};
 }
 
 bool MathEngine::solveEquation(const QString& eq, double& result) {
@@ -823,12 +741,41 @@ bool MathEngine::solveEquation(const QString& eq, double& result) {
 //  Main dispatcher
 // ----------------------------------------------------------------------
 CalcResult MathEngine::evaluate(const QString& expr) {
-    if (expr.startsWith("f(") && expr.endsWith(")")) throw std::runtime_error("Unknown Function 'f'");
+    if (expr.trimmed().isEmpty()) throw std::runtime_error("Empty expression");
+
+    // Detect standalone factorial expressions: "fact(50)" or "50!" 
+    static QRegularExpression factRe(
+        R"(^\s*(?:fact\s*\(\s*(\d+)\s*\)|(\d+)\s*!)\s*$)",
+        QRegularExpression::CaseInsensitiveOption);
+    auto match = factRe.match(expr);
+    if (match.hasMatch()) {
+        QString nStr = match.captured(1).isEmpty() ? match.captured(2) : match.captured(1);
+        BigInt n(nStr.toStdString());
+        if (n < 0) return { "Negative factorial not allowed", "err" };
+        try {
+            QString result = BigNum::bigFactorial(n);
+            return { result, "big" };
+        }
+        catch (const std::exception& e) {
+            return { QString("Error: ") + e.what(), "err" };
+        }
+    }
+
+
     if (expr.trimmed().isEmpty()) throw std::runtime_error("Empty expression");
     CalcResult r;
     r = tryConversion(expr);  if (!r.type.isEmpty()) return r;
     r = tryGeometry(expr);    if (!r.type.isEmpty()) return r;
     r = tryTrig(expr);        if (!r.type.isEmpty()) return r;
+
+    // If expression has variables but no '=', try to simplify it
+    if (!expr.contains('=') && !Expr::detectVariables(expr).isEmpty()) {
+        QString simplified = Simplifier::simplify(expr);
+        if (!simplified.isEmpty() && simplified != expr) {
+            return { simplified, "alg" };
+        }
+    }
+
     r = tryAlgebra(expr);     if (!r.type.isEmpty()) return r;
     r = tryArithmetic(expr);  if (!r.type.isEmpty()) return r;
     throw std::runtime_error("Cannot parse expression");

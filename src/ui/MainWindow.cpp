@@ -6,7 +6,7 @@
 #include "../shapes/Shapes2D.h"
 #include "../shapes/Shapes3D.h"
 #include <QThread>
-#include "../math/FactorialWorker.h"
+
 #include <QApplication>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -23,19 +23,9 @@
 #include <QRegularExpression>
 #include <QMessageBox>
 #include "../theme/Theme.h"
-#include "../input/InputRouter.h"
+#include "..\input\InputRouter.h"
+#include "..\thread\GenericWorker.h"
 
-static const QString C_BG = Theme::BG;
-static const QString C_SURFACE = Theme::SURFACE;
-static const QString C_CARD = Theme::CARD;
-static const QString C_BORDER = Theme::BORDER;
-static const QString C_ACCENT = Theme::ACCENT;
-static const QString C_ACCENT_DIM = Theme::ACCENT_DIM;
-static const QString C_TEXT = Theme::TEXT;
-static const QString C_MUTED = Theme::MUTED;
-static const QString C_ERR = Theme::ERROR;
-static const QString C_VRED = "#dc1e14";
-static const QString C_DRED = "#ad102f";
 
 static QString g_fontFamily;
 static void initFont() {
@@ -57,8 +47,101 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setMinimumSize(900, 640); resize(1100, 750);
     setStyleSheet(QString("QMainWindow,QWidget{background:%1;color:%2;}").arg(C_BG, C_TEXT));
     setupUi();
+    // Create persistent worker and thread
+    m_workerThread = new QThread(this);
+    m_worker = new PersistentWorker();
+    m_worker->moveToThread(m_workerThread);
+
+    // Connect signals
+    connect(m_workerThread, &QThread::started, m_worker, &PersistentWorker::process);
+    connect(m_worker, &PersistentWorker::resultReady, this, &MainWindow::onWorkerFinish);
+    connect(this, &MainWindow::stop, m_worker, &PersistentWorker::cancelAll);
+    connect(m_worker, &PersistentWorker::progress, this, [this](int jobId, int percent) {
+        // Only show progress for the currently shown job (or all, but m_output only has one progress bar)
+        m_output->showProgress(percent);
+        
+        }); 
+    m_workerThread->start();
 }
 
+void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString& type, const QString& formula) {
+    // Retrieve the original expression (needed for geometry cards)
+    QString expr = m_pendingJobs.take(jobId);
+
+    if (type == "geo") {
+        // Geometry card – must be created on the UI thread
+        GeoCard* card = InputHandler::makeGeoCard(expr);
+        if (card) {
+            m_output->addGeoCard(card);
+        }
+
+        
+
+        else {
+            // Possibly missing parameters – start prompt or show error
+            QStringList missing = InputHandler::missingRequiredParams(expr);
+            if (!missing.isEmpty()) {
+                // Start interactive prompt for missing parameters
+                QString baseCmd = expr.split('(').first().split(' ').first();
+                QString canonical = InputHandler::resolveAlias(baseCmd);
+                QStringList allParams = InputHandler::getRequiredParams(canonical);
+                QMap<QString, QString> prefill;
+                // Extract already provided parameters from expr
+                QRegularExpression re(R"(([a-z]+)\s*=\s*([^\s]+))");
+                auto it = re.globalMatch(expr.toLower());
+                while (it.hasNext()) {
+                    auto m = it.next();
+                    prefill[m.captured(1)] = m.captured(2);
+                }
+                int providedCount = 0;
+                for (const QString& p : allParams) {
+                    if (prefill.contains(p)) providedCount++;
+                    else break;
+                }
+
+                ShapePrompt prompt;
+                prompt.command = canonical;
+                prompt.params = allParams;
+                prompt.currentIndex = providedCount;
+                prompt.collected = prefill;
+                setRunState(RunState::HandlingInput);
+                m_promptCtrl->start(prompt);
+                m_output->addPromptRequest(m_promptCtrl->currentParam());
+            }
+            else {
+                m_output->addResultLine("Invalid shape expression", "err");
+                m_output->addSeparator();
+            }
+        }
+    }
+    if (type == "big") {
+            const int fullLen = result.length();
+            const int limit = 500;
+            if (fullLen > limit) {
+                QString display = result.left(limit);
+                display.append(QString("\n.... %1 more characters (%2 total)")
+                    .arg(fullLen - limit).arg(fullLen));
+                m_output->addResultLine(display, "big", result);
+            }
+            else {
+                m_output->addResultLine(result, "big");
+            }
+        }
+    else {
+        
+
+        // Normal result (arithmetic, conversion, algebra, trig, big number, error)
+        m_output->addResultLine(result, type, result, formula);
+    }
+
+    // Update session display
+    m_lastResult = result;
+    m_lastResultLbl->setText(result.length() > 23 ? result.first(20) + "..." : result);
+    m_output->addSeparator();
+
+    // Go back to idle state (allow new input)
+    setRunState(RunState::Idle);
+}
 // ── eventFilter ───────────────────────────────────────────────────────────────
 bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     if (obj != m_input || ev->type() != QEvent::KeyPress)
@@ -90,6 +173,18 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     }
 }
 
+void MainWindow::closeEvent(QCloseEvent* closeEvent)
+{
+    if (m_worker) {
+        m_worker->stop();
+    }
+    if (m_workerThread) {
+        m_workerThread->quit();
+        m_workerThread->wait(3000); 
+    }
+
+}
+
 // ── setRunState ───────────────────────────────────────────────────────────────
 void MainWindow::setRunState(RunState state) {
     m_state = state;
@@ -101,21 +196,24 @@ void MainWindow::setRunState(RunState state) {
         if (!m_promptCtrl->isActive())
             m_input->setPlaceholderText("Enter expression, equation, or shape...");
         break;
-    case RunState::Running:
-        m_stopBtn->show();
-        m_runBtn->hide();
-        m_input->setEnabled(false);
-        break;
     case RunState::HandlingInput:
         m_stopBtn->show();
         m_runBtn->hide();
         m_input->setEnabled(true);
+        break;
+
+    case RunState::Running:
+        m_stopBtn->show();
+        m_runBtn->hide();
+        m_input->setEnabled(false);
         break;
     case RunState::Stopping:
         emit stop();
         break;
     }
 }
+
+
 
 // ── submitExpression ──────────────────────────────────────────────────────────
 void MainWindow::submitExpression(const QString& expr) {
@@ -125,6 +223,7 @@ void MainWindow::submitExpression(const QString& expr) {
     m_countLbl->setText(QString::number(m_calcCount));
     m_histNav->reset();
     setRunState(RunState::Running);
+
     run(expr);
 }
 
@@ -135,27 +234,28 @@ void MainWindow::onRun() {
     m_input->clear();
 
     if (m_promptCtrl->isActive()) {
+        setRunState(RunState::HandlingInput);
         handlePromptInput(text);
         return;
     }
-    if (!tryStartPrompt(text)) {
-        setRunState(RunState::HandlingInput);
+    if (!tryStartPrompt(text))
         submitExpression(text);
-    }
 }
 
-// ── run ───────────────────────────────────────────────────────────────────────
-void MainWindow::run(const QString& expr) {
-    m_history.append(expr);
+
+/*m_history.append(expr);
     m_lastExprLbl->setText(expr);
 
     // Factorial — async path
+    // Match both fact(n) and n! notations
     static QRegularExpression factRe(
-        R"(^\s*fact\s*\(\s*(-?\d+)\s*\)\s*$)",
+        R"(^\s*(?:fact\s*\(\s*(-?\d+)\s*\)|(-?\d+)\s*!)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
     auto match = factRe.match(expr);
     if (match.hasMatch()) {
-        BigInt n(match.captured(1).toStdString());
+        // Group 1 = fact(n) form, group 2 = n! form
+        QString nStr = match.captured(1).isEmpty() ? match.captured(2) : match.captured(1);
+        BigInt n(nStr.toStdString());
         if (n < 0) {
             m_output->addResultLine("Negative factorials are not allowed!", "err");
             m_output->addSeparator();
@@ -169,7 +269,21 @@ void MainWindow::run(const QString& expr) {
     // Synchronous path
     try {
         CalcResult res = MathEngine::evaluate(expr);
-        if (res.type == "geo") {
+        if (res.type == "fact") {
+            // Postfix n! routed back from MathEngine via __BIGFACT__ exception
+            bool nOk;
+            long long n = res.result.toLongLong(&nOk);
+            if (!nOk || n < 0) {
+                m_output->addResultLine("Factorial of negative number", "err");
+                m_output->addSeparator();
+                setRunState(RunState::Idle);
+            }
+            else {
+                computeFactorialAsync(BigInt(n));
+            }
+        }
+        else if (res.type == "geo") {
+            QThread* calcThread = new QThread;
             GeoCard* card = InputHandler::makeGeoCard(expr);
             if (card) {
                 m_output->addGeoCard(card);
@@ -197,9 +311,10 @@ void MainWindow::run(const QString& expr) {
                     prompt.params = allParams;
                     prompt.currentIndex = providedCount;
                     prompt.collected = prefill;
-                    m_promptCtrl->start(prompt);
                     setRunState(RunState::HandlingInput);
+                    m_promptCtrl->start(prompt);
                     m_output->addPromptRequest(m_promptCtrl->currentParam());
+                    
                 }
                 else {
                     m_output->addResultLine("Invalid shape expression", "err");
@@ -224,6 +339,17 @@ void MainWindow::run(const QString& expr) {
         return;
     }
     m_output->addSeparator();
+
+    */
+// ── run ───────────────────────────────────────────────────────────────────────
+void MainWindow::run(const QString& expr) {
+
+    m_history.append(expr);
+    m_lastExprLbl->setText(expr);
+    setRunState(RunState::Running);
+    int id = ++m_nextJobId;
+    m_pendingJobs[id] = expr;
+    m_worker->submitJob(id, expr);
 }
 
 // ── onCalcFinish ──────────────────────────────────────────────────────────────
@@ -234,57 +360,45 @@ void MainWindow::onCalcFinish(RunState state, QString result) {
         result.length() > 23 ? result.first(20) + "..." : result);
 }
 
-// ── Factorial ─────────────────────────────────────────────────────────────────
-void MainWindow::onFactorialProgress(cpp_int percent) {
-    m_output->showProgress((int)percent);
-}
-
-void MainWindow::onFactorialFinished(const QString& result) {
-    m_output->hideProgress();
-    const int fullLen = result.length();
-    const int limit = 500;
-    if (fullLen > limit) {
-        QString display = result.left(limit);
-        display.append(QString("\n.... %1 more characters (%2 total)")
-            .arg(fullLen - limit).arg(fullLen));
-        m_output->addResultLine(display, "big");
-    }
-    else {
-        m_output->addResultLine(result, "big");
-    }
-    m_output->addSeparator();
-    setRunState(RunState::Idle);
-}
-
-void MainWindow::computeFactorialAsync(BigInt n) {
-    auto* worker = new FactorialWorker;
-    auto* thread = new QThread;
-    m_output->showProgress(0);
-    worker->moveToThread(thread);
-    connect(worker, &FactorialWorker::progress,
-        this, &MainWindow::onFactorialProgress, Qt::QueuedConnection);
-    connect(this, &MainWindow::stop, thread, &QThread::requestInterruption);
-    connect(this, &MainWindow::stop, worker, &FactorialWorker::InterruptionRequest);
-    connect(worker, &FactorialWorker::finished,
-        this, &MainWindow::onFactorialFinished, Qt::QueuedConnection);
-    connect(thread, &QThread::started, worker, [worker, n]() {
-        worker->computeFactorial(n);
-        });
-    connect(worker, &FactorialWorker::finished, thread, &QThread::quit);
-    connect(thread, &QThread::finished, worker, &QObject::deleteLater);
-    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    thread->start();
-}
-
-// ── onStop ────────────────────────────────────────────────────────────────────
+//-─ onStop ───────────────────────────────────────────────────────────────
 void MainWindow::onStop() {
+    // Cancel any active shape prompt
+    if (m_promptCtrl && m_promptCtrl->isActive()) {
+        m_promptCtrl->cancel();
+    }
+    // Cancel any running calculation
+    if (m_workerThread) {
+        m_workerThread->requestInterruption();
+    }
+    if (m_worker) {
+        m_worker->cancelAll();
+    }
     setRunState(RunState::Stopping);
-    emit stop();
 }
 
 // ── onTruncateClicked ─────────────────────────────────────────────────────────
 void MainWindow::onTruncateClicked() {
     // Toggle truncation behaviour — placeholder for future implementation
+}
+
+void MainWindow::onAsyncResult(int jobId, const QString& result, const QString& type) {
+    if (type == "geo") {
+        QString expr = m_pendingJobs.take(jobId);
+        GeoCard* card = InputHandler::makeGeoCard(expr);
+        if (card) {
+            m_output->addGeoCard(card);
+        }
+        else {
+            m_output->addResultLine("Invalid shape expression", "err");
+        }
+    }
+    else {
+        m_output->addResultLine(result, type);
+    }
+    m_lastResult = result;
+    m_lastResultLbl->setText(result.length() > 23 ? result.first(20) + "..." : result);
+    m_output->addSeparator();
+    setRunState(RunState::Idle);
 }
 
 // ── PromptController slots ────────────────────────────────────────────────────
@@ -300,14 +414,13 @@ void MainWindow::onPromptComplete(const QString& fullExpr) {
 }
 
 void MainWindow::onPromptCancelled() {
-    m_output->addResultLine("  cancelled", "err");
+    m_output->addResultLine("  Input operation cancelled by user", "ok");
     m_output->addSeparator();
     setRunState(RunState::Idle);
 }
 
 // ── handlePromptInput ─────────────────────────────────────────────────────────
 void MainWindow::handlePromptInput(const QString& value) {
-    setRunState(RunState::HandlingInput);
     QString param = m_promptCtrl->currentParam();
     double numericValue = 0.0;
     bool ok = false;
@@ -356,17 +469,15 @@ void MainWindow::handlePromptInput(const QString& value) {
     }
 
     m_promptCtrl->submit(value, numericValue);
- 
 }
 
 // ── tryStartPrompt ────────────────────────────────────────────────────────────
 bool MainWindow::tryStartPrompt(const QString& expr) {
-    setRunState(RunState::HandlingInput);
     ShapePrompt p = InputHandler::detectPrompt(expr);
     if (!p.isActive()) return false;
+    setRunState(RunState::HandlingInput);
     m_promptCtrl->start(p);
     m_output->addPromptRequest(m_promptCtrl->currentParam());
-
     return true;
 }
 
@@ -377,11 +488,17 @@ void MainWindow::onModeChanged(const QString& mode) {
 }
 
 void MainWindow::onSidebarItemClicked(const QString& expr) {
+    if (getRunState() != RunState::Idle) return;
+
+
     m_input->setText(expr);
     m_input->setFocus();
 }
 
 void MainWindow::onSidebarItemDoubleClicked(const QString& expr) {
+    if (getRunState() != RunState::Idle) return;
+
+
     submitExpression(expr);
     m_input->clear();
     m_input->setFocus();
@@ -404,6 +521,18 @@ void MainWindow::onClear() {
 
 RunState MainWindow::getRunState() { return m_state; }
 
+MainWindow::~MainWindow() {
+    if (m_worker) {
+        m_worker->stop();   // tell worker to exit
+    }
+    if (m_workerThread) {
+        m_workerThread->quit();
+        m_workerThread->wait(5000); // wait up to 5 seconds
+        delete m_worker;
+        delete m_workerThread;
+    }
+}
+
 // ── setupUi ───────────────────────────────────────────────────────────────────
 void MainWindow::setupUi() {
     auto* central = new QWidget(this);
@@ -418,8 +547,12 @@ void MainWindow::setupUi() {
     auto* mainL = new QHBoxLayout(mainWrap);
     mainL->setContentsMargins(0, 0, 0, 0); mainL->setSpacing(16);
 
+
+
     setupTerminal(); mainL->addWidget(m_terminal, 1);
 
+
+    
     auto* sidebar = new QWidget; sidebar->setFixedWidth(290);
     sidebar->setStyleSheet("background:transparent;");
     auto* sbL = new QVBoxLayout(sidebar);
@@ -576,6 +709,8 @@ void MainWindow::setupTerminal() {
     m_promptLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(C_ACCENT));
     m_promptLbl->hide();
 
+
+
     m_input = new QLineEdit;
     m_input->setPlaceholderText("Enter expression, equation, or shape...");
     m_input->setFont(MF(10)); m_input->setFrame(false);
@@ -594,12 +729,15 @@ void MainWindow::setupTerminal() {
     ).arg(C_VRED, C_DRED));
     m_stopBtn->hide();
 
+
+    
     ir->addWidget(promptSym);
     ir->addWidget(m_promptLbl);
     ir->addWidget(m_input, 1);
     ir->addWidget(m_runBtn);
     ir->addWidget(m_stopBtn);
 
+    
     tl->addWidget(termBar);
     tl->addWidget(m_output, 1);
     tl->addWidget(inputRow);

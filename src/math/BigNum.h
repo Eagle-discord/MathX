@@ -12,6 +12,7 @@
 #include <boost/multiprecision/number.hpp>
 #include <QString>
 #include <cmath>
+#include <functional>
 
 using BigInt = boost::multiprecision::cpp_int;
 using BigDec = boost::multiprecision::number<
@@ -61,7 +62,7 @@ namespace BigNum {
     }
 
     // Bignum factorial — exact integer string
-    QString bigFactorial(BigInt n);
+    QString bigFactorial(BigInt n, std::function<void(int)> progressCallback = nullptr);
 
     // High-precision expression evaluator (no variables)
     QString bigEval(const QString& expr, bool& ok);

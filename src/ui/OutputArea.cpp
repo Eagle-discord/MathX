@@ -7,18 +7,12 @@
 #include <QTimer>
 #include <QFontDatabase>
 #include <QFontMetrics>
+#include <QApplication>
+#include <QClipboard>
+#include <QMouseEvent>
 
 #include "../theme/Theme.h"
-static const QString C_OUT = "#0d100e";   // slightly darker than surface; not in Theme
-static const QString C_ACCENT = Theme::ACCENT;
-static const QString C_TEXT = Theme::TEXT;
-static const QString C_MUTED = Theme::MUTED;
-static const QString C_DIM = Theme::DIM;
-static const QString C_ERR = Theme::ERROR;
-static const QString C_INFO = Theme::INFO;
-static const QString C_WARN = Theme::WARN;
-static const QString C_PURPLE = Theme::PURPLE;
-static const QString C_ALG = Theme::ALG;
+#include <QMessageBox>
 
 static QFont MF(int pt, int w = QFont::Normal) {
     return Theme::monoFont(pt, w);
@@ -55,18 +49,108 @@ static QLabel* makeLbl(const QString& html, QFont font, const QString& extraStyl
     l->setFont(font);
     l->setText(html);
     l->setStyleSheet("background:transparent;" + extraStyle);
-    l->setWordWrap(false);
+    l->setWordWrap(true);
     return l;
 }
 
+// ── ClickableLabel ────────────────────────────────────────────────────────────
+// Result label that shows "Copy" on hover and copies plain text on click.
+class ClickableLabel : public QLabel {
+public:
+    ClickableLabel(const QString& html, const QString& plainText,
+        const QFont& font, const QString& color,
+        const QString& extraStyle = "", QWidget* parent = nullptr, const QString& formula = QString())
+        : QLabel(parent)
+        , m_html(html)
+        , m_plainText(plainText)
+        , m_color(color)
+        , m_extraStyle(extraStyle)
+        , m_formula(formula)
+    {
+        setTextFormat(Qt::RichText);
+        setFont(font);
+        setText(html);
+        setStyleSheet("background:transparent;" + extraStyle);
+        setWordWrap(false);
+        setCursor(Qt::PointingHandCursor);
+        m_resetTimer = new QTimer(this);
+        m_resetTimer->setSingleShot(true);
+        connect(m_resetTimer, &QTimer::timeout, this, [this] { resetToNormal(); });
+    }
+
+protected:
+    void enterEvent(QEnterEvent*) override {
+        if (m_copied) return;
+        setText(m_html + QString("<span style='color:%1;font-size:10pt;'>"
+            " &nbsp;&#10064; Right Click to copy</span>").arg(C_MUTED));
+    }
+    void leaveEvent(QEvent*) override {
+        if (m_copied) return;
+        setText(m_html);
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent* e) override {
+        if (e->button() == Qt::LeftButton && !m_formula.isEmpty()) {
+            QMessageBox::information(this, "Conversion Formula", m_formula);
+        }
+        QLabel::mouseDoubleClickEvent(e);
+    }
+
+    void mousePressEvent(QMouseEvent* e) override {
+        if (e->button() != Qt::RightButton) { QLabel::mousePressEvent(e); return; }
+        QApplication::clipboard()->setText(m_plainText);
+        m_copied = true;
+        setText(QString("<span style='color:%1;'>Copied!</span>").arg(C_ACCENT));
+        setStyleSheet(QString("background:%1;border-radius:3px;%2").arg(C_DIM, m_extraStyle));
+        m_resetTimer->start(1200);
+        QLabel::mousePressEvent(e);
+    }
+
+private:
+    void resetToNormal() {
+        m_copied = false;
+        setText(m_html);
+        setStyleSheet("background:transparent;" + m_extraStyle);
+    }
+    QString  m_formula;
+    QString  m_html;
+    QString  m_plainText;
+    QString  m_color;
+    QString  m_extraStyle;
+    bool     m_copied = false;
+    bool     m_formulaShown = false;
+    QTimer* m_resetTimer = nullptr;
+};
+
+static ClickableLabel* makeResultLbl(const QString& html, const QString& plainText,
+    const QString& color, const QFont& font,
+    const QString& extraStyle = "",
+    const QString& formula = "")
+{
+    return new ClickableLabel(html, plainText, font, color, extraStyle, nullptr,formula);
+}
 void OutputArea::addSplash() {
     int at = m_layout->count() - 1;
 
     auto* title = makeLbl(
-        QString("<span style='color:%1;font-weight:700;'>MATHX Unlimited Calculator</span>").arg(C_ACCENT),
+        QString("<span style='color:%1;font-weight:700;'>MATHX Unlimited Calculator</span><span style='color:%2'>--ALPHA</span>").arg(C_ACCENT).arg(C_DRED),
         MF(11, QFont::Bold));
     m_layout->insertWidget(at++, title);
+/*
+    m_relNotes = new QLabel;
+    m_relNotes->setText(QString("<span style='color:%1'>***WARNING***</span><span style='color:%1'>This program is currently in the alpha development phase</span><span style='color:%1'>Expect Bugs and Glitches, More features will be coming soon!</span>").arg(C_ERR).toHtmlEscaped());
+    m_relNotes->setFont(MF(9));
+    */
 
+    for (QString line : { "**WARNING**",
+        "This program is currently in alpha.",
+        "Expect bugs, glitches and runtime errors.",
+        "Algebraic simplification and quadratic solving are experimental – some forms may fail.",
+        "Natural Language processing (of, into, by, percent) may also fail.",
+        "More features and optimizations coming soon!"
+    }) {
+        m_layout->insertWidget(m_layout->count() - 1, makeLbl(QString("<span style='color:%1'>%2</span>").arg(C_WARN).arg(line), MF(10)));
+    }
     m_layout->insertWidget(at++, makeLbl(
         QString("<span style='color:%1;'>"
             "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80"
@@ -120,26 +204,40 @@ void OutputArea::addInputLine(const QString& expr) {
 }
 
 void OutputArea::showProgress(cpp_int percent) {
-    if (!m_progressLabel) {
-        m_progressLabel = new QLabel(m_container);
-        m_progressLabel->setFont(MF(9));
-        m_progressLabel->setStyleSheet(
-            QString("color:%1;background:transparent;").arg(C_ACCENT));
-        int index = m_layout->count();
-        if (index > 0) index -= 1;  // insert before the trailing stretch
-        m_layout->insertWidget(index, m_progressLabel);
+    if (!m_progressBar) {
+        m_progressBar = new QProgressBar(m_container);
+        m_progressBar->setRange(0, 100);
+        m_progressBar->setValue(0);
+        m_progressBar->setFormat("%p%");
+        m_progressBar->setStyleSheet(
+            "QProgressBar {"
+            "    background: #2e3530;"
+            "    border: none;"
+            "    border-radius: 3px;"
+            "    text-align: center;"
+            "    color: #000000;"
+            "}"
+            "QProgressBar::chunk {"
+            "    background: #00e87a;"
+            "    border-radius: 3px;"
+            "}"
+        );
+        m_progressBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        m_progressBar->setFixedHeight(20);
+        // Insert before the stretch (last item is the stretch)
+        m_layout->insertWidget(m_layout->count() - 1, m_progressBar);
     }
-    m_progressLabel->setText(QString("Progress: %1%").arg(percent.str().c_str()));
-    m_progressLabel->show();
-    m_progressLabel->repaint();
-    scrollToBottom();
+    int val = static_cast<int>(percent);
+    m_progressBar->setValue(val);
+    m_progressBar->show();
+    if (val >= 100) hideProgress();
 }
 
 void OutputArea::hideProgress() {
-    if (m_progressLabel) {
-        m_layout->removeWidget(m_progressLabel);
-        m_progressLabel->deleteLater();
-        m_progressLabel = nullptr;
+    if (m_progressBar) {
+        m_layout->removeWidget(m_progressBar);
+        delete m_progressBar;
+        m_progressBar = nullptr;
     }
 }
 static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWidth) {
@@ -202,8 +300,11 @@ static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWi
     return result;
 }
 
-void OutputArea::addResultLine(const QString& text, const QString& type) {
+void OutputArea::addResultLine(const QString& text, const QString& type,
+    const QString& copyText, const QString& formula) {
     QString result;
+    // copyText overrides what goes to clipboard; falls back to text
+    const QString& fullCopy = copyText.isEmpty() ? text : copyText;
     QString color = C_TEXT;
     if (type == "ok")   color = C_ACCENT;
     else if (type == "big")  color = "#00d4ff";
@@ -214,31 +315,27 @@ void OutputArea::addResultLine(const QString& text, const QString& type) {
     else if (type == "alg")  color = C_ALG;
 
     if (type == "big") {
-        
         int maxWidth = m_container->width() - 80;
         if (maxWidth <= 0) maxWidth = 800;
         QFont font = MF(9);
         QString wrapped = wrapTextByWidth(text, font, maxWidth);
-
-        for (const QString& line : wrapped.split('\n', Qt::SkipEmptyParts)) {
+        QStringList lines = wrapped.split('\n', Qt::SkipEmptyParts);
+        for (const QString& line : lines) {
             result.append(line);
-            auto* l = makeLbl(
-                QString("<span style='color:%1;'>%2</span>").arg(color, line.toHtmlEscaped()),
-                font, "padding-left:22px;");
+            QString html = QString("<span style='color:%1;'>%2</span>")
+                .arg(color, line.toHtmlEscaped());
+            auto* l = makeResultLbl(html, fullCopy, color, font, "padding-left:22px;");
             m_layout->insertWidget(m_layout->count() - 1, l);
-
         }
-
-
     }
     else {
-        for (const QString& line : text.split('\n')) {
+        QStringList lines = text.split('\n');
+        for (const QString& line : lines) {
             result.append(line);
-            auto* l = makeLbl(
-                QString("<span style='color:%1;'>%2</span>").arg(color, line.toHtmlEscaped()),
-                MF(9), "padding-left:22px;");
+            QString html = QString("<span style='color:%1;'>%2</span>")
+                .arg(color, line.toHtmlEscaped());
+            auto* l = makeResultLbl(html, fullCopy, color, MF(9), "padding-left:22px;", formula);
             m_layout->insertWidget(m_layout->count() - 1, l);
-
         }
     }
     scrollToBottom();
@@ -284,6 +381,7 @@ void OutputArea::scrollToBottom() {
 }
 
 void OutputArea::addPromptRequest(const QString& paramName) {
+    
     auto* l = makeLbl(
         QString("<span style='color:%1;'>  %2 </span>"
             "<span style='color:%3;'>=</span>"
@@ -316,7 +414,12 @@ void OutputArea::addPromptAnswer(const QString& paramName, const QString& value)
     scrollToBottom();
 }
 
+void OutputArea::captureWidget(QWidget* widget)
+{
 
+    m_layout->insertWidget(m_layout->count() - 1, widget);
+
+}
 
 // FIX #9: Replaced the two off-palette hardcoded colors (#b22222, #6495ed)
 //         with C_ERR and C_INFO from Theme so they fit the dark green palette.

@@ -1,18 +1,29 @@
 #include "BigNum.h"
 #include <QRegularExpression>
 #include <stdexcept>
+#include <QThread>
+#include <functional>
+#include <iostream>
+#include <fstream>
 
-// ── Bignum factorial ──────────────────────────────────────────────────────────
-QString BigNum::bigFactorial(BigInt n) {
-    if (n < 0)      throw std::runtime_error("Factorial of negative number");
-    if (n > 100000) throw std::runtime_error("n too large (max 100000)");
+
+// bignum factorial
+QString BigNum::bigFactorial(BigInt n, std::function<void(int)> progressCallback) {
+    if (n < 0) throw std::runtime_error("Factorial of negative number");    
     BigInt result = 1;
-    
-    for (BigInt i = 2; i <= n; ++i) { 
-        BigInt progress = BigInt(BigInt(i) / n)*100;
-        result *= i; 
+    BigInt total = n;
+    for (int i = 2; i <= n; ++i) {
+
+        if (QThread::currentThread()->isInterruptionRequested())
+            return QString("Factorial operation cancelled by user");
+        result *= i;
+
+        if (progressCallback && i % 100 == 0) {
+            int percent = static_cast<int>((i * 100) / total);
+            progressCallback(percent);
+         
+        }
     }
-    
     return QString::fromStdString(result.str());
 }
 

@@ -9,6 +9,7 @@
 struct CalcResult {
     QString result;
     QString type;   // "ok","err","geo","trig","conv","alg","big"
+    QString formula;
 };
 
 struct UnitDef {
