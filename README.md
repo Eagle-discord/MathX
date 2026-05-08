@@ -1,6 +1,6 @@
 # MATHX — Qt6 C++ Port
 
-Exact UI replica of the MATHX HTML calculator, built with Qt6 Widgets + MSVC.
+Exact UI replica of my MATHX HTML calculator, built with Qt6 Widgets + MSVC.
 
 \---
 
@@ -116,13 +116,13 @@ To embed the font:
 ### Features to be implemented:
 
 * Statements
-* Persistent Variables (User should be able to type in, x = 3 for instance, and in another prompt, they should be able to use that variable in an expression)
-* Proper implementation of the Stop button 
-* More & Proper Aliases (For example, regpoly is a regular polygon, yet when i type in Regular polygon, it doesn't catch the shape)
-* Actual 3d \&\& 2d shape visualization
-* More user Friendliness
-* Implementing graphs and hyperbolic functions
-* Moving calculations to seperate threads
+* Persistent Variables
+* Proper Aliases 
+* Actual 3d \&\& 2d shape visualization (OpenGL, vulkan, etc)
+* Better User Friendliness
+* Graphs
+* Proper Multithreading
+* Implementing Multi-cores
 * Refining existing implementations
-* Adding support for various notations ('x' for multiplication, % sign for representing percentages, '.' for multiplication, etc)
+* Adding support for various notations
 
