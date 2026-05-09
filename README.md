@@ -72,11 +72,10 @@ Adjust `Qt6\_DIR` to match your Qt installation:
 * Statements
 * User-Defined Variables
 * Proper Aliases 
-* Actual 3d \&\& 2d shape visualization (OpenGL, vulkan, etc)
+* Actual 3d \&\& 2d shape visualization (OpenGL, vulkan, SDL, etc)
 * Better User Friendliness
 * Graphs
 * Proper Multithreading
-* Implementing Multi-cores
-* Refining existing implementations
+* Multi-core Implementation
 * Adding support for various notations
 
