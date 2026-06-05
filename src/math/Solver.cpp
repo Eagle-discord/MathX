@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include "MathEngine.h"
 
+
 static double solveFor(const QString& lhs, const QString& rhs,
     const QString& varName, bool& ok) {
     ok = false;

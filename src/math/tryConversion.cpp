@@ -37,6 +37,7 @@ struct ResolvedUnit {
     std::function<double(double)> fromBaseFn;
     bool    isNonLinear = false;   // explicit flag for non‑linear units
     bool    valid = false;
+    QString formula;   // human‑readable conversion explanation
 };
 
 // ── SI prefix table ───────────────────────────────────────────────────────────
@@ -200,15 +201,15 @@ static const QVector<ManualUnit> MANUAL = {
     {"dyn",     "force",  1e-5,            {"dyne","dynes"}},
     {"pdl",     "force",  0.13825495,      {"poundal"}},
     // Speed (base: m/s)
-
-    { "m/s",     "speed",  1.0,             {"meterpersecond","meterspersecond","mps"} },
-    { "km/h",    "speed",  1.0 / 3.6,         {"kph","kmh"} },
-    { "ft/s",    "speed",  0.3048,          {"fps"} },
+    { "celeritas", "speed", 299792458.0, {"lightspeed", "speed of light", "times the speed of light"}},
+    { "m/s",    "speed",  1.0,             {"meterpersecond","meterspersecond","mps", "meters/s", "meters/second"}},
+    { "km/h",   "speed",  1.0 / 3.6,         {"kph","kmh", "kilometers/h", "km/hour", "kilometers/hour"}},
+    { "ft/s",   "speed",  0.3048,          {"fps"} },
     {"mph",     "speed",  0.44704,         {"mileperhour"}},
-    {"kph",     "speed",  1.0 / 3.6,         {"km/h","kmh"}},
+    {"kph",     "speed",  1.0 / 3.6,         {"km/h","kmh", "kmph"}},
     {"knot",    "speed",  0.51444444,      {"knots","kn","kt"}},
     {"fps",     "speed",  0.3048,          {"ft/s"}},
-    {"mach",    "speed",  343.0,           {}},
+    {"mach",    "speed",  343.0,           {"mach speed", "speed of sound", "times the speed of sound", "times mach speed"}},
     // Frequency (base: Hz)
     {"rpm",     "frequency",1.0 / 60.0,      {}},
     {"rps",     "frequency",1.0,           {}},
@@ -269,11 +270,12 @@ static const QVector<NonLinearUnit> NONLINEAR = {
      {"c",  "temperature",
         [](double v) { return v + 273.15; },               // Celsius → Kelvin
         [](double v) { return v - 273.15; },               // Kelvin → Celsius
-        {"celsius","degc"}},
+        {"celsius","degc", "degrees celsius", "degrees celcius"}},
+
     {"f",  "temperature",
         [](double v) { return (v - 32.0) * 5.0/9.0 + 273.15; }, // °F → K
         [](double v) { return (v - 273.15) * 9.0/5.0 + 32.0; }, // K → °F
-        {"fahrenheit","degf"}},
+        {"fahrenheit","degf", "degrees fahrenheit", "°F", "° Fahrenheit"}}, /*very unlikely, but handle it anyway*/
     {"k",  "temperature",
         [](double v) { return v; },                        // K → K
         [](double v) { return v; },                        // K → K
@@ -369,47 +371,260 @@ static QMap<QString, ResolvedUnit> buildUnitMap() {
 
     return map;
 }
-// ── tryConversion ─────────────────────────────────────────────────────────────
+
+struct UnitComponent {
+    QString numUnit;
+    QString denomUnit;
+    bool isCompound = false;
+};
+
+struct CompoundUnit {
+    QString numerator;
+    QString denominator;
+    bool isValid = false;
+
+
+};
+
+static CompoundUnit parseCompoundUnit(const QString& s) {
+    CompoundUnit result;
+    if (s.contains('/')) {
+        QStringList parts = s.split('/');
+        if (parts.size() == 2) {
+            result.numerator = parts[0].trimmed().toLower();
+            result.denominator = parts[1].trimmed().toLower();
+            result.isValid = true;
+        }
+    }
+    return result;
+}
+
+static QString defaultUnitForCategory(const QString& category) {
+    static QMap<QString, QString> defaults = {
+        {"length", "m"},
+        {"mass", "kg"},
+        {"time", "s"},
+        {"speed", "m/s"},      // for compound units like km/h
+        {"temperature", "c"},  // Celsius as default
+        {"current", "A"},
+        {"amount", "mol"},
+        {"luminosity", "cd"},
+        {"frequency", "Hz"},
+        {"force", "N"},
+        {"pressure", "Pa"},
+        {"energy", "J"},
+        {"power", "W"},
+        {"charge", "C"},
+        {"voltage", "V"},
+        {"capacitance", "F"},
+        {"resistance", "Ohm"},
+        {"conductance", "S"},
+        {"magnetic_flux", "Wb"},
+        {"magnetic_flux_density", "T"},
+        {"inductance", "H"},
+        {"luminous_flux", "lm"},
+        {"illuminance", "lx"},
+        {"radioactivity", "Bq"},
+        {"absorbed_dose", "Gy"},
+        {"effective_dose", "Sv"},
+        {"catalytic", "kat"},
+        {"volume", "L"},
+        {"data", "b"},
+        {"angle", "deg"},
+        {"fueleco", "km/L"},
+    };
+    return defaults.value(category, QString());
+}
+
+static QString getTemperatureFormula(const QString& from, const QString& to) {
+    if (from == "c" && to == "f") return "°F = (°C × 9/5) + 32";
+    if (from == "f" && to == "c") return "°C = (°F - 32) × 5/9";
+    if (from == "c" && to == "k") return "K = °C + 273.15";
+    if (from == "k" && to == "c") return "°C = K - 273.15";
+    if (from == "f" && to == "k") return "K = (°F - 32) × 5/9 + 273.15";
+    if (from == "k" && to == "f") return "°F = (K - 273.15) × 9/5 + 32";
+    // fallback: factor (though not meaningful for temperature)
+    return {};
+}
+
+// ----------------------------------------------------------------------
+// Helper: convert simple units (no '/') – handles linear and non‑linear
+// ----------------------------------------------------------------------
+static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const QString& toUnit,
+    const QMap<QString, ResolvedUnit>& MAP) {
+    if (!MAP.contains(fromUnit) || !MAP.contains(toUnit)) return {};
+    const ResolvedUnit& uFrom = MAP[fromUnit];
+    const ResolvedUnit& uTo = MAP[toUnit];
+    if (uFrom.category != uTo.category) return {};
+
+    double result;
+    QString formula;
+
+    // Non‑linear units (temperature) – use stored conversion functions
+    if (uFrom.isNonLinear || uTo.isNonLinear) {
+        double base = uFrom.toBaseFn ? uFrom.toBaseFn(val) : val * uFrom.toBase;
+        result = uTo.fromBaseFn ? uTo.fromBaseFn(base) : base / uTo.toBase;
+        // Try to get a human‑readable formula (only for temperature)
+        formula = getTemperatureFormula(fromUnit, toUnit);
+        if (formula.isEmpty()) {
+            // Fallback factor (should not happen for known temperatures)
+            formula = QString("1 %1 = %2 %3").arg(fromUnit).arg(uFrom.toBase / uTo.toBase).arg(toUnit);
+        }
+    }
+    else {
+        // Linear conversion
+        result = val * uFrom.toBase / uTo.toBase;
+        double factor = uFrom.toBase / uTo.toBase;
+        formula = QString("1 %1 = %2 %3").arg(fromUnit).arg(factor).arg(toUnit);
+    }
+
+    if (std::isnan(result) || std::isinf(result)) return {};
+
+    return {
+        QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(BigNum::fmt(result)).arg(toUnit),
+        "conv",
+        formula
+    };
+}
+
+// ----------------------------------------------------------------------
+// tryConversion – main entry point
+// ----------------------------------------------------------------------
 CalcResult MathEngine::tryConversion(const QString& expr) {
     static const QMap<QString, ResolvedUnit> MAP = buildUnitMap();
 
-    // Improved regex: allows signs, decimals, exponent, and unit names with '/'
+    // Helper to get default target unit for a category
+    auto defaultUnitForCategory = [](const QString& category) -> QString {
+        static QMap<QString, QString> defaults = {
+            {"length", "m"}, {"mass", "kg"}, {"time", "s"},
+            {"speed", "m/s"}, {"temperature", "c"}, {"current", "A"},
+            {"amount", "mol"}, {"luminosity", "cd"}, {"frequency", "Hz"},
+            {"force", "N"}, {"pressure", "Pa"}, {"energy", "J"},
+            {"power", "W"}, {"charge", "C"}, {"voltage", "V"},
+            {"capacitance", "F"}, {"resistance", "Ohm"}, {"conductance", "S"},
+            {"magnetic_flux", "Wb"}, {"magnetic_flux_density", "T"},
+            {"inductance", "H"}, {"luminous_flux", "lm"}, {"illuminance", "lx"},
+            {"radioactivity", "Bq"}, {"absorbed_dose", "Gy"}, {"effective_dose", "Sv"},
+            {"catalytic", "kat"}, {"volume", "L"}, {"data", "b"},
+            {"angle", "deg"}, {"fueleco", "km/L"}
+        };
+        return defaults.value(category);
+        };
+
+    // Special case: "mach X" -> "X mach"
+    static QRegularExpression machRe(R"(\bmach\s+([\d.]+)\b)", QRegularExpression::CaseInsensitiveOption);
+    QString processed = expr;
+    processed.replace(machRe, "\\1 mach");
+
+    // Raw unit conversion: "value unit" (no "to")
+    static QRegularExpression rawRe(
+        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([A-Za-z0-9/]+)\s*$)",
+        QRegularExpression::CaseInsensitiveOption);
+    auto rawMatch = rawRe.match(processed.trimmed());
+    if (rawMatch.hasMatch()) {
+        double val = rawMatch.captured(1).toDouble();
+        QString fromUnit = rawMatch.captured(2).toLower();
+
+        // Try simple unit first
+        if (MAP.contains(fromUnit)) {
+            const ResolvedUnit& uFrom = MAP[fromUnit];
+            QString defaultTarget = defaultUnitForCategory(uFrom.category);
+            if (!defaultTarget.isEmpty() && MAP.contains(defaultTarget)) {
+                const ResolvedUnit& uTo = MAP[defaultTarget];
+                if (uFrom.category == uTo.category) {
+                    // Use the same helper for raw conversion
+                    return convertSimpleUnit(val, fromUnit, defaultTarget, MAP);
+                }
+            }
+        }
+        // If simple unit fails, try compound unit (speed only for now)
+        CompoundUnit fromComp = parseCompoundUnit(fromUnit);
+        if (fromComp.isValid) {
+            if (fromComp.numerator == "km" && fromComp.denominator == "h") {
+                double factor = 1000.0 / 3600.0;
+                double result = val * factor;
+                return {
+                    QString("%1 %2 = %3 m/s").arg(val).arg(fromUnit).arg(BigNum::fmt(result)),
+                    "conv",
+                    QString("1 %1 = %2 m/s").arg(fromUnit).arg(factor)
+                };
+            }
+        }
+        return {};
+    }
+
+    // Standard conversion pattern: "value unit to unit"
     static QRegularExpression re(
         R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([A-Za-z0-9/]+)\s+to\s+([A-Za-z0-9/]+)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
-
-    auto m = re.match(expr.trimmed());
+    auto m = re.match(processed.trimmed());
     if (!m.hasMatch()) return {};
 
-    double  val = m.captured(1).toDouble();
-    QString from = m.captured(2).toLower();
-    QString to = m.captured(3).toLower();
+    double val = m.captured(1).toDouble();
+    QString fromUnit = m.captured(2).toLower();
+    QString toUnit = m.captured(3).toLower();
 
-    if (!MAP.contains(from) || !MAP.contains(to)) return {};
-
-    const ResolvedUnit& uFrom = MAP[from];
-    const ResolvedUnit& uTo = MAP[to];
-    if (uFrom.category != uTo.category) return {};
-
-
-
-    double result = 0.0;
-    bool nonLinear = uFrom.isNonLinear || uTo.isNonLinear;
-
-    if (nonLinear) {
-        double base = uFrom.toBaseFn ? uFrom.toBaseFn(val) : val * uFrom.toBase;
-        result = uTo.fromBaseFn ? uTo.fromBaseFn(base) : base / uTo.toBase;
-    }
-    else {
-        result = val * uFrom.toBase / uTo.toBase;
+    // Simple units (no '/') – use dedicated helper
+    if (!fromUnit.contains('/') && !toUnit.contains('/')) {
+        return convertSimpleUnit(val, fromUnit, toUnit, MAP);
     }
 
-    if (std::isnan(result) || std::isinf(result))
+    // --------------------------------------------------------------
+    // Compound units (contain '/') – use factor method (linear only)
+    // --------------------------------------------------------------
+    auto parseUnitExpr = [](const QString& s) -> QPair<QStringList, QStringList> {
+        if (s.contains('/')) {
+            QStringList parts = s.split('/');
+            if (parts.size() == 2) {
+                QStringList num = parts[0].split('*', Qt::SkipEmptyParts);
+                QStringList den = parts[1].split('*', Qt::SkipEmptyParts);
+                return { num, den };
+            }
+        }
+        return { QStringList(s), QStringList() };
+        };
+
+    auto fromParts = parseUnitExpr(fromUnit);
+    auto toParts = parseUnitExpr(toUnit);
+
+    auto computeFactor = [&](const QStringList& units, double& factor, bool& nonLinear) -> bool {
+        factor = 1.0;
+        nonLinear = false;
+        for (const QString& unit : units) {
+            if (!MAP.contains(unit)) return false;
+            const ResolvedUnit& ru = MAP[unit];
+            if (ru.isNonLinear) nonLinear = true;
+            factor *= ru.toBase;
+        }
+        return true;
+        };
+
+    double fromNumFactor = 1.0, fromDenFactor = 1.0;
+    double toNumFactor = 1.0, toDenFactor = 1.0;
+    bool fromNonLin = false, toNonLin = false;
+
+    if (!computeFactor(fromParts.first, fromNumFactor, fromNonLin) ||
+        !computeFactor(fromParts.second, fromDenFactor, fromNonLin))
         return {};
-    double factor = uFrom.toBase / uTo.toBase;
-    QString formula = QString("1 %1 = %2 %3").arg(from).arg(factor).arg(to);
-    return { QString("%1 %2 = %3 %4").arg(val).arg(from).arg(BigNum::fmt(result)).arg(to),
-             "conv",
-             formula };
-    
+    if (!computeFactor(toParts.first, toNumFactor, toNonLin) ||
+        !computeFactor(toParts.second, toDenFactor, toNonLin))
+        return {};
+
+    // Non‑linear compounds are not allowed (temperature)
+    if (fromNonLin || toNonLin)
+        return {};
+
+    double fromFactor = fromNumFactor / fromDenFactor;
+    double toFactor = toNumFactor / toDenFactor;
+    double result = val * fromFactor / toFactor;
+
+    double factor = fromFactor / toFactor;
+    QString formula = QString("1 %1 = %2 %3").arg(fromUnit).arg(factor).arg(toUnit);
+    if (fromUnit == "mach") return { QString("%1 %2 = %3 %4").arg(fromUnit).arg(val).arg(result).arg(toUnit), "conv", formula };
+    else if (toUnit == "mach") return { QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(toUnit).arg(result), "conv",formula };
+    return {
+        QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(BigNum::fmt(result)).arg(toUnit),
+        "conv",
+        formula
+    };
 }

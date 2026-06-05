@@ -1,6 +1,6 @@
 #include "shapes/Shapes2D.h"
 #include "math/BigNum.h"
-#include "theme/Theme.h"
+#include "constants/Theme.h"
 #include <QTimer>
 #include <cmath>
 #include <algorithm>
@@ -28,7 +28,9 @@ CircleCard::CircleCard(double r, QWidget* p) : GeoCard(p) {
     addResult("Diameter      :", "2r");
     addResult("Circumference :", "2\xcf\x80r");
     addResult("Area          :", "\xcf\x80r\xc2\xb2");
-    DEFER
+    DEFER;
+    m_shapeType = "circle";
+
 }
 void CircleCard::recompute() {
     double r = m_sliders["r"]->value();   // ensure this returns double

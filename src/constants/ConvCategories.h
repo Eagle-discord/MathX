@@ -1,0 +1,1 @@
+enum class convCategories {length, mass, time, speed, temperature, current, amount, luminosity, frequency,  force, pressure, energy, power, charge, voltage, capacitance, resistance, conductance, magnetic_flux, magnetic_flux_density, inductance, luminous_flux, illuminance, radioactivity, absorbed_dose, effective_dose, catalytic, volume, data, angle, fuelco

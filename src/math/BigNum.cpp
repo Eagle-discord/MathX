@@ -1,30 +1,69 @@
 #include "BigNum.h"
+#include <thread/PersistentWorker.h>
+
 #include <QRegularExpression>
 #include <stdexcept>
-#include <QThread>
+
 #include <functional>
 #include <iostream>
-#include <fstream>
 
+#include <boost/multiprecision/detail/et_ops.hpp>
+
+
+QString BigNum::bigPow(BigInt base, BigInt exp,
+    std::function<void(int)> progressCallback,
+    const std::atomic<bool>* cancelFlag) {
+    if (exp < 0) throw std::runtime_error("Negative exponent not supported");
+    // Practical limit to avoid super‑long computation
+    
+
+    BigInt result = 1;
+    BigInt currentBase = base;
+    BigInt remainingExp = exp;
+
+    // Estimate steps = number of bits in exponent (= log2(exp) + 1)
+    int steps = 0;
+    BigInt tmp = exp;
+    while (tmp > 0) { steps++; tmp >>= 1; }
+
+    int step = 0;
+    while (remainingExp > 0) {
+        if (cancelFlag && cancelFlag->load())
+            throw std::runtime_error("Cancelled");
+
+        if (remainingExp % 2 == 1)
+            result *= currentBase;
+
+        currentBase *= currentBase;
+        remainingExp >>= 1;
+
+        if (progressCallback) {
+            int percent = (++step * 100) / steps;
+            progressCallback(percent);
+        }
+    }
+
+    return QString::fromStdString(result.str());
+}
 
 // bignum factorial
 QString BigNum::bigFactorial(BigInt n, std::function<void(int)> progressCallback) {
-    if (n < 0) throw std::runtime_error("Factorial of negative number");    
-    BigInt result = 1;
-    BigInt total = n;
-    for (int i = 2; i <= n; ++i) {
+        if (n < 0) throw std::runtime_error("Factorial of negative number");
+        BigInt result = 1;
+        BigInt total = n;
+        for (int i = 2; i <= n; ++i) {
+            if (PersistentWorker::s_cancel.load()) {
+                    return QString("Cancelled");
+                }
+            result *= i;
 
-        if (QThread::currentThread()->isInterruptionRequested())
-            return QString("Factorial operation cancelled by user");
-        result *= i;
+            if (progressCallback && i % 100 == 0) {
+                int percent = static_cast<int>((i * 100) / total);
+                progressCallback(percent);
 
-        if (progressCallback && i % 100 == 0) {
-            int percent = static_cast<int>((i * 100) / total);
-            progressCallback(percent);
-         
+            }
         }
-    }
-    return QString::fromStdString(result.str());
+        return QString::fromStdString(result.str());
 }
 
 // ── Boost BigDec expression evaluator (no variables) ─────────────────────────

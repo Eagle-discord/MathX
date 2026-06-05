@@ -74,7 +74,7 @@ static QVector<SignedToken> splitTopLevel(const QString& expr) {
     return result;
 }
 
-static bool flattenExpr(const QString& expr, double signMul, PolyMap& out) {
+bool flattenExpr(const QString& expr, double signMul, PolyMap& out) {
     QString e = expr.trimmed();
     if (e.isEmpty()) return true;
     auto tokens = splitTopLevel(e);

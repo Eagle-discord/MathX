@@ -1,14 +1,16 @@
 #pragma once
 #include "GeoCard.h"
+#include <render/OpenGLRenderer.h>
 
-class SphereCard      : public GeoCard {  public: explicit SphereCard(double r, QWidget* p=nullptr);                    protected: void recompute() override; };
+class SphereCard      : public GeoCard {  public: explicit SphereCard(double r, QWidget* p=nullptr);                    protected: void recompute() override; private:     OpenGLRenderer* m_glWidget = nullptr;
+};
 class HemiSphereCard  : public GeoCard {  public: explicit HemiSphereCard(double r, QWidget* p=nullptr);                protected: void recompute() override; };
 class CylinderCard    : public GeoCard {  public: CylinderCard(double r, double h, QWidget* p=nullptr);                 protected: void recompute() override; };
 class HollowCylCard   : public GeoCard {  public: HollowCylCard(double R, double r, double h, QWidget* p=nullptr);      protected: void recompute() override; };
 class ConeCard        : public GeoCard {  public: ConeCard(double r, double h, QWidget* p=nullptr);                     protected: void recompute() override; };
 class FrustumCard     : public GeoCard {  public: FrustumCard(double R, double r, double h, QWidget* p=nullptr);        protected: void recompute() override; };
 class CuboidCard      : public GeoCard {  public: CuboidCard(double l, double w, double h, QWidget* p=nullptr);         protected: void recompute() override; };
-class CubeCard        : public GeoCard {  public: explicit CubeCard(double s, QWidget* p=nullptr);                      protected: void recompute() override; };
+class CubeCard        : public GeoCard {  public: explicit CubeCard(double s, QWidget* p=nullptr);                      protected: void recompute() override; private:     OpenGLRenderer* m_glWidget = nullptr;};
 class TetraCard       : public GeoCard {  public: explicit TetraCard(double s, QWidget* p=nullptr);                     protected: void recompute() override; };
 class OctaCard        : public GeoCard {  public: explicit OctaCard(double s, QWidget* p=nullptr);                      protected: void recompute() override; };
 class IcosaCard       : public GeoCard {  public: explicit IcosaCard(double s, QWidget* p=nullptr);                     protected: void recompute() override; };

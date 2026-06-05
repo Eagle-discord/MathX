@@ -2,12 +2,12 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMouseEvent>
-#include "../theme/Theme.h"
+#include "../constants/Theme.h"
 #include <QFrame>
 #include <QTimer>
 #include <cmath>
 #include "..\ui\MainWindow.h"
-#include "..\ui\OutputArea.h"
+
 
 static QFont MF(int pt, int w = QFont::Normal) { return Theme::monoFont(pt, w); }
 
@@ -65,7 +65,7 @@ void SliderRow::onSliderMoved(int tick) {
 }
 
 QString ResultRow::displayText() const {
-    QString line = QString("%1 : %2").arg(m_rawKey, m_currentValue);
+    QString line = QString("%1  %2").arg(m_rawKey, m_currentValue);
     if (m_formulaVisible && !m_formulaString.isEmpty())
         line += QString(" = %1").arg(m_formulaString);
     return line;
@@ -93,14 +93,14 @@ ResultRow::ResultRow(const QString& key, const QString& formula, QWidget* parent
     m_keyLbl = new QLabel(key);
     m_keyLbl->setFont(Theme::monoFont(10));
     m_keyLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(Theme::MUTED));
-    m_keyLbl->setFixedWidth(140);
+    m_keyLbl->setFixedWidth(140); 
 
     m_valLbl = new QLabel("—");
     m_valLbl->setFont(Theme::monoFont(9, QFont::Bold));
     m_valLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(Theme::INFO));
 
     m_formulaInline = new QLabel("");
-    m_formulaInline->setFont(Theme::monoFont(8));
+    m_formulaInline->setFont(Theme::monoFont(10));
     m_formulaInline->setStyleSheet(QString("color:%1;background:transparent;").arg(Theme::FTEXT));
     m_formulaInline->hide();
 
@@ -109,7 +109,7 @@ ResultRow::ResultRow(const QString& key, const QString& formula, QWidget* parent
     row->addWidget(m_formulaInline);
 }
 void ResultRow::setValue(const QString& v) {
-    m_currentValue = v;
+    m_currentValue = v;                                                                                           
     m_valLbl->setText(v);
 }
 QString ResultRow::value() const {
@@ -188,6 +188,18 @@ void GeoCard::buildFrame() {
         "QPushButton:hover{border-color:%2;color:%2;}"
     ).arg(Theme::MUTED, Theme::ACCENT));
     topL->addWidget(m_copyBtn);
+
+    m_toggleBtn = new QPushButton("Show Shape Projection");
+    m_toggleBtn->setFont(Theme::monoFont(9));
+    m_toggleBtn->setFlat(true);
+    m_toggleBtn->setCursor(Qt::PointingHandCursor);
+    m_toggleBtn->setStyleSheet(QString(
+        "QPushButton{background:none;border:1px solid %1;color:%1;"
+        "padding:1px 8px;border-radius:4px;}"
+        "QPushButton:hover{border-color:%2;color:%2;}"
+    ).arg(Theme::MUTED, Theme::ACCENT));
+
+    topL->addWidget(m_toggleBtn);
     outer->addWidget(topRow);
 
     connect(m_copyBtn, &QPushButton::clicked, this, [this]() {
@@ -207,7 +219,13 @@ void GeoCard::buildFrame() {
             ).arg(Theme::MUTED, Theme::ACCENT));
             });
         });
-
+    connect(m_toggleBtn, &QPushButton::clicked, this, [this]() {
+        QMap<QString, double> params;
+        for (auto it = m_sliders.begin(); it != m_sliders.end(); ++it) {
+            params[it.key()] = it.value()->value();
+        }
+        emit showShapeProjection(m_shapeType, params);
+        });
     m_body = new QWidget(this); m_body->setStyleSheet("background:transparent;");
     m_layout = new QVBoxLayout(m_body);
     m_layout->setContentsMargins(0, 0, 0, 0); m_layout->setSpacing(2);
@@ -254,6 +272,7 @@ QString GeoCard::buildCopyText() const {
     for (const QString& key : m_rowOrder) {
         if (!m_rows.contains(key)) continue;
         out += "  " + m_rows[key]->displayText() + "\n";
+        
     }
 
     return out.trimmed();

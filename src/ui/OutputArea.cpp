@@ -1,18 +1,17 @@
 ﻿#include "OutputArea.h"
-#include "../shapes/Shapes2D.h"
-#include "../shapes/Shapes3D.h"
+#include "OutputWidget.h"
+#include "Animations.h"
 #include <QLabel>
 #include <QFrame>
 #include <QScrollBar>
 #include <QTimer>
-#include <QFontDatabase>
-#include <QFontMetrics>
 #include <QApplication>
 #include <QClipboard>
-#include <QMouseEvent>
-
-#include "../theme/Theme.h"
 #include <QMessageBox>
+#include "../constants/Theme.h"
+
+#include "ConversionLabel.h"
+#include "MainWindow.h"
 
 static QFont MF(int pt, int w = QFont::Normal) {
     return Theme::monoFont(pt, w);
@@ -44,6 +43,8 @@ OutputArea::OutputArea(QWidget* parent) : QScrollArea(parent) {
 }
 
 static QLabel* makeLbl(const QString& html, QFont font, const QString& extraStyle = "") {
+    
+
     auto* l = new QLabel;
     l->setTextFormat(Qt::RichText);
     l->setFont(font);
@@ -127,10 +128,13 @@ static ClickableLabel* makeResultLbl(const QString& html, const QString& plainTe
     const QString& extraStyle = "",
     const QString& formula = "")
 {
+
     return new ClickableLabel(html, plainText, font, color, extraStyle, nullptr,formula);
 }
 void OutputArea::addSplash() {
     int at = m_layout->count() - 1;
+
+
 
     auto* title = makeLbl(
         QString("<span style='color:%1;font-weight:700;'>MATHX Unlimited Calculator</span><span style='color:%2'>--ALPHA</span>").arg(C_ACCENT).arg(C_DRED),
@@ -142,15 +146,17 @@ void OutputArea::addSplash() {
     m_relNotes->setFont(MF(9));
     */
 
-    for (QString line : { "**WARNING**",
+  
+   /* for (QString line : { "**WARNING**",
         "This program is currently in alpha.",
         "Expect bugs, glitches and runtime errors.",
         "Algebraic simplification and quadratic solving are experimental – some forms may fail.",
-        "Natural Language processing (of, into, by, percent) may also fail.",
         "More features and optimizations coming soon!"
     }) {
+
+
         m_layout->insertWidget(m_layout->count() - 1, makeLbl(QString("<span style='color:%1'>%2</span>").arg(C_WARN).arg(line), MF(10)));
-    }
+    }*/
     m_layout->insertWidget(at++, makeLbl(
         QString("<span style='color:%1;'>"
             "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80"
@@ -203,11 +209,15 @@ void OutputArea::addInputLine(const QString& expr) {
     scrollToBottom();
 }
 
-void OutputArea::showProgress(cpp_int percent) {
+bool OutputArea::progressState() {
+    return (m_progressBar);
+}
+
+void OutputArea::showProgress(int percent, const QString& label) {
+    // Create progress bar if needed
     if (!m_progressBar) {
         m_progressBar = new QProgressBar(m_container);
         m_progressBar->setRange(0, 100);
-        m_progressBar->setValue(0);
         m_progressBar->setFormat("%p%");
         m_progressBar->setStyleSheet(
             "QProgressBar {"
@@ -215,7 +225,7 @@ void OutputArea::showProgress(cpp_int percent) {
             "    border: none;"
             "    border-radius: 3px;"
             "    text-align: center;"
-            "    color: #000000;"
+            "    color: #ddeae0;"
             "}"
             "QProgressBar::chunk {"
             "    background: #00e87a;"
@@ -224,20 +234,39 @@ void OutputArea::showProgress(cpp_int percent) {
         );
         m_progressBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         m_progressBar->setFixedHeight(20);
-        // Insert before the stretch (last item is the stretch)
+        // Insert before the stretch (last item)
         m_layout->insertWidget(m_layout->count() - 1, m_progressBar);
     }
-    int val = static_cast<int>(percent);
-    m_progressBar->setValue(val);
+
+    // Create label if needed and update text
+    if (!m_progressLabel && !label.isEmpty()) {
+        m_progressLabel = new QLabel(m_container);
+        m_progressLabel->setFont(Theme::monoFont(8));
+        m_progressLabel->setStyleSheet("color:" + Theme::ACCENT + "; background:transparent;");
+        // Insert label above the progress bar
+        m_layout->insertWidget(m_layout->count() - 2, m_progressLabel);
+    }
+    if (m_progressLabel) {
+        m_progressLabel->setText(label);
+    }
+
+    m_progressBar->setValue(percent);
     m_progressBar->show();
-    if (val >= 100) hideProgress();
+    if (m_progressLabel) m_progressLabel->show();
+    if (percent >= 99) hideProgress();
 }
+
 
 void OutputArea::hideProgress() {
     if (m_progressBar) {
         m_layout->removeWidget(m_progressBar);
         delete m_progressBar;
         m_progressBar = nullptr;
+    }
+    if (m_progressLabel) {
+        m_layout->removeWidget(m_progressLabel);
+        delete m_progressLabel;
+        m_progressLabel = nullptr;
     }
 }
 static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWidth) {
@@ -299,11 +328,12 @@ static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWi
     }
     return result;
 }
-
 void OutputArea::addResultLine(const QString& text, const QString& type,
-    const QString& copyText, const QString& formula) {
+    const QString& copyText,
+    const QString& formula,
+    const QString& originalExpr) {
+
     QString result;
-    // copyText overrides what goes to clipboard; falls back to text
     const QString& fullCopy = copyText.isEmpty() ? text : copyText;
     QString color = C_TEXT;
     if (type == "ok")   color = C_ACCENT;
@@ -326,18 +356,29 @@ void OutputArea::addResultLine(const QString& text, const QString& type,
                 .arg(color, line.toHtmlEscaped());
             auto* l = makeResultLbl(html, fullCopy, color, font, "padding-left:22px;");
             m_layout->insertWidget(m_layout->count() - 1, l);
+            Animations::fadeIn(l);
+        }
+    }
+    else if (type == "conv") {
+        QStringList lines = text.split('\n');
+        for (const QString& line : lines) {
+            result.append(line);
+            ConversionLabel* lbl = new ConversionLabel(line, formula, MF(9), color, "padding-left:22px;");
+            m_layout->insertWidget(m_layout->count() - 1, lbl);
+            Animations::fadeIn(lbl);
         }
     }
     else {
         QStringList lines = text.split('\n');
         for (const QString& line : lines) {
-            result.append(line);
-            QString html = QString("<span style='color:%1;'>%2</span>")
-                .arg(color, line.toHtmlEscaped());
-            auto* l = makeResultLbl(html, fullCopy, color, MF(9), "padding-left:22px;", formula);
-            m_layout->insertWidget(m_layout->count() - 1, l);
+            result.append(line + "\n");
+            OutputWidget* widget = new OutputWidget(line, fullCopy, originalExpr, formula, type, color);
+            widget->setContentsMargins(0, 0, 0, 0);
+            m_layout->insertWidget(m_layout->count() - 1, widget);
+            Animations::fadeIn(widget);
         }
     }
+
     scrollToBottom();
     emit calcFinish(RunState::Idle, result);
 }
@@ -371,6 +412,8 @@ void OutputArea::addGeoCard(GeoCard* card) {
     wl->addWidget(card, 1);
     m_layout->insertWidget(m_layout->count() - 1, wrap);
     scrollToBottom();
+    connect(card, &GeoCard::showShapeProjection, this, &OutputArea::shapeProjectionRequested);
+
     emit calcFinish(RunState::Idle, "Geometry Card");
 }
 

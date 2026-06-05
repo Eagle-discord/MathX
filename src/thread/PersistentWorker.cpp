@@ -5,10 +5,11 @@
 #include <functional>
 
 PersistentWorker::PersistentWorker(QObject* parent) : QObject(parent) {}
-
+std::atomic<bool> PersistentWorker::s_cancel{ false };
 PersistentWorker::~PersistentWorker() {
     m_stop = true;
     {
+
         QMutexLocker locker(&m_mutex);
         m_cond.wakeOne();
     }
@@ -23,6 +24,7 @@ void PersistentWorker::submitJob(int id, const QString& expr) {
 void PersistentWorker::cancelAll() {
     QMutexLocker locker(&m_mutex);
     m_queue.clear();
+    s_cancel = true;
     m_cancel = true;
 }
 void PersistentWorker::stop() {
@@ -42,7 +44,9 @@ void PersistentWorker::process() {
                 m_cond.wait(&m_mutex);
             if (m_stop || m_queue.isEmpty()) continue;
             job = m_queue.dequeue();
-            m_cancel = false;
+            s_cancel = false;
+            m_cancel = false;   
+            qDebug() << "process: m_cancel reset to false for job" << job.id;
         }
 
         // Check cancellation before starting
@@ -61,9 +65,10 @@ void PersistentWorker::process() {
                 emit resultReady(job.id, "Negative factorial", "err");
                 continue;
             }
+            
             try {
                 auto callback = [this, jobId = job.id](int percent) {
-                    emit progress(jobId, percent);
+                    emit progress(jobId, percent, "Factorial Progress:");
                     };
                 QString result = BigNum::bigFactorial(n, callback);
                 emit resultReady(job.id, result, "big");
@@ -74,6 +79,28 @@ void PersistentWorker::process() {
             continue;
         }
 
+        // Standalone exponentiation a^b
+        static QRegularExpression powRe(R"(^\s*(\d+)\s*\^\s*(\d+)\s*$)");
+        auto powMatch = powRe.match(job.expression);
+        if (powMatch.hasMatch()) {
+            BigInt base(powMatch.captured(1).toStdString());
+            BigInt exp(powMatch.captured(2).toStdString());
+            if (exp < 0) {
+                emit resultReady(job.id, "Negative exponent not supported", "err");
+                continue;
+            }
+            try {
+                auto progressCb = [this, jobId = job.id](int percent) {
+                    emit progress(jobId, percent, "Exponentiation Progress:");
+                    };
+                QString result = BigNum::bigPow(base, exp, progressCb, &m_cancel);
+                emit resultReady(job.id, result, "big");
+            }
+            catch (const std::exception& e) {
+                emit resultReady(job.id, QString("Error: ") + e.what(), "err");
+            }
+            continue;
+        }
 
         CalcResult res;
         try {
@@ -88,7 +115,7 @@ void PersistentWorker::process() {
             emit resultReady(job.id, "Cancelled", "err");
         }
         else {
-            emit resultReady(job.id, res.result, res.type);
+            emit resultReady(job.id, res.result, res.type, res.formula);
         }
     }
 }

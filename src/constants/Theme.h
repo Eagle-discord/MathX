@@ -40,3 +40,21 @@ namespace Theme {
     }
 
 } // namespace Theme
+
+static const QString C_BG = Theme::BG;
+static const QString C_SURFACE = Theme::SURFACE;
+static const QString C_CARD = Theme::CARD;
+static const QString C_BORDER = Theme::BORDER;
+static const QString C_ACCENT = Theme::ACCENT;
+static const QString C_ACCENT_DIM = Theme::ACCENT_DIM;
+static const QString C_TEXT = Theme::TEXT;
+static const QString C_MUTED = Theme::MUTED;
+static const QString C_ERR = Theme::ERROR;
+static const QString C_VRED = "#dc1e14";
+static const QString C_DRED = "#ad102f";
+static const QString C_OUT = "#0d100e";   // slightly darker than surface; not in Theme
+static const QString C_DIM = Theme::DIM;
+static const QString C_INFO = Theme::INFO;
+static const QString C_WARN = Theme::WARN;
+static const QString C_PURPLE = Theme::PURPLE;
+static const QString C_ALG = Theme::ALG;

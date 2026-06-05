@@ -38,7 +38,9 @@ namespace BigNum {
     inline BigDec floor(const BigDec& x) { return boost::multiprecision::floor(x); }
     inline BigDec ceil (const BigDec& x) { return boost::multiprecision::ceil(x); }
     inline BigDec pow  (const BigDec& x, const BigDec& y) { return boost::multiprecision::pow(x, y); }
-
+    QString bigPow(BigInt base, BigInt exp, 
+                      std::function<void(int)> progressCallback = nullptr,
+                      const std::atomic<bool>* cancelFlag = nullptr);
     // Convert double → BigDec
     inline BigDec bd(double d) { return BigDec(d); }
 

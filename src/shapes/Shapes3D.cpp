@@ -1,10 +1,11 @@
 #include "Shapes3D.h"
 #include "../math/BigNum.h"
-#include "../theme/Theme.h"
+#include "../constants/Theme.h"
 #include <QTimer>
 #include <cmath>
 #include <algorithm>
-
+#include "../render/RenderWidget.h"
+#include <iostream>
 
 #define DEFER QTimer::singleShot(0,this,[this]{recompute();});
 using BigNum::PHI;
@@ -18,17 +19,22 @@ SphereCard::SphereCard(double r, QWidget* p) : GeoCard(p) {
     addSlider("r", r, 0.1, geoAutoMax(r), geoAutoStep(r));
     m_layout->addWidget(geoDiv());
     addResult("Diameter     :", "2r");
-    addResult("Surface Area :", "4\xcf\x80r\xc2\xb2");
-    addResult("Volume       :", "(4/3)\xcf\x80r\xc2\xb3");
-    addResult("Great Circle :", "2\xcf\x80r");
-    DEFER
+    addResult("Surface Area :", "4πr²");
+    addResult("Volume       :", "(4/3)πr³");
+    addResult("Great Circle :", "2πr");
+    DEFER;
+    m_shapeType = "sphere";
 }
+
 void SphereCard::recompute() {
-    BigDec r(m_sliders["r"]->value());
-    m_rows["Diameter     :"]->setValue(BigNum::fmt(2 * r));
-    m_rows["Surface Area :"]->setValue(BigNum::fmt(4 * BigNum::PI * r * r));
-    m_rows["Volume       :"]->setValue(BigNum::fmt(BigNum::bd(4) / 3 * BigNum::PI * r * r * r));
-    m_rows["Great Circle :"]->setValue(BigNum::fmt(2 * BigNum::PI * r));
+    double r = m_sliders["r"]->value();
+    // update text rows
+    m_rows["Diameter     :"]->setValue(QString::number(2 * r, 'g', 10));
+    m_rows["Surface Area :"]->setValue(QString::number(4 * M_PI * r * r, 'g', 10));
+    m_rows["Volume       :"]->setValue(QString::number(4.0 / 3.0 * M_PI * r * r * r, 'g', 10));
+    m_rows["Great Circle :"]->setValue(QString::number(2 * M_PI * r, 'g', 10));
+
+    
 }
 
 // ── Hemisphere ────────────────────────────────────────────────────────────────
@@ -176,16 +182,20 @@ CubeCard::CubeCard(double s, QWidget* p) : GeoCard(p) {
     addResult("Space Diagonal:", "s\xe2\x88\x9a\x33");
     addResult("Inradius     :", "s/2");
     addResult("Circumradius :", "s\xe2\x88\x9a\x33/2");
-    DEFER
+    DEFER;
+    m_shapeType = "cube";
 }
 void CubeCard::recompute() {
     BigDec s(m_sliders["s"]->value());
+    double s_doub(m_sliders["s"]->value());
     m_rows["Surface Area :"]->setValue(BigNum::fmt(6 * s * s));
     m_rows["Volume       :"]->setValue(BigNum::fmt(s * s * s));
     m_rows["Face Diagonal:"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(2))));
     m_rows["Space Diagonal:"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(3))));
     m_rows["Inradius     :"]->setValue(BigNum::fmt(s / 2));
     m_rows["Circumradius :"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(3)) / 2));
+
+
 }
 
 // ── Tetrahedron ───────────────────────────────────────────────────────────────

@@ -1,11 +1,10 @@
 ﻿#include <QLabel>
 #include <QString>
 #include <QTimer>
-#include "..\theme\Theme.h"
+#include "..\constants\Theme.h"
 #include <QApplication>
 #include <QClipboard>
-#include "OutputArea.h"
-
+#include <QMouseEvent>
 // ── ClickableLabel ────────────────────────────────────────────────────────────
 // Result label that shows "Copy" on hover and copies plain text on click.
 class ClickableLabel : public QLabel {
@@ -22,7 +21,7 @@ public:
         setTextFormat(Qt::RichText);
         setFont(font);
         setText(html);
-        setStyleSheet("background:transparent;" + extraStyle);
+        setStyleSheet(QString("background:transparent;color:%1" + extraStyle).arg(color));
         setWordWrap(true);
         setCursor(Qt::PointingHandCursor);
         m_resetTimer = new QTimer(this);

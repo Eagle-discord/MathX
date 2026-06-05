@@ -77,6 +77,11 @@ public:
     QString buildCopyText() const;
 
     void setTitle(const QString& title) { m_title = title; }
+
+signals:
+    void showProjection(const QString& type, const QMap<QString, double>& params);
+    void showShapeProjection(const QString& type, const QMap<QString, double>& params);
+
 protected:
     SliderRow* addSlider(const QString& name, double val,
         double minV, double maxV, double step = 0.1);
@@ -91,11 +96,12 @@ protected:
     QString                   m_title;        // set by subclass via setTitle()
     QWidget* m_body = nullptr;
     QVBoxLayout* m_layout = nullptr;
-
+    QString m_shapeType;
 
 private:
     void buildFrame();
     QPushButton* m_copyBtn = nullptr;
+    QPushButton* m_toggleBtn = nullptr;     
 };
 
 // Convenience helpers used by all shape cards

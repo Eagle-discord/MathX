@@ -1,9 +1,12 @@
 #include <QApplication>
 #include <QFontDatabase>
 #include "ui/MainWindow.h"
-#include "theme/Theme.h"
+#include "constants/Theme.h"
+#include <QSurfaceFormat>
 
 int main(int argc, char* argv[]) {
+    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
+    QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 

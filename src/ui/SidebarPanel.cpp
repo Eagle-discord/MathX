@@ -15,11 +15,11 @@ static const QString C_HOVER   = "#1a2820";
 // Full-width section bar colors  (background, text)
 static QMap<QString,QPair<QString,QString>> barColors() {
     return {
-        { "arith",   { "#1a3d2b", "#2d8f5a" } },  // green,  dim
+        { "arithmetic",   { "#1a3d2b", "#2d8f5a" } },  // green,  dim
         { "algebra", { "#3a2e0a", "#a88530" } },  // yellow, dim
-        { "trig",    { "#2a1a45", "#7a4db5" } },  // purple, dim
-        { "geo",     { "#0d2040", "#2d5fa8" } },  // blue,   dim
-        { "conv",    { "#3a2008", "#b06018" } },  // orange, dim
+        { "trigonometry",    { "#2a1a45", "#7a4db5" } },  // purple, dim
+        { "geometry",     { "#0d2040", "#2d5fa8" } },  // blue,   dim
+        { "conversion",    { "#3a2008", "#b06018" } },  // orange, dim
     };
 }
 
@@ -104,7 +104,7 @@ SidebarPanel::SidebarPanel(QWidget* parent) : QWidget(parent) {
 
 void SidebarPanel::buildRefs() {
     m_refs["all"] = {
-        { "arith", {
+        { "arithmetic", {
             { "2 + 3 * (4^2)", "order of ops" },
             { "sqrt(144) + cbrt(27)", "roots" },
             { "fact(10)", "10!" },
@@ -115,25 +115,26 @@ void SidebarPanel::buildRefs() {
             { "3x + 7 = 22", "linear" },
             { "x^2 - 5x + 6 = 0", "quadratic" },
         }},
-        { "trig", {
+        { "trigonometry", {
             { "sin(30)", "degrees" },
             { "cos(60)", "" },
             { "atan(1)", "= 45\xc2\xb0" },
             { "sinr(pi/6)", "radians" },
         }},
-        { "geo", {
+        { "geometry", {
             { "tri(ABC) a=3 b=4 c=5", "triangle" },
             { "circ(O) r=7", "circle" },
             { "sphr(O) r=5", "sphere" },
+            { "cube s = 3", "cube"},
         }},
-        { "conv", {
+        { "conversion", {
             { "100 km to miles", "" },
             { "72 f to c", "temp" },
             { "5 kg to lbs", "" },
         }},
     };
-    m_refs["arith"] = {
-        { "arith", {
+    m_refs["arithmetic"] = {
+        { "arithmetic", {
             { "2 + 3 * (4^2)", "precedence" },
             { "sqrt(144)", "square root" },
             { "cbrt(27)", "cube root" },
@@ -159,8 +160,8 @@ void SidebarPanel::buildRefs() {
             { "x^3 = 27", "Newton method" },
         }}
     };
-    m_refs["trig"] = {
-        { "trig", {
+    m_refs["trigonometry"] = {
+        { "trigonometry", {
             { "sin(30)", "= 0.5" },
             { "cos(60)", "= 0.5" },
             { "tan(45)", "= 1" },
@@ -172,8 +173,8 @@ void SidebarPanel::buildRefs() {
             { "sin(30)^2 + cos(30)^2", "= 1 identity" },
         }}
     };
-    m_refs["geo"] = {
-        { "geo", {
+    m_refs["geometry"] = {
+        { "geometry", {
             { "tri(ABC) a=3 b=4 c=5", "right triangle" },
             { "tri(ABC) a=5 b=6 c=7", "oblique" },
             { "rect(ABCD) w=8 h=5", "rectangle" },
@@ -185,8 +186,8 @@ void SidebarPanel::buildRefs() {
             { "cone(O) r=3 h=5", "cone" },
         }}
     };
-    m_refs["conv"] = {
-        { "conv", {
+    m_refs["conversion"] = {
+        { "conversion", {
             { "100 km to miles", "" },
             { "5 miles to km", "" },
             { "72 f to c", "temp" },

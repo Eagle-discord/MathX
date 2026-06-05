@@ -2,6 +2,8 @@
 #include "BigNum.h"
 #include "Expr.h"
 #include "Solver.h"
+#include <thread/PersistentWorker.h>
+#include "Algebra.h"
 #include <QRegularExpression>
 #include <QStringList>
 #include <cmath>
@@ -480,6 +482,40 @@ static QString trySimplify(const QString& expr) {
     return {};
 }
 
+
+static QString replaceExponentiation(const QString& expr, bool& cancelled) {
+    QString result = expr;
+    // Pattern: integer ^ integer (with optional spaces)
+    static QRegularExpression powRe(R"((\d+)\s*\^\s*(\d+))");
+    int offset = 0;
+    while (true) {
+        auto match = powRe.match(result, offset);
+        if (!match.hasMatch()) break;
+        QString baseStr = match.captured(1);
+        QString expStr = match.captured(2);
+        BigInt base(baseStr.toStdString());
+        BigInt exp(expStr.toStdString());
+        // Compute using bigPow (with cancellation)
+        try {
+            // Use the static cancel flag from PersistentWorker
+            extern std::atomic<bool> g_cancelFlag; // we'll make it accessible
+            auto callback = [](int) {
+                
+};
+            QString powResult = BigNum::bigPow(base, exp, callback, &PersistentWorker::s_cancel);
+            // Replace the matched text with the result (parenthesised)
+            int start = match.capturedStart();
+            int end = match.capturedEnd();
+            result.replace(start, end - start, "(" + powResult + ")");
+            offset = start + powResult.length() + 2; // move past replacement
+        }
+        catch (const std::exception& e) {
+            cancelled = true;
+            return {};
+        }
+    }
+    return result;
+}
 // ----------------------------------------------------------------------
 //  tryAlgebra – equation solving using Solver
 // ----------------------------------------------------------------------
@@ -492,85 +528,15 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     QString e = expr.trimmed();
     if (!e.contains('=')) return {};
 
-    // Preprocess natural language and simplify
-    QString processed = NaturalLanguage::preprocess(expr);
-    QString simplified = Simplifier::simplify(processed);
-    if (!simplified.isEmpty())
-        processed = simplified;
-    e = processed;
-
-    auto vars = Expr::detectVariables(e.toLower());
-    if (vars.isEmpty()) return {};
-
     QStringList sides = e.split('=');
     if (sides.size() != 2) return {};
     QString lhs = sides[0].trimmed(), rhs = sides[1].trimmed();
 
-    // Convert variable*variable to variable^2 (same variable)
-    static QRegularExpression squareRe(R"(([a-z])\s*\*\s*\1)");
-    lhs.replace(squareRe, "\\1^2");
-    rhs.replace(squareRe, "\\1^2");
-
-    // Try quadratic detection
-    QString varName = *vars.begin();
-    if (vars.size() == 1) {
-        // Bring RHS to LHS to get expression = 0
-        QString combined = "(" + lhs + ")-(" + rhs + ")";
-        QString fullExpr = combined;
-        // Simplify expression? Not needed, but we'll use it as lhs for regex.
-        QRegularExpression q2(
-            QString(R"(([+-]?\s*[\d.]*)\s*%1\^2\s*([+-]\s*[\d.]*)\s*%1\s*([+-]\s*[\d.]*))")
-            .arg(QRegularExpression::escape(varName)),
-            QRegularExpression::CaseInsensitiveOption);
-        auto q2m = q2.match(fullExpr);
-        if (q2m.hasMatch()) {
-            double a = q2m.captured(1).simplified().replace(" ", "").toDouble();
-            if (a == 0) a = 1;
-            double b = q2m.captured(2).simplified().replace(" ", "").toDouble();
-            double c = q2m.captured(3).simplified().replace(" ", "").toDouble();
-            return { Solver::solveQuadratic(a,b,c).join("\n"), "alg" };
-        }
-    }
-
-    // ── Fast exact linear solver ──────────────────────────────────────────────
-    if (vars.size() == 1) {
-        QString combined = lhs + "-(" + rhs + ")";
-        VarMap vm0, vm1, vm2;
-        vm0[varName] = 0.0; vm1[varName] = 1.0; vm2[varName] = 2.0;
-        bool ok0, ok1, ok2;
-        double f0 = Expr::evalWith(combined, vm0, ok0);
-        double f1 = Expr::evalWith(combined, vm1, ok1);
-        double f2 = Expr::evalWith(combined, vm2, ok2);
-        if (ok0 && ok1 && ok2) {
-            double a = f1 - f0;
-            double b = f0;
-            if (std::abs(f2 - (2.0 * a + b)) < 1e-9) {
-                if (std::abs(a) < 1e-12)
-                    return { std::abs(b) < 1e-9 ? "Infinite solutions" : "No solution", "err" };
-                double x = -b / a;
-                double rounded = std::round(x);
-                if (std::abs(x - rounded) < 1e-9) x = rounded;
-                return { QString("%1 = %2").arg(varName).arg(fmt(x)), "alg" };
-            }
-        }
-    }
-
-    // ── Newton solver ────────────────────────────────────────────────────────
-    if (vars.size() == 1) {
-        bool ok;
-        double result = Solver::solveLinear(lhs, rhs, varName, ok);
-        if (ok) {
-            double rounded = std::round(result);
-            if (std::abs(result - rounded) < 1e-9) result = rounded;
-            return { QString("%1 = %2").arg(varName).arg(fmt(result)), "alg" };
-        }
-        return { "Could not solve — no real solution found", "err" };
-    }
-
-    QStringList varList;
-    for (auto& v : vars) varList << v;
-    return { QString("Multiple variables: %1\nProvide values for all but one").arg(varList.join(", ")), "err" };
+    QString solution = Algebra::solveEquation(lhs, rhs);
+    if (solution.isEmpty()) return {};
+    return { solution, "alg" };
 }
+
 static QString preprocessNaturalLanguage(const QString& expr) {
    QString e = expr.toLower();
    e = NaturalLanguage::preprocess(expr);
@@ -666,6 +632,23 @@ QString processed = NaturalLanguage::preprocess(expr);
             
         };
 
+
+        // Integer exponentiation: a^b where both a and b are integers
+        static QRegularExpression intPowRe(R"(^\s*(\d+)\s*\^\s*(\d+)\s*$)");
+        auto match = intPowRe.match(processed);
+        if (match.hasMatch()) {
+            BigInt base(match.captured(1).toStdString());
+            BigInt exp(match.captured(2).toStdString());
+            try {
+
+                QString result = BigNum::bigPow(base, exp);
+                return { result, "big" };
+            }
+            catch (const std::exception& e) {
+                return { QString("Error: ") + e.what(), "err" };
+            }
+        }
+
         static QRegularExpression measRe(
             R"(^([\d.]+)\s+(.+)$)",
             QRegularExpression::CaseInsensitiveOption);
@@ -695,17 +678,18 @@ QString processed = NaturalLanguage::preprocess(expr);
         }
     
 
-    // Try double evaluation first
-    bool ok;
-    double v = evalSimple(processed, ok);
-    if (ok && std::isfinite(v)) {
+        bool bok;
+        QString bigResult = bigEval(processed, bok);
+        if (bok) {
+            // bigEval returns a decimal; but we want exact integer if result is integer.
+            // For now, return as "big". If the string contains only digits, it's exact.
+            return { bigResult, "big" };
+        }
+        // fallback to double evaluation
+        bool ok;
+        double v = evalSimple(processed, ok);
+        if (!ok) return {};
         return { fmt(v), "ok" };
-    }
-    // Fallback to big number evaluation
-    bool bok;
-    QString bigResult = bigEval(processed, bok);
-    if (bok) return { bigResult, "big" };
-    return {};
 }
 
 bool MathEngine::solveEquation(const QString& eq, double& result) {
