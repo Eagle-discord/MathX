@@ -123,7 +123,7 @@ To embed the font:
 
 \---
 
-### Features to be implemented:
+### Features to be implemented (future commits):
 
 * Statements
 * Persistent Variables

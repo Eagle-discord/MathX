@@ -1,3 +1,4 @@
 .vs/
 out/
 *.ps1
+CMakeSettings.json
