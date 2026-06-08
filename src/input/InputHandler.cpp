@@ -80,16 +80,54 @@ static QMap<QString, CardFactory> cardFactories() {
 
     // ---------- 3D shapes ----------
     factories["sphr"] = [](const ParamMap& p) -> GeoCard* {
-        double r = p.value("r", 0);
+        double r;
+        double d;
+        if (p.contains("d")){
+            d = p.value("d", 1);
+            r = d / 2;
+        }
+        else if (p.contains("r")) {
+            r = p.value("r", 1);
+        }
+        else if (p.contains("r") && p.contains("d")) {
+            r = p.value("r");
+            d = p.value("d");
+        }
+        
         return (r > 0) ? new SphereCard(r) : nullptr;
         
         };
     factories["hemi"] = [](const ParamMap& p) -> GeoCard* {
-        double r = p.value("r", 0);
+        double r;
+        double d;
+        if (p.contains("d")) {
+            d = p.value("d", 1);
+            r = d / 2;
+        }
+        else if (p.contains("r")) {
+            r = p.value("r", 1);
+        }
+        else if (p.contains("r") && p.contains("d")) {
+            r = p.value("r");
+            d = p.value("d");
+        }
         return (r > 0) ? new HemiSphereCard(r) : nullptr;
         };
     factories["cyld"] = [](const ParamMap& p) -> GeoCard* {
-        double r = p.value("r", 0), h = p.value("h", 0);
+        double r;
+        double d;
+        if (p.contains("d")) {
+            d = p.value("d", 1);
+            r = d / 2;
+        }
+        else if (p.contains("r")) {
+            r = p.value("r", 1);
+        }
+        else if (p.contains("r") && p.contains("d")) {
+            r = p.value("r");
+            d = p.value("d");
+        }
+        double h = p.value("h", 0);
         return (r > 0 && h > 0) ? new CylinderCard(r, h) : nullptr;
         };
     factories["hollcyl"] = [](const ParamMap& p) -> GeoCard* {

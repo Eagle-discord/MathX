@@ -38,9 +38,6 @@ static QString insertImplicitMul(const QString& s) {
 }
 
 // ── callBuiltin – exactly as in the original Expr.cpp (copied from your code) ─
-// (I will include the full existing callBuiltin function here – see note)
-// For brevity, I assume you have it; but we'll paste the complete one from your file.
-
 static double callBuiltin(const QString& name, const QVector<double>& args) {
     auto need = [&](int n) {
         if (args.size() < n) throw std::runtime_error(name.toStdString() + " needs " + std::to_string(n) + " argument(s)");
@@ -86,7 +83,6 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     if (name == "hypot") { need(2); return std::hypot(args[0], args[1]); }
     if (name == "fact") {
         need(1);
-        // throw special exception to be caught by higher level
         throw std::runtime_error("__BIGFACT__:" + std::to_string((long long)args[0]));
     }
     if (name == "lcm") {
@@ -225,7 +221,7 @@ private:
         else if (m_vars.contains(id))
             return { TokenType::Variable, id };
         else
-            return { TokenType::Variable, id }; // variable may be undefined; parent will use 0
+            return { TokenType::Invalid };  // Unknown identifier -> error
     }
 };
 
@@ -276,13 +272,13 @@ private:
             else if (tt == TokenType::Div) {
                 m_tok.next();
                 double right = parsePow();
-                if (right == 0.0) throw std::runtime_error("Unable to perform Division by zero");
+                if (right == 0.0) throw std::runtime_error("Division by zero");
                 left /= right;
             }
             else if (tt == TokenType::Mod) {
                 m_tok.next();
                 double right = parsePow();
-                if (right == 0.0) throw std::runtime_error("Unable to perform Modulo by zero");
+                if (right == 0.0) throw std::runtime_error("Modulo by zero");
                 left = std::fmod(left, right);
             }
             else break;
@@ -377,6 +373,7 @@ private:
         }
     }
 };
+
 static QString replaceXWithTimes(const QString& s) {
     QString result;
     int len = s.length();
@@ -396,6 +393,7 @@ static QString replaceXWithTimes(const QString& s) {
     }
     return result;
 }
+
 // ── Public interface ─────────────────────────────────────────────────────────
 double Expr::eval(const QString& input, bool& ok) {
     return evalWith(input, {}, ok);

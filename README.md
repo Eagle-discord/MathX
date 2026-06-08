@@ -1,6 +1,26 @@
-# MATHX — Qt6 C++ Port
+# MATHX
 
-Exact UI replica of the MATHX HTML calculator, built with Qt6 Widgets + MSVC.
+**MathX** is a native desktop mathematics application written in C++ and built with Qt6.
+
+It is a passion project developed by a single developer (me) with no budget, created as both a tool to help with mathematics and a way to challenge and improve my programming skills.
+
+## Goals
+
+* Help me explore and solve mathematical problems
+* Test and improve my programming skills
+* Build software that feels fast, intuitive, and low-friction
+* Experiment with mathematical visualization and interaction
+
+# Why C++
+
+MathX is written in C++ because I enjoy working with native software.
+
+C++ gives me direct control over the application's architecture, performance, threading model, rendering pipeline, and memory usage.
+
+Since MathX is intended to be a desktop application, I also like that it can be compiled into a standalone executable without requiring users to install a separate runtime or interpreter.
+
+While other languages such as Python are excellent tools and are widely used throughout the industry, C++ was the best fit for the type of application I wanted to build.
+
 
 \---
 
@@ -13,6 +33,17 @@ Exact UI replica of the MATHX HTML calculator, built with Qt6 Widgets + MSVC.
 |**CMake 3.20+**|Bundled with VS2022 or install separately.|
 
 \---
+
+
+## Tech Stack
+
+* MSVC 2022
+* Boost
+* Qt6
+* OpenGL
+* C++
+* CMake
+
 
 ## Build Instructions (Visual Studio 2022)
 
@@ -70,7 +101,7 @@ Adjust `Qt6\_DIR` to match your Qt installation:
 
 ### Font
 
-MATHX uses **JetBrains Mono** for the terminal aesthetic, and uses **Syne** for the logo
+MATHX uses **JetBrains Mono** for the terminal aesthetic, and uses **Syne ExtraBold** for the logo
 Qt will fall back to **Consolas** → **Courier New** automatically on Windows.
 
 To embed the font:
@@ -92,37 +123,25 @@ To embed the font:
 
 \---
 
-### Features Ported
-
-* ✅ Dark terminal UI with exact color palette
-* ✅ macOS-style traffic-light dots in title bar
-* ✅ Mode tabs: All / Arithmetic / Algebra / Trig / Geometry / Convert
-* ✅ Scrollable output with color-coded result types
-* ✅ Arithmetic: +, -, \*, /, ^, sqrt, cbrt, abs, log, ln, fact, nCr, nPr, gcd, lcm
-* ✅ Algebra: linear equations, quadratic equations (real + complex roots), Newton solver
-* ✅ Trig: sin/cos/tan/asin/acos/atan in degrees; sinr/cosr/tanr in radians
-* ✅ Geometry: triangle, circle, rectangle, square, sphere, cylinder, cone
-* ✅ Unit conversion: length, mass, temperature, volume, data, speed
-* ✅ Sidebar quick-reference (click to fill, double-click to run)
-* ✅ Session counter + last result display
-* ✅ Clear history button
-* ✅ Arrow-up for last command
-* ✅ Enter key to run
-
-
-
-
-
 ### Features to be implemented:
 
 * Statements
-* Persistent Variables (User should be able to type in, x = 3 for instance, and in another prompt, they should be able to use that variable in an expression)
-* Proper implementation of the Stop button 
-* More & Proper Aliases (For example, regpoly is a regular polygon, yet when i type in Regular polygon, it doesn't catch the shape)
-* Actual 3d \&\& 2d shape visualization
-* More user Friendliness
-* Implementing graphs and hyperbolic functions
-* Moving calculations to seperate threads
-* Refining existing implementations
-* Adding support for various notations ('x' for multiplication, % sign for representing percentages, '.' for multiplication, etc)
+* Persistent Variables
+* Alias Support
+* better user Friendliness
+* graphs and hyperbolic functions
+* Notation support
+
+
+## Background 
+
+I started building MathX during my summer vacation with the goal of finishing a working prototype before my summer break ended.
+
+I originally wanted a calculator that could solve for x and handle more advanced mathematical tasks than the tools I was already using.
+
+As I kept adding features, the project gradually turned into something much larger and became one of my favorite programming projects.
+
+As i kept building it, a philosophy formed around this project, that the user shouldn't have to use a 5-page manual to use it, it should instead come naturally to them.
+
+The app should be as low-friction as possible, the two philosophies add technical complexity, but pay off for User Experience
 

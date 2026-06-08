@@ -27,7 +27,7 @@ inline const QList<Shape> ALL_SHAPES = {
     { "annulus",   {"ring"},                        {"major","minor"},     {} },
 
     // 3D shapes
-    { "sphr",      {"sphere"},                      {"r"},         {} },
+    { "sphr",      {"sphere"},                      {"r"},         {"d"}},
     { "hemi",      {"hemisphere"},                  {"r"},         {} },
     { "cyld",      {"cylinder"},                    {"r","h"},     {} },
     { "hollcyl",   {"hollowcylinder","hollowcyl"},  {"R","r","h"}, {} },

@@ -720,6 +720,20 @@ bool MathEngine::solveEquation(const QString& eq, double& result) {
     }
     return false;
 }
+static bool isValidIdentifier(const QString& name, const VarMap& vars) {
+    // Built-in constants
+    static const QSet<QString> constants = { "pi", "e", "tau", "inf" };
+    // Built-in functions (must match the ones in callBuiltin)
+    static const QSet<QString> functions = {
+        "sin","cos","tan","sinh","cosh","tanh","asin","acos","atan",
+        "asinh","acosh","atanh","atan2","sinr","cosr","tanr","asinr","acosr","atanr",
+        "sqrt","cbrt","abs","log","ln","log2","exp","floor","ceil","round","sign",
+        "min","max","pow","mod","hypot","fact","gcd","hcf","lcm","ncr","npr","c","logbase"
+    };
+    if (constants.contains(name) || functions.contains(name)) return true;
+    if (vars.contains(name)) return true;
+    return false;
+}
 
 // ----------------------------------------------------------------------
 //  Main dispatcher

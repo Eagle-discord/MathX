@@ -116,6 +116,9 @@ void MainWindow::recreateGeometryMode() {
     m_centralStack->addWidget(m_geoModeWidget);
     // Reconnect the back button signal
     connect(m_geoModeWidget, &GeoModeWidget::backClicked, this, [this]() {
+        QLayout* root = centralWidget()->layout();
+        root->setContentsMargins(m_originalMargins);
+        root->setSpacing(m_originalSpacing);
         m_centralStack->setCurrentIndex(0);
         });
 }
@@ -199,7 +202,9 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
     m_output->addSeparator();
     // if(type != result) m_historyDock->addEntry(expr, result);
      // Go back to idle state (allow new input)
-    setRunState(RunState::Idle);
+    if (!m_promptCtrl->isActive()) {
+        setRunState(RunState::Idle);
+    }
 
 }
 // ── eventFilter ───────────────────────────────────────────────────────────────
@@ -258,8 +263,8 @@ void MainWindow::setRunState(RunState state) {
         m_input->setFocus();
         break;
     case RunState::HandlingInput:
-        m_stopBtn->show();
         m_runBtn->hide();
+        m_stopBtn->show();
         m_input->setEnabled(true);
         break;
 
@@ -290,8 +295,8 @@ void MainWindow::submitExpression(const QString& expr) {
 
 // ── onRun ─────────────────────────────────────────────────────────────────────
 void MainWindow::onRun() {
-    Animations::flash(m_runBtn);
-    Animations::flash(m_stopBtn);
+   // Animations::flash(m_runBtn);
+ //   Animations::flash(m_stopBtn);
     QString text = m_input->text().trimmed();
     if (text.isEmpty()) return;
     m_input->clear();
@@ -301,8 +306,11 @@ void MainWindow::onRun() {
         handlePromptInput(text);
         return;
     }
-    if (!tryStartPrompt(text))
+    if (!tryStartPrompt(text)) {
+        setRunState(RunState::HandlingInput);
         submitExpression(text);
+    }
+    
 }
 
 
@@ -518,7 +526,30 @@ void MainWindow::handlePromptInput(const QString& value) {
             }
         }
     }
-
+    if (!ok && value.contains('=')) {
+        double solved = 0.0;
+        if (MathEngine::solveEquation(value, solved)) {
+            QMessageBox mb;
+            mb.setWindowTitle("Equation Solved");
+            mb.setText(QString("'%1' solves to %2 = %3").arg(value, param).arg(solved));
+            mb.setInformativeText("Use this value?");
+            mb.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            mb.setDefaultButton(QMessageBox::Yes);
+            if (mb.exec() == QMessageBox::Yes) {
+                numericValue = solved; ok = true;
+                m_promptVars[param] = numericValue;
+                m_promptCtrl->submit(value, numericValue);
+                return;
+            }
+            else {
+                m_output->addResultLine(
+                    "Equation solution rejected. Please enter a number.", "err");
+                m_output->addPromptRequest(param);
+                m_input->setFocus();
+                return;
+            }
+        }
+    }
     if (!ok) {
         m_output->addResultLine(
             QString("\xe2\x9a\xa0 Invalid input for '%1'").arg(param), "err");
@@ -535,6 +566,7 @@ bool MainWindow::tryStartPrompt(const QString& expr) {
     ShapePrompt p = InputHandler::detectPrompt(expr);
     if (!p.isActive()) return false;
     setRunState(RunState::HandlingInput);
+    m_promptVars.clear();
     m_promptCtrl->start(p);
     m_output->addPromptRequest(m_promptCtrl->currentParam());
     return true;

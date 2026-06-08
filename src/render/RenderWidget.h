@@ -15,8 +15,9 @@ public:
     void setDarkTheme(bool dark);
     void setRotationEnabled(bool enabled);
     void setHorizontalOffset(int offsetPixels);
-
-    
+    void setShapeColor(float r, float g, float b);
+    void setBackgroundColor(float r, float g, float b);
+    void setMouseCtrl(bool enabled);
 private:
 
     std::unique_ptr<Renderer> m_renderer;

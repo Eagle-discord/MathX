@@ -67,7 +67,8 @@ CylinderCard::CylinderCard(double r, double h, QWidget* p) : GeoCard(p) {
     addResult("Base Area    :", "  \xcf\x80r\xc2\xb2");
     addResult("Total Area   :", "2\xcf\x80r(r+h)");
     addResult("Volume       :", "  \xcf\x80r\xc2\xb2h");
-    DEFER
+    DEFER;
+    m_shapeType = "cylinder";
 }
 void CylinderCard::recompute() {
     BigDec r(m_sliders["r"]->value()), h(m_sliders["h"]->value());

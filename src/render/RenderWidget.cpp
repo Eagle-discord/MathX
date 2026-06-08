@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 
 RenderWidget::RenderWidget(QWidget* parent) : QWidget(parent) {
+    m_horizontalOffset = 0;
     // Try Vulkan first (stub always returns false)
     m_renderer = std::make_unique<VulkanRenderer>();
     if (!m_renderer->initialize(this)) {
@@ -30,6 +31,10 @@ void RenderWidget::setDarkTheme(bool dark) {
     m_renderer->setDarkTheme(dark);
 }
 
+void RenderWidget::setMouseCtrl(bool enabled) {
+    m_renderer->setMouseCtrl(enabled);
+}
+
 void RenderWidget::setRotationEnabled(bool enabled) {
     m_renderer->setRotationEnabled(enabled);
 }
@@ -39,4 +44,12 @@ void RenderWidget::setHorizontalOffset(int offsetPixels) {
     if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get())) {
         gl->setHorizontalOffset(offsetPixels);
     }
+}
+void RenderWidget::setShapeColor(float r, float g, float b) {
+    if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
+        gl->setShapeColor(r, g, b);
+}
+void RenderWidget::setBackgroundColor(float r, float g, float b) {
+    if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
+        gl->setBackgroundColor(r, g, b);
 }

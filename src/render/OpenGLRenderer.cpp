@@ -7,6 +7,10 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+#include <shapes/cylinder/cylinder.h>
+#include <QMouseEvent>
+#include <QWheelEvent>
+#include <cmath>
 
 // Helper to avoid GLU dependency – custom perspective
 static void setPerspective(float fovY, float aspect, float zNear, float zFar) {
@@ -42,6 +46,7 @@ void OpenGLRenderer::setShape(const QString& type, const QMap<QString, double>& 
  //   update(); // trigger repaint
     if (type == "cube") m_currentShape = std::make_unique<Cube>();
     else if (type == "sphere") m_currentShape = std::make_unique<Sphere>();
+    else if (type == "cylinder") m_currentShape = std::make_unique<Cylinder>();
     else {
         m_currentShape.reset();
         return;
@@ -60,14 +65,72 @@ void OpenGLRenderer::setDarkTheme(bool dark) {
         update();
     }
 }
+void OpenGLRenderer::setMouseCtrl(bool enabled) {
+    m_mouseCtrlEnabled = enabled;
+}
+
+void OpenGLRenderer::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::RightButton || event->button() == Qt::LeftButton && !m_rotating) {
+        m_mousePressed = true;
+        m_lastMousePos = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+        event->accept();
+    }
+    QOpenGLWidget::mousePressEvent(event);
+}
+
+void OpenGLRenderer::mouseMoveEvent(QMouseEvent* event) {
+    if (m_mousePressed && m_mouseCtrlEnabled) {
+        QPoint delta = event->pos() - m_lastMousePos;
+        m_lastMousePos = event->pos();
+        // Sensitivity: 0.5 degrees per pixel
+        m_xRot += delta.y() * 0.5f;
+        m_yRot -= delta.x() * 0.5f;
+        update();
+        event->accept();
+    }
+    QOpenGLWidget::mouseMoveEvent(event);
+}
+
+void OpenGLRenderer::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::RightButton || event->button() == Qt::LeftButton) {
+        m_mousePressed = false;
+        setCursor(Qt::ArrowCursor);
+        event->accept();
+    }
+    QOpenGLWidget::mouseReleaseEvent(event);
+}
+
+// Optional: zoom with mouse wheel
+void OpenGLRenderer::wheelEvent(QWheelEvent* event) {
+    float delta = -event->angleDelta().y() / 60.0f;
+    m_camDistance += delta * 0.25f;
+//    if (m_camDistance < 1.0f) m_camDistance = 1.0f;
+  //  if (m_camDistance > 15.0f) m_camDistance = 15.0f;
+    update();
+    event->accept();
+}
 
 void OpenGLRenderer::setRotationEnabled(bool enabled) {
     m_rotating = enabled;
 }
+void OpenGLRenderer::setShapeColor(float r, float g, float b) {
+    m_colorR = r; m_colorG = g; m_colorB = b;
+    update(); // redraw
+}
 
+void OpenGLRenderer::setBackgroundColor(float r, float g, float b) {
+    m_bgR = r; m_bgG = g; m_bgB = b;
+    if (isValid()) {
+        makeCurrent();
+        glClearColor(m_bgR, m_bgG, m_bgB, 1.0f);
+        doneCurrent();
+        update();
+    }
+}
 void OpenGLRenderer::initializeGL() {
     initializeOpenGLFunctions();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(m_bgR, m_bgG, m_bgB, 0.0f);
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);               // show all faces
     glEnable(GL_BLEND);
@@ -113,11 +176,12 @@ void OpenGLRenderer::paintGL() {
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -5.0f);
+    glTranslatef(0.0f, 0.0f, -m_camDistance);
     glRotatef(m_xRot, 1.0f, 0.0f, 0.0f);
     glRotatef(m_yRot, 0.0f, 1.0f, 0.0f);
-    glColor3f(1.0f, 1.0f, 1.0f); // white wireframe
-    glLineWidth(2.5f);   // thicker lines (default is 1.0)
+    glColor3f(m_colorR, m_colorG, m_colorB); // white wireframe
+    glLineWidth(3.0f);   // thicker lines (default is 1.0)
+
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
         if (m_currentShape) {

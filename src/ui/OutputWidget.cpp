@@ -1,4 +1,4 @@
-#include "OutputWidget.h"
+﻿#include "OutputWidget.h"
 #include <constants/Theme.h>
 #include <QMouseEvent>
 #include <QApplication>

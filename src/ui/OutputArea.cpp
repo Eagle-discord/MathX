@@ -368,6 +368,7 @@ void OutputArea::addResultLine(const QString& text, const QString& type,
             Animations::fadeIn(lbl);
         }
     }
+
     else {
         QStringList lines = text.split('\n');
         for (const QString& line : lines) {

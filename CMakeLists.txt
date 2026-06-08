@@ -95,7 +95,7 @@ if(WIN32)
 endif()
 
 # Executable (always defined)
-add_executable(MathX WIN32 ${COMMON_SOURCES} ${COMMON_HEADERS}   "src/ui/FocusGlow.cpp" "src/ui/FocusGlow.h"  "src/ui/OutlineOverlay.h" "src/ui/OutlineOverlay.cpp" "src/render/Renderer.h" "src/render/OpenGLRenderer.h" "src/render/VulkanRenderer.h" "src/render/RenderWidget.h" "src/render/RenderWidget.cpp" "src/render/OpenGLRenderer.cpp" "src/ui/GeoModeWidget.h" "src/ui/GeoModeWidget.cpp" "src/shapes/RenderShape.h" "src/shapes/cube/cube.h" "src/shapes/cube/cube.cpp" "src/shapes/sphere/sphere.h" "src/shapes/sphere/sphere.cpp")
+add_executable(MathX WIN32 ${COMMON_SOURCES} ${COMMON_HEADERS}   "src/ui/FocusGlow.cpp" "src/ui/FocusGlow.h"  "src/ui/OutlineOverlay.h" "src/ui/OutlineOverlay.cpp" "src/render/Renderer.h" "src/render/OpenGLRenderer.h" "src/render/VulkanRenderer.h" "src/render/RenderWidget.h" "src/render/RenderWidget.cpp" "src/render/OpenGLRenderer.cpp" "src/ui/GeoModeWidget.h" "src/ui/GeoModeWidget.cpp" "src/shapes/RenderShape.h" "src/shapes/cube/cube.h" "src/shapes/cube/cube.cpp" "src/shapes/sphere/sphere.h" "src/shapes/sphere/sphere.cpp" "src/shapes/ShapeInfo.h" "src/shapes/cylinder/cylinder.h" "src/shapes/cylinder/cylinder.cpp")
 
 # ── Link libraries ────────────────────────────────────────────────────────────
 target_link_libraries(MathX PRIVATE

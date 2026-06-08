@@ -40,6 +40,8 @@ public:
     QString back() {
         if (m_index < m_history.count())
             m_index++;
+
+       
         return currentText();
     }
 

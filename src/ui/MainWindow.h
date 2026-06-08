@@ -23,7 +23,7 @@
 
 using boost::multiprecision::cpp_int;
 
-
+using VarMap = QMap<QString, double>;
 class OutputArea;
 class GeoCard;
 class SidebarPanel;
@@ -95,7 +95,7 @@ private:
     QFrame* m_inputRow = nullptr;  // holds the glow QGraphicsDropShadowEffect
     OutputArea* m_output = nullptr;
     QLineEdit* m_input = nullptr;
-
+    VarMap m_promptVars;
     QPushButton* m_runBtn = nullptr;
     QPushButton* m_stopBtn = nullptr;
     QLabel* m_promptLbl = nullptr;
