@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <QObject>
 #include <QString>
 #include <QQueue>
@@ -15,13 +15,13 @@ class PersistentWorker : public QObject {
     Q_OBJECT
 public:
 
-   
+
     static std::atomic<bool> s_cancel;
     static bool isCancelled() { return s_cancel.load(); }
     static std::atomic<bool>* cancelFlag() { return &s_cancel; }
     explicit PersistentWorker(QObject* parent = nullptr);
     ~PersistentWorker();
-    void stop();  
+    void stop();
 public slots:
     void submitJob(int id, const QString& expr);
     void cancelAll();
@@ -35,8 +35,8 @@ public slots:
     void process(); // runs in worker thread
 
 private:
-     // sets flag to exit the process loop
- 
+    // sets flag to exit the process loop
+
     QQueue<CalcJob> m_queue;
     QMutex m_mutex;
     QWaitCondition m_cond;

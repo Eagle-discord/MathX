@@ -1,8 +1,9 @@
-#include <QApplication>
+﻿#include <QApplication>
 #include <QFontDatabase>
 #include "ui/MainWindow.h"
 #include "constants/Theme.h"
 #include <QSurfaceFormat>
+#include <QDir>
 
 int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
@@ -15,14 +16,23 @@ int main(int argc, char* argv[]) {
     app.setApplicationVersion("1.0");
 
 
-    struct FontLoad { const char* path; const char* weight; };
+    // -- Font loading --------------------------------------------------------------
+    // Scans the :/fonts/ resource directory and loads every font it finds,
+    // so you never need to manually list fonts here again — just add them to
+    // your .qrc file and they'll be picked up automatically.
     bool allFontsLoaded = true;
-    for (auto& fl : { FontLoad{":/fonts/JetBrainsMono-Regular.ttf",   "Regular"},
-                      FontLoad{":/fonts/JetBrainsMono-Medium.ttf",    "Medium"},
-                      FontLoad{":/fonts/JetBrainsMono-Bold.ttf",      "Bold"},
-                      FontLoad{":/fonts/JetBrainsMono-ExtraBold.ttf", "ExtraBold"} }) {
-        if (QFontDatabase::addApplicationFont(fl.path) == -1) {
-            qWarning("MATHX: failed to load font %s (%s)", fl.path, fl.weight);
+    const QDir fontDir(":/fonts");
+    const QStringList fontFiles = fontDir.entryList({ "*.ttf", "*.otf" }, QDir::Files);
+
+    if (fontFiles.isEmpty()) {
+        qWarning("MATHX: no fonts found in :/fonts/ — check your .qrc file");
+        allFontsLoaded = false;
+    }
+
+    for (const QString& fileName : fontFiles) {
+        const QString path = ":/fonts/" + fileName;
+        if (QFontDatabase::addApplicationFont(path) == -1) {
+            qWarning("MATHX: failed to load font %s", qPrintable(path));
             allFontsLoaded = false;
         }
     }
@@ -33,7 +43,7 @@ int main(int argc, char* argv[]) {
         app.setFont(f);
     }
     // If fonts failed, Theme::fontFamily() falls back to Consolas / Courier New
-    // automatically, so the app still runs � just with the system monospace font.
+    // automatically, so the app still runs — just with the system monospace font.
 
     MainWindow w;
     w.show();

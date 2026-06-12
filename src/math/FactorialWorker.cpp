@@ -16,10 +16,7 @@ void FactorialWorker::computeFactorial(cpp_int n) {
         emit finished("Error: negative factorial");
         return;
     }
-    if (n > 100000) {
-        emit finished("Warning: Factorial number larger than 100000, calculations may take hours to finish");
-        
-    }
+    
     cpp_int result = 1;
     
     for (int i = 2; i <= n; ++i) {
@@ -33,7 +30,6 @@ void FactorialWorker::computeFactorial(cpp_int n) {
         result *= i;
         cpp_int percent = (i * 100) / n;
 
-       QThread::msleep(1);
         
         emit progress(percent);
     }

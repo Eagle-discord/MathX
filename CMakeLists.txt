@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.20)
 
 project(MathX VERSION 1.0 LANGUAGES CXX)
 
-# ── C++ Standard ──────────────────────────────────────────────────────────────
+# -- C++ Standard --------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ── Qt Auto-tools ─────────────────────────────────────────────────────────────
+# -- Qt Auto-tools -------------------------------------------------------------
 # These tell CMake to automatically run Qt's code generators:
 #   AUTOMOC  → runs moc on any file with Q_OBJECT (required for signals/slots)
 #   AUTOUIC  → runs uic on .ui files (Qt Designer forms)
@@ -15,7 +15,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# ── Qt6 ───────────────────────────────────────────────────────────────────────
+# -- Qt6 -----------------------------------------------------------------------
 #
 #
 # How to pass your Qt path:
@@ -40,12 +40,12 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets OpenGLWidgets OpenGL)
 
-# ── Boost (header-only) ───────────────────────────────────────────────────────
+# -- Boost (header-only) -------------------------------------------------------
 # Pass -DBOOST_ROOT on the cmake command line.
 # or set the BOOST_ROOT environment variable. 
 set(BOOST_ROOT "" CACHE PATH "Path to your Boost installation root")
 
-# ── Sources (common — all platforms) ─────────────────────────────────────────
+# -- Sources (common — all platforms) -----------------------------------------
 set(COMMON_SOURCES
     src/main.cpp
     src/math/BigNum.cpp
@@ -105,7 +105,7 @@ set(COMMON_HEADERS
     src/shapes/cylinder/cylinder.h
 )
 
-# ── Windows-only sources ──────────────────────────────────────────────────────
+# -- Windows-only sources ------------------------------------------------------
 if(WIN32)
     list(APPEND COMMON_SOURCES
         src/math/FactorialWorker.cpp
@@ -143,15 +143,15 @@ if(WIN32)
     )
 endif()
 
-# ── Executable ────────────────────────────────────────────────────────────────
+# -- Executable ----------------------------------------------------------------
 # WIN32 here means "make a GUI app (no console window)" on Windows.
 # On other platforms it has no effect.
 add_executable(MathX WIN32
     ${COMMON_SOURCES}
     ${COMMON_HEADERS}
-)
+ "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp")
 
-# ── Link libraries ────────────────────────────────────────────────────────────
+# -- Link libraries ------------------------------------------------------------
 # PRIVATE means: MathX uses these libraries, but if something else linked
 # against MathX it wouldn't automatically inherit them.
 target_link_libraries(MathX PRIVATE
@@ -172,7 +172,7 @@ else()
     # ${OPENGL_LIBRARIES} variable — it's more robust across platforms.
 endif()
 
-# ── Include directories ───────────────────────────────────────────────────────
+# -- Include directories -------------------------------------------------------
 target_include_directories(MathX PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
@@ -182,7 +182,7 @@ if(BOOST_ROOT)
     target_include_directories(MathX PRIVATE "${BOOST_ROOT}")
 endif()
 
-# ── Compile definitions ───────────────────────────────────────────────────────
+# -- Compile definitions -------------------------------------------------------
 target_compile_definitions(MathX PRIVATE
     NOMINMAX                          # Prevent Windows.h from defining min/max macros
     WIN32_LEAN_AND_MEAN               # Trim down Windows.h includes for faster builds
@@ -190,7 +190,7 @@ target_compile_definitions(MathX PRIVATE
 )
 
 
-# ── windeployqt (Windows only) ────────────────────────────────────────────────
+# -- windeployqt (Windows only) ------------------------------------------------
 # This runs Qt's deployment tool after every build, which copies the Qt DLLs
 # your .exe needs next to it, so you can run it without installing Qt globally.
 if(WIN32)

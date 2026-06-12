@@ -33,7 +33,7 @@ static QFont MF(int pt, int w = QFont::Normal) {
     f.setStyleHint(QFont::Monospace); return f;
 }
 
-// ── Clickable ref item label ────────────────────────────────────────────────
+// -- Clickable ref item label ------------------------------------------------
 class RefLabel : public QLabel {
     Q_OBJECT
 public:
@@ -70,7 +70,7 @@ private:
 
 #include "SidebarPanel.moc"
 
-// ── SidebarPanel ─────────────────────────────────────────────────────────────
+// -- SidebarPanel -------------------------------------------------------------
 SidebarPanel::SidebarPanel(QWidget* parent) : QWidget(parent) {
     setStyleSheet(QString("background: %1;").arg(C_SURFACE));
 

@@ -1,0 +1,204 @@
+﻿#pragma once
+#include <QObject>
+#include <QString>
+#include <QVariant>
+#include <QSettings>
+#include <QList>
+#include <QTimer>
+
+// Forward declare — SettingsDef.h defines these fully
+struct SettingDef;
+
+// -- PendingChange -------------------------------------------------------------
+// Represents a single staged or deferred setting change waiting to be applied.
+// Held in the pending queue until applyPending() is called.
+struct PendingChange {
+    QString key;            // matches SettingDef::key
+    QVariant oldValue;      // value before the user changed it
+    QVariant newValue;      // value the user set
+    QString label;          // human-readable label for the apply animation
+    QString applyingLabel;  // "Updating accent color across the interface"
+    QString appliedLabel;   // "Accent color updated"
+    bool operator==(const PendingChange& other) const {
+        return key == other.key;
+    }
+};
+
+// -- ApplyMode -----------------------------------------------------------------
+// Immediate — applies the instant the control changes, never enters the queue
+// Staged    — queued, applies when RunState transitions to Idle
+// Deferred  — queued, applies when current operation completes
+enum class ApplyMode { Immediate, Staged, Deferred };
+
+// -- AnimationMode -------------------------------------------------------------
+// Full        — full theatrical apply sequence plays on navigation
+// Background  — changes apply silently via debounce, no animation
+enum class AnimationMode { Full, Background };
+
+// -- HintState -----------------------------------------------------------------
+// Tracks the lifecycle of the visibility level hint
+// Active   — first open, hint visible, control glowing
+// Passive  — hint on demand via ? icon
+// Dormant  — bare label only, no visual noise
+enum class HintState { Active, Passive, Dormant };
+
+// -- VisibilityLevel -----------------------------------------------------------
+enum class VisibilityLevel { Basic, Advanced, Developer };
+
+// -- Settings ------------------------------------------------------------------
+// Singleton that owns all user preferences for MathX.
+// Wraps QSettings (Windows registry: HKCU\Software\MathX) so every value
+// persists across sessions automatically.
+//
+// Usage:
+//   Settings::instance().get("appearance/typography/fontSize", 10)
+//   Settings::instance().set("appearance/typography/fontSize", 12)
+//
+//   // Typed convenience accessors
+//   Settings::instance().fontSize()
+//   Settings::instance().setFontSize(12)
+//
+// Adding a new setting:
+//   1. Add its SettingDef entry in SettingsDef.cpp — nothing else needed
+//   2. Optionally add a typed getter/setter here for clean consumer code
+//
+// Apply pipeline:
+//   Immediate settings apply the moment set() is called.
+//   Staged/Deferred settings enter the pending queue.
+//   Call applyPending() to flush the queue (on navigation or RunState::Idle).
+
+class Settings : public QObject {
+    Q_OBJECT
+
+public:
+    static Settings& instance() {
+        static Settings s;
+        return s;
+    }
+
+    // -- Generic access --------------------------------------------------------
+    // Reads a value from the store, falling back to the default defined in
+    // SettingsDef if not yet set by the user.
+    QVariant get(const QString& key) const;
+
+    // Writes a value. If the setting's ApplyMode is Immediate, applies at once
+    // and emits the relevant signal. Otherwise stages it in the pending queue.
+    void set(const QString& key, const QVariant& value);
+
+    // -- Pending queue ---------------------------------------------------------
+    // Returns a snapshot of all currently staged changes for the UI to display.
+    const QList<PendingChange>& pendingChanges() const { return m_pending; }
+    bool hasPendingChanges() const { return !m_pending.isEmpty(); }
+
+    // Flushes all Staged changes if idle, and all Deferred changes regardless.
+    // Called by MainWindow on RunState::Idle transition and on navigation.
+    // isIdle — pass true when RunState is Idle, false otherwise.
+    void applyPending(bool isIdle);
+
+    // Starts the 800ms debounce timer used in Background animation mode.
+    // Resets on every setting interaction. Fires applyPending(true) on timeout.
+    void startDebounce();
+
+    // -- UI state --------------------------------------------------------------
+    VisibilityLevel visibilityLevel() const { return m_visibilityLevel; }
+    void setVisibilityLevel(VisibilityLevel level);
+
+    HintState hintState() const { return m_hintState; }
+    void advanceHintState(HintState to);
+
+    AnimationMode animationMode() const { return m_animationMode; }
+    void setAnimationMode(AnimationMode mode);
+
+    // -- Utility ---------------------------------------------------------------
+    // Wipes all persisted values and resets UI state to defaults.
+    void resetAll();
+
+    // -- Typed convenience accessors -------------------------------------------
+    // These exist so consumers can write Settings::instance().fontSize()
+    // rather than Settings::instance().get("appearance/typography/fontSize").
+    // They always read the active (applied) value, not the pending one.
+    int     fontSize()          const;
+    QString fontFamily()        const;
+    QString accentColor()       const;
+    QString theme()             const;
+    bool    splitThreads()      const;
+    QString progressStyle()     const;
+    bool    showProgressHeavy() const;
+    int     truncationLimit()   const;
+    int     bigNumThreshold()   const;
+    int     streamChunkSize()   const;
+    QString angleUnit()         const;
+    int     historySize()       const;
+    bool    confirmClear()      const;
+    bool    autoRotate()        const;
+    QString defaultShapeColor() const;
+
+    void setFontSize(int v);
+    void setFontFamily(const QString& v);
+    void setAccentColor(const QString& v);
+    void setTheme(const QString& v);
+    void setSplitThreads(bool v);
+    void setProgressStyle(const QString& v);
+    void setShowProgressHeavy(bool v);
+    void setTruncationLimit(int v);
+    void setBigNumThreshold(int v);
+    void setStreamChunkSize(int v);
+    void setAngleUnit(const QString& v);
+    void setHistorySize(int v);
+    void setConfirmClear(bool v);
+    void setAutoRotate(bool v);
+    void setDefaultShapeColor(const QString& v);
+
+signals:
+    // -- Immediate signals — fire the moment the setting changes ---------------
+    void fontSizeChanged(int newSize);
+    void fontFamilyChanged(const QString& newFamily);
+    void accentColorChanged(const QString& newColor);
+    void themeChanged(const QString& newTheme);
+    void progressStyleChanged(const QString& newStyle);
+    void showProgressHeavyChanged(bool enabled);
+    void truncationLimitChanged(int newLimit);
+    void angleUnitChanged(const QString& newUnit);
+    void historySizeChanged(int newSize);
+    void confirmClearChanged(bool enabled);
+    void autoRotateChanged(bool enabled);
+    void defaultShapeColorChanged(const QString& newColor);
+
+    // -- Staged signals — fire when applyPending() commits them ----------------
+    void splitThreadsChanged(bool enabled);
+    void bigNumThresholdChanged(int newThreshold);
+    void streamChunkSizeChanged(int newSize);
+
+    // -- UI state signals ------------------------------------------------------
+    void visibilityLevelChanged(VisibilityLevel newLevel);
+    void hintStateChanged(HintState newState);
+    void animationModeChanged(AnimationMode newMode);
+
+    // -- Queue signals ---------------------------------------------------------
+    void pendingChanged();          // queue was modified — UI should refresh
+    void pendingApplied(const QList<PendingChange>& applied); // apply complete
+
+    // -- Reset -----------------------------------------------------------------
+    void settingsReset();
+
+private:
+    explicit Settings(QObject* parent = nullptr);
+    Settings(const Settings&) = delete;
+    Settings& operator=(const Settings&) = delete;
+
+    // Applies a single change immediately, emits its typed signal.
+    void applyChange(const PendingChange& change);
+
+    // Looks up the default value for a key from SettingsDef.
+    QVariant defaultFor(const QString& key) const;
+
+    // Looks up the ApplyMode for a key from SettingsDef.
+    ApplyMode applyModeFor(const QString& key) const;
+
+    QSettings           m_store;
+    QList<PendingChange> m_pending;
+    QTimer* m_debounce = nullptr;
+    VisibilityLevel     m_visibilityLevel = VisibilityLevel::Basic;
+    HintState           m_hintState = HintState::Active;
+    AnimationMode       m_animationMode = AnimationMode::Full;
+};

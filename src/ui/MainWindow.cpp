@@ -13,6 +13,8 @@
 #include <QGraphicsDropShadowEffect>
 #include "FocusGlow.h"
 #include "GeoModeWidget.h"
+#include "settings/SettingsPage.h"
+#include "../settings/Settings.h"
 
 static QString g_fontFamily;
 static void initFont() {
@@ -28,17 +30,17 @@ static QFont MF(int pt, int w = QFont::Normal) {
     f.setStyleHint(QFont::Monospace); return f;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle("MATHX \xe2\x80\x94 Unlimited Calculator");
     setMinimumSize(900, 640); resize(1100, 750);
     setStyleSheet(QString("QMainWindow,QWidget{background:%1;color:%2;}").arg(C_BG, C_TEXT));
 
-    
-   // m_focusAnchor = new FocusAnchor(this);
+
+    // m_focusAnchor = new FocusAnchor(this);
 
     setupUi();
-   
+
 
 
     /*// FocusGlow inspector panel — hidden until the user clicks the FocusAnchor button
@@ -80,6 +82,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     // Connect signals
     connect(m_workerThread, &QThread::started, m_worker, &PersistentWorker::process);
     connect(m_worker, &PersistentWorker::resultReady, this, &MainWindow::onWorkerFinish);
+
     connect(this, &MainWindow::stop, m_worker, &PersistentWorker::cancelAll);
     connect(m_worker, &PersistentWorker::progress, this, [this](int jobId, int percent, const QString& label) {
         m_output->showProgress(percent, label);
@@ -113,7 +116,7 @@ void MainWindow::recreateGeometryMode() {
         m_geoModeWidget = nullptr;
     }
     m_geoModeWidget = new GeoModeWidget;
-    m_centralStack->addWidget(m_geoModeWidget);
+    m_centralStack->insertWidget(1, m_geoModeWidget);
     // Reconnect the back button signal
     connect(m_geoModeWidget, &GeoModeWidget::backClicked, this, [this]() {
         QLayout* root = centralWidget()->layout();
@@ -121,6 +124,7 @@ void MainWindow::recreateGeometryMode() {
         root->setSpacing(m_originalSpacing);
         m_centralStack->setCurrentIndex(0);
         });
+
 }
 void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString& type, const QString& formula) {
     // Retrieve the original expression (needed for geometry cards)
@@ -207,7 +211,9 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
     }
 
 }
-// ── eventFilter ───────────────────────────────────────────────────────────────
+
+
+// -- eventFilter ---------------------------------------------------------------
 bool MainWindow::eventFilter(QObject* obj, QEvent* ev) {
     if (obj != m_input || ev->type() != QEvent::KeyPress)
         return QMainWindow::eventFilter(obj, ev);
@@ -250,7 +256,7 @@ void MainWindow::closeEvent(QCloseEvent* closeEvent)
 
 }
 
-// ── setRunState ───────────────────────────────────────────────────────────────
+// -- setRunState ---------------------------------------------------------------
 void MainWindow::setRunState(RunState state) {
     m_state = state;
     switch (state) {
@@ -261,6 +267,8 @@ void MainWindow::setRunState(RunState state) {
         if (!m_promptCtrl->isActive())
             m_input->setPlaceholderText("Enter expression, equation, or shape...");
         m_input->setFocus();
+        // Apply any staged settings that were waiting for idle
+        Settings::instance().applyPending(true);
         break;
     case RunState::HandlingInput:
         m_runBtn->hide();
@@ -281,7 +289,7 @@ void MainWindow::setRunState(RunState state) {
 
 
 
-// ── submitExpression ──────────────────────────────────────────────────────────
+// -- submitExpression ----------------------------------------------------------
 void MainWindow::submitExpression(const QString& expr) {
     m_output->addInputLine(expr);
     m_lastExprLbl->setText(expr);
@@ -293,10 +301,10 @@ void MainWindow::submitExpression(const QString& expr) {
     run(expr);
 }
 
-// ── onRun ─────────────────────────────────────────────────────────────────────
+// -- onRun ---------------------------------------------------------------------
 void MainWindow::onRun() {
-   // Animations::flash(m_runBtn);
- //   Animations::flash(m_stopBtn);
+    // Animations::flash(m_runBtn);
+  //   Animations::flash(m_stopBtn);
     QString text = m_input->text().trimmed();
     if (text.isEmpty()) return;
     m_input->clear();
@@ -310,7 +318,7 @@ void MainWindow::onRun() {
         setRunState(RunState::HandlingInput);
         submitExpression(text);
     }
-    
+
 }
 
 
@@ -412,7 +420,7 @@ void MainWindow::onRun() {
     m_output->addSeparator();
 
     */
-    // ── run ───────────────────────────────────────────────────────────────────────
+    // -- run -----------------------------------------------------------------------
 void MainWindow::run(const QString& expr) {
 
     m_history.append(expr);
@@ -423,7 +431,7 @@ void MainWindow::run(const QString& expr) {
     m_worker->submitJob(id, expr);
 }
 
-// ── onCalcFinish ──────────────────────────────────────────────────────────────
+// -- onCalcFinish --------------------------------------------------------------
 void MainWindow::onCalcFinish(RunState state, QString result) {
     setRunState(state);
     m_lastResult = result;
@@ -431,7 +439,7 @@ void MainWindow::onCalcFinish(RunState state, QString result) {
         result.length() > 23 ? result.first(20) + "..." : result);
 }
 
-//-─ onStop ───────────────────────────────────────────────────────────────
+//-- onStop ---------------------------------------------------------------
 void MainWindow::onStop() {
     // Cancel any active shape prompt
     if (m_promptCtrl && m_promptCtrl->isActive()) {
@@ -443,7 +451,7 @@ void MainWindow::onStop() {
     setRunState(RunState::Stopping);
 }
 
-// ── onTruncateClicked ─────────────────────────────────────────────────────────
+// -- onTruncateClicked ---------------------------------------------------------
 void MainWindow::onTruncateClicked() {
     // Toggle truncation behaviour — placeholder for future implementation
 }
@@ -468,7 +476,7 @@ void MainWindow::onAsyncResult(int jobId, const QString& result, const QString& 
     setRunState(RunState::Idle);
 }
 
-// ── PromptController slots ────────────────────────────────────────────────────
+// -- PromptController slots ----------------------------------------------------
 void MainWindow::onParamReady(const QString& param, const QString& value) {
     m_output->addPromptAnswer(param, value);
     if (m_promptCtrl->isActive())
@@ -486,7 +494,7 @@ void MainWindow::onPromptCancelled() {
     setRunState(RunState::Idle);
 }
 
-// ── handlePromptInput ─────────────────────────────────────────────────────────
+// -- handlePromptInput ---------------------------------------------------------
 void MainWindow::handlePromptInput(const QString& value) {
     QString param = m_promptCtrl->currentParam();
     double numericValue = 0.0;
@@ -561,7 +569,7 @@ void MainWindow::handlePromptInput(const QString& value) {
     m_promptCtrl->submit(value, numericValue);
 }
 
-// ── tryStartPrompt ────────────────────────────────────────────────────────────
+// -- tryStartPrompt ------------------------------------------------------------
 bool MainWindow::tryStartPrompt(const QString& expr) {
     ShapePrompt p = InputHandler::detectPrompt(expr);
     if (!p.isActive()) return false;
@@ -572,7 +580,7 @@ bool MainWindow::tryStartPrompt(const QString& expr) {
     return true;
 }
 
-// ── Mode / sidebar ────────────────────────────────────────────────────────────
+// -- Mode / sidebar ------------------------------------------------------------
 void MainWindow::onModeChanged(const QString& mode) {
     m_currentMode = mode;
     m_refPanel->renderMode(mode);
@@ -595,7 +603,7 @@ void MainWindow::onSidebarItemDoubleClicked(const QString& expr) {
     m_input->setFocus();
 }
 
-// ── onClear ───────────────────────────────────────────────────────────────────
+// -- onClear -------------------------------------------------------------------
 void MainWindow::onClear() {
     m_history.clear();
     m_histNav->reset();
@@ -624,7 +632,7 @@ MainWindow::~MainWindow() {
     }
 }
 
-// ── setupUi ───────────────────────────────────────────────────────────────────
+// -- setupUi -------------------------------------------------------------------
 /*void MainWindow::setupUi() {
     auto* central = new QWidget(this);
     central->setStyleSheet(QString("background:%1;").arg(C_BG));
@@ -651,7 +659,7 @@ MainWindow::~MainWindow() {
     m_centralStack->addWidget(m_geoModeWidget); // page 1
     mainL->addWidget(m_centralStack, 1);
 
-    
+
 
     auto* sidebar = new QWidget;
     sidebar->setFixedWidth(290);
@@ -755,7 +763,7 @@ void MainWindow::setupUi() {
     // Create stacked widget
     m_centralStack = new QStackedWidget;
     m_centralStack->setStyleSheet("border: none;");
-    // ── Page 0: Terminal mode (with header and sidebar) ─────────────────
+    // -- Page 0: Terminal mode (with header and sidebar) -----------------
     QWidget* terminalPage = new QWidget;
     QVBoxLayout* page0Layout = new QVBoxLayout(terminalPage);
     page0Layout->setContentsMargins(0, 0, 0, 0);
@@ -782,13 +790,59 @@ void MainWindow::setupUi() {
 
     m_centralStack->addWidget(terminalPage);
 
-    // ── Page 1: Geometry mode (full‑window, no header, no sidebar) ──────
+    // -- Page 1: Geometry mode (full‑window, no header, no sidebar) ------
     m_geoModeWidget = new GeoModeWidget;
     m_centralStack->addWidget(m_geoModeWidget);
 
+    // -- Page 2: Settings -------------------------------------------------
+    m_settingsPage = new QWidget;
+    m_settingsPage->setStyleSheet(QString("background:%1;").arg(Theme::BG));
+    auto* settingsLayout = new QVBoxLayout(m_settingsPage);
+    settingsLayout->setContentsMargins(0, 0, 0, 0);
+    settingsLayout->setSpacing(0);
+
+    // >_ back button — top right, always visible on the settings page
+    m_settingsBackBtn = new QPushButton(">_");
+    m_settingsBackBtn->setFixedSize(32, 32);
+    m_settingsBackBtn->setFont(MF(13));
+    m_settingsBackBtn->setCursor(Qt::PointingHandCursor);
+    m_settingsBackBtn->setToolTip("Back to terminal");
+    m_settingsBackBtn->setStyleSheet(QString(
+        "QPushButton { background:none; border:1px solid %1; color:%2;"
+        "border-radius:6px; padding:0px; }"
+        "QPushButton:hover { border-color:%2; color:%2; }"
+    ).arg(C_BORDER, C_ACCENT));
+
+    // Back button sits in a thin top bar so it doesn't overlap the settings chrome
+    auto* settingsTopBar = new QWidget;
+    settingsTopBar->setStyleSheet("background:transparent;");
+    settingsTopBar->setFixedHeight(40);
+    auto* topBarL = new QHBoxLayout(settingsTopBar);
+    topBarL->setContentsMargins(0, 4, 8, 4);
+    topBarL->setSpacing(0);
+    topBarL->addStretch(1);
+    topBarL->addWidget(m_settingsBackBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
+    settingsLayout->addWidget(settingsTopBar);
+
+    // The actual settings page UI
+    m_settingsPageWidget = new SettingsPage;
+    settingsLayout->addWidget(m_settingsPageWidget, 1);
+
+    // Back button wired through prepareToLeave so pending changes apply first
+    connect(m_settingsBackBtn, &QPushButton::clicked, this, [this]() {
+        m_settingsPageWidget->prepareToLeave([this]() {
+            m_centralStack->setCurrentIndex(0);
+            m_settingsBackBtn->hide();
+            m_settingsBtn->show();
+            });
+        });
+
+    m_settingsBackBtn->hide(); // hidden until settings is opened
+    m_centralStack->addWidget(m_settingsPage);
+
     root->addWidget(m_centralStack, 1);
 }
-// ── setupHeader ───────────────────────────────────────────────────────────────
+// -- setupHeader ---------------------------------------------------------------
 /*void MainWindow::setupHeader() {
     m_header = new QWidget; m_header->setStyleSheet("background:transparent;");
     auto* hl = new QHBoxLayout(m_header); hl->setContentsMargins(0, 0, 0, 0);
@@ -867,7 +921,7 @@ void MainWindow::setupHeader() {
 
     m_header->setAttribute(Qt::WA_TranslucentBackground);
     m_header->setAutoFillBackground(false);
-    // ── Logo ──────────────────────────────────────────────────────────────
+    // -- Logo --------------------------------------------------------------
     CRTTextLabel* logoo = new CRTTextLabel("MATHX", this);
     logoo->setSubtitle("UNLIMITED CALCULATOR", 9);
     logoo->setGlowColor(QColor(0, 255, 65));
@@ -881,7 +935,7 @@ void MainWindow::setupHeader() {
     hl->addWidget(logoo, 0, Qt::AlignLeft | Qt::AlignVCenter);
     hl->addStretch(1);                   // spacer pushes tabs right
 
-    // ── Mode tabs ─────────────────────────────────────────────────────────
+    // -- Mode tabs ---------------------------------------------------------
     m_modesBar = new QWidget;
     m_modesBar->setStyleSheet("background:transparent;");
     auto* ml = new QHBoxLayout(m_modesBar);
@@ -924,266 +978,292 @@ void MainWindow::setupHeader() {
 
     hl->addWidget(m_modesBar, 0, Qt::AlignRight | Qt::AlignVCenter);
 
+    // -- Settings button (far right) ---------------------------------------
+    // Shows ⚙ when on terminal/geo — click goes to settings (page 2)
+    // Shows >_ when on settings — click returns to terminal (page 0)
+    m_settingsBtn = new QPushButton("⚙");
+    m_settingsBtn->setFixedSize(32, 32);
+    m_settingsBtn->setFont(MF(13));
+    m_settingsBtn->setCursor(Qt::PointingHandCursor);
+    m_settingsBtn->setToolTip("Settings");
+    m_settingsBtn->setStyleSheet(QString(
+        "QPushButton { background: none; border: 1px solid %1; color: %2;"
+        "border-radius: 6px; padding: 0px; }"
+        "QPushButton:hover { border-color: %3; color: %3; }"
+    ).arg(C_BORDER, C_MUTED, C_ACCENT));
+
+    connect(m_settingsBtn, &QPushButton::clicked, this, [this]() {
+        if (m_centralStack->currentIndex() == 0) {
+            m_centralStack->setCurrentIndex(2);
+            m_settingsBtn->hide();
+            m_settingsBackBtn->show();
+        }
+        });
+    m_settingsBtn->setContentsMargins(0, 40, 0, 0);
+    hl->addSpacing(8);
+    hl->addWidget(m_settingsBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
+    hl->addSpacing(8);
 }
-/*void MainWindow::setupHeader() {
-    m_header = new QWidget; m_header->setStyleSheet("background:transparent;");
-    auto* hl = new QHBoxLayout(m_header);
-    hl->setContentsMargins(0, 0, 0, 0);
+    /*void MainWindow::setupHeader() {
+        m_header = new QWidget; m_header->setStyleSheet("background:transparent;");
+        auto* hl = new QHBoxLayout(m_header);
+        hl->setContentsMargins(0, 0, 0, 0);
 
-    // Logo
-    initFont();
-    auto* logoArea = new QWidget; logoArea->setStyleSheet("background:transparent;");
-    auto* logoL = new QVBoxLayout(logoArea);
-    logoL->setContentsMargins(0, 0, 0, 0); logoL->setSpacing(1);
+        // Logo
+        initFont();
+        auto* logoArea = new QWidget; logoArea->setStyleSheet("background:transparent;");
+        auto* logoL = new QVBoxLayout(logoArea);
+        logoL->setContentsMargins(0, 0, 0, 0); logoL->setSpacing(1);
 
-    auto* logo = new QLabel;
-    // Syne ExtraBold for the MATHX logo — matches the original HTML font-weight:800
-    QFont lf("Syne"); lf.setPointSize(20); lf.setWeight(QFont::ExtraBold);
-    if (!QFontDatabase::families().contains("Syne"))
-    {
-        lf.setFamily(g_fontFamily);
-    }  // fallback if Syne not installed
-    logo->setFont(lf); logo->setTextFormat(Qt::RichText);
-    logo->setText(QString("<span style='color:%1;'>MATH</span><span style='color:%2;'>X</span>")
-        .arg(C_ACCENT, C_TEXT));
-    // Glow effect on the MATHX logo
-    auto* glow = new QGraphicsDropShadowEffect;
-    glow->setBlurRadius(18);
-    glow->setColor(QColor("#00e87a"));
-    glow->setOffset(0, 0);
-    logo->setGraphicsEffect(glow);
-    logo->setStyleSheet("background:transparent;");
+        auto* logo = new QLabel;
+        // Syne ExtraBold for the MATHX logo — matches the original HTML font-weight:800
+        QFont lf("Syne"); lf.setPointSize(20); lf.setWeight(QFont::ExtraBold);
+        if (!QFontDatabase::families().contains("Syne"))
+        {
+            lf.setFamily(g_fontFamily);
+        }  // fallback if Syne not installed
+        logo->setFont(lf); logo->setTextFormat(Qt::RichText);
+        logo->setText(QString("<span style='color:%1;'>MATH</span><span style='color:%2;'>X</span>")
+            .arg(C_ACCENT, C_TEXT));
+        // Glow effect on the MATHX logo
+        auto* glow = new QGraphicsDropShadowEffect;
+        glow->setBlurRadius(18);
+        glow->setColor(QColor("#00e87a"));
+        glow->setOffset(0, 0);
+        logo->setGraphicsEffect(glow);
+        logo->setStyleSheet("background:transparent;");
 
-    auto* tagline = new QLabel("UNLIMITED CALCULATOR"); tagline->setFont(MF(7));
-    tagline->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:2px;").arg(C_MUTED));
+        auto* tagline = new QLabel("UNLIMITED CALCULATOR"); tagline->setFont(MF(7));
+        tagline->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:2px;").arg(C_MUTED));
 
-    logoL->addWidget(logo); logoL->addWidget(tagline);
-    hl->addWidget(logoArea); hl->addStretch();
+        logoL->addWidget(logo); logoL->addWidget(tagline);
+        hl->addWidget(logoArea); hl->addStretch();
 
-    // Mode buttons
-    m_modesBar = new QWidget; m_modesBar->setStyleSheet("background:transparent;");
-    auto* ml = new QHBoxLayout(m_modesBar);
-    ml->setContentsMargins(0, 0, 0, 0); ml->setSpacing(6);
+        // Mode buttons
+        m_modesBar = new QWidget; m_modesBar->setStyleSheet("background:transparent;");
+        auto* ml = new QHBoxLayout(m_modesBar);
+        ml->setContentsMargins(0, 0, 0, 0); ml->setSpacing(6);
 
-    struct ME { QString label, key; };
-    QList<ME> modes = { {"All","all"},{"Arithmetic","arith"},{"Algebra","algebra"},
-                       {"Trig","trig"},{"Geometry","geo"},{"Convert","conv"} };
+        struct ME { QString label, key; };
+        QList<ME> modes = { {"All","all"},{"Arithmetic","arith"},{"Algebra","algebra"},
+                           {"Trig","trig"},{"Geometry","geo"},{"Convert","conv"} };
 
-    QString inactiveCSS = QString(
-        "QPushButton{background:none;border:1px solid %1;color:%2;"
-        "padding:2px 12px;border-radius:13px;letter-spacing:1px;}"
-        "QPushButton:hover{border-color:%3;color:%3;}"
-    ).arg(C_BORDER, C_MUTED, C_ACCENT_DIM);
-    QString activeCSS = QString(
-        "QPushButton{background:%1;border:1px solid %1;color:#000;"
-        "padding:2px 12px;border-radius:13px;letter-spacing:1px;font-weight:bold;}"
-    ).arg(C_ACCENT);
+        QString inactiveCSS = QString(
+            "QPushButton{background:none;border:1px solid %1;color:%2;"
+            "padding:2px 12px;border-radius:13px;letter-spacing:1px;}"
+            "QPushButton:hover{border-color:%3;color:%3;}"
+        ).arg(C_BORDER, C_MUTED, C_ACCENT_DIM);
+        QString activeCSS = QString(
+            "QPushButton{background:%1;border:1px solid %1;color:#000;"
+            "padding:2px 12px;border-radius:13px;letter-spacing:1px;font-weight:bold;}"
+        ).arg(C_ACCENT);
 
-    for (int i = 0; i < modes.size(); ++i) {
-        auto* btn = new QPushButton(modes[i].label);
-        btn->setProperty("modeKey", modes[i].key);
-        btn->setFont(MF(8)); btn->setFixedHeight(26);
-        btn->setStyleSheet(i == 0 ? activeCSS : inactiveCSS);
-        if (i == 0) m_activeMode = btn;
+        for (int i = 0; i < modes.size(); ++i) {
+            auto* btn = new QPushButton(modes[i].label);
+            btn->setProperty("modeKey", modes[i].key);
+            btn->setFont(MF(8)); btn->setFixedHeight(26);
+            btn->setStyleSheet(i == 0 ? activeCSS : inactiveCSS);
+            if (i == 0) m_activeMode = btn;
 
-        connect(btn, &QPushButton::clicked, this, [this, btn, inactiveCSS, activeCSS]() mutable {
-            if (m_activeMode && m_activeMode != btn) m_activeMode->setStyleSheet(inactiveCSS);
-            btn->setStyleSheet(activeCSS);
-            m_activeMode = btn;
-            onModeChanged(btn->property("modeKey").toString());
+            connect(btn, &QPushButton::clicked, this, [this, btn, inactiveCSS, activeCSS]() mutable {
+                if (m_activeMode && m_activeMode != btn) m_activeMode->setStyleSheet(inactiveCSS);
+                btn->setStyleSheet(activeCSS);
+                m_activeMode = btn;
+                onModeChanged(btn->property("modeKey").toString());
+                });
+            ml->addWidget(btn);
+        }
+        hl->addWidget(m_modesBar);
+    }*/
+    // -- setupTerminal -------------------------------------------------------------
+
+    void MainWindow::setupTerminal() {
+        m_terminal = new QFrame; m_terminal->setObjectName("terminal");
+        m_terminal->setStyleSheet(QString(
+            "QFrame#terminal{background:%1;border:1px solid %2;border-radius:12px;}"
+        ).arg(C_SURFACE, C_BORDER));
+        auto* tl = new QVBoxLayout(m_terminal); tl->setContentsMargins(0, 0, 0, 0); tl->setSpacing(0);
+
+        auto* termBar = new QWidget; termBar->setObjectName("termBar"); termBar->setFixedHeight(36);
+        termBar->setStyleSheet(QString(
+            "QWidget#termBar{background:%1;border-bottom:1px solid %2;"
+            "border-top-left-radius:12px;border-top-right-radius:12px;}"
+        ).arg(C_CARD, C_BORDER));
+        auto* tbL = new QHBoxLayout(termBar); tbL->setContentsMargins(14, 0, 16, 0); tbL->setSpacing(7);
+        for (const QString& col : { "#ff5f57","#febc2e","#28c840" }) {
+            auto* d = new QLabel; d->setFixedSize(12, 12);
+            d->setStyleSheet(QString("background:%1;border-radius:6px;").arg(col));
+            tbL->addWidget(d);
+        }
+        tbL->addStretch();
+        auto* termTitle = new QLabel("mathx v1.0 \xe2\x80\x94 session"); termTitle->setFont(MF(8));
+        termTitle->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:1px;").arg(C_MUTED));
+        tbL->addWidget(termTitle);
+
+        m_output = new OutputArea;
+
+        m_inputRow = new QFrame; m_inputRow->setObjectName("inputRow"); m_inputRow->setFixedHeight(52);
+        auto* inputRow = m_inputRow;
+        inputRow->setStyleSheet(QString(
+            "QFrame#inputRow{background:%1;border-top:1px solid %2;"
+            "border-bottom-left-radius:12px;border-bottom-right-radius:12px;}"
+        ).arg(C_CARD, C_BORDER));
+        auto* ir = new QHBoxLayout(inputRow); ir->setContentsMargins(16, 0, 14, 0); ir->setSpacing(10);
+
+        auto* promptSym = new QLabel(">>"); promptSym->setFont(MF(12, QFont::Bold));
+        promptSym->setStyleSheet(QString("color:%1;background:transparent;").arg(C_ACCENT));
+
+        m_promptLbl = new QLabel; m_promptLbl->setFont(MF(10));
+        m_promptLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(C_ACCENT));
+        m_promptLbl->hide();
+
+
+
+        m_input = new DraggableExpressionEdit(this);
+        m_input->setPlaceholderText("Enter expression, equation, or shape...");
+        m_input->setFont(MF(10)); m_input->setFrame(false);
+        m_input->setStyleSheet(QString("QLineEdit{background:transparent;border:none;color:%1;}").arg(C_TEXT));
+
+        m_runBtn = new QPushButton("RUN"); m_runBtn->setFont(MF(9, QFont::Bold)); m_runBtn->setFixedSize(72, 32);
+        m_runBtn->setStyleSheet(QString(
+            "QPushButton{background:%1;border:none;color:#000;border-radius:6px;letter-spacing:1px;}"
+            "QPushButton:hover{background:%2;}"
+        ).arg(C_ACCENT, C_ACCENT_DIM));
+
+        m_stopBtn = new QPushButton("STOP"); m_stopBtn->setFont(MF(9, QFont::Bold)); m_stopBtn->setFixedSize(72, 32);
+        m_stopBtn->setStyleSheet(QString(
+            "QPushButton{background:%1;border:none;color:#fff;border-radius:6px;letter-spacing:1px;}"
+            "QPushButton:hover{background:%2;}"
+        ).arg(C_VRED, C_DRED));
+        m_stopBtn->hide();
+
+
+
+        ir->addWidget(promptSym);
+        ir->addWidget(m_promptLbl);
+        ir->addWidget(m_input, 1);
+        ir->addWidget(m_runBtn);
+        ir->addWidget(m_stopBtn);
+
+
+        tl->addWidget(termBar);
+        tl->addWidget(m_output, 1);
+        tl->addWidget(inputRow);
+
+        // Construct input subsystems now that widgets exist
+        m_histNav = new HistoryNavigator(m_history);
+        m_promptCtrl = new PromptController(m_promptLbl, m_input, this);
+
+        // Wire signals
+        connect(m_runBtn, &QPushButton::clicked, this, &MainWindow::onRun);
+        connect(m_input, &QLineEdit::returnPressed, this, &MainWindow::onRun);
+        connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStop);
+        connect(m_output, &OutputArea::calcFinish, this, &MainWindow::onCalcFinish);
+
+        connect(m_promptCtrl, &PromptController::paramReady, this, &MainWindow::onParamReady);
+        connect(m_promptCtrl, &PromptController::promptComplete, this, &MainWindow::onPromptComplete);
+        connect(m_promptCtrl, &PromptController::promptCancelled, this, &MainWindow::onPromptCancelled);
+        connect(m_promptCtrl, &PromptController::needsMoreInput,
+            this, [this](const QString& param, const QString& reason) {
+                m_output->addResultLine(QString("\xe2\x9a\xa0 %1").arg(reason), "err");
+                m_output->addPromptRequest(param);
+                m_input->setFocus();
             });
-        ml->addWidget(btn);
+
+        connect(MathEngine::instance(), &MathEngine::simplification,
+            m_output, &OutputArea::addSimplified);
+
+        connect(m_input, &QLineEdit::textEdited, this, [this]() {
+            m_histNav->reset();
+            });
+
+        m_input->installEventFilter(this);
     }
-    hl->addWidget(m_modesBar);
-}*/
-// ── setupTerminal ─────────────────────────────────────────────────────────────
-void MainWindow::setupTerminal() {
-    m_terminal = new QFrame; m_terminal->setObjectName("terminal");
-    m_terminal->setStyleSheet(QString(
-        "QFrame#terminal{background:%1;border:1px solid %2;border-radius:12px;}"
-    ).arg(C_SURFACE, C_BORDER));
-    auto* tl = new QVBoxLayout(m_terminal); tl->setContentsMargins(0, 0, 0, 0); tl->setSpacing(0);
 
-    auto* termBar = new QWidget; termBar->setObjectName("termBar"); termBar->setFixedHeight(36);
-    termBar->setStyleSheet(QString(
-        "QWidget#termBar{background:%1;border-bottom:1px solid %2;"
-        "border-top-left-radius:12px;border-top-right-radius:12px;}"
-    ).arg(C_CARD, C_BORDER));
-    auto* tbL = new QHBoxLayout(termBar); tbL->setContentsMargins(14, 0, 16, 0); tbL->setSpacing(7);
-    for (const QString& col : { "#ff5f57","#febc2e","#28c840" }) {
-        auto* d = new QLabel; d->setFixedSize(12, 12);
-        d->setStyleSheet(QString("background:%1;border-radius:6px;").arg(col));
-        tbL->addWidget(d);
+    QWidget* MainWindow::createSidebar() {
+        auto* sidebar = new QWidget;
+        sidebar->setFixedWidth(290);
+        sidebar->setStyleSheet("background:transparent;");
+        auto* sbL = new QVBoxLayout(sidebar);
+        sbL->setContentsMargins(0, 0, 0, 0);
+        sbL->setSpacing(12);
+
+        // Quick Reference Frame
+        auto* refFrame = new QFrame;
+        refFrame->setObjectName("refFrame");
+        refFrame->setStyleSheet(QString(
+            "QFrame#refFrame{background:%1;border:1px solid %2;border-radius:12px;}"
+        ).arg(C_SURFACE, C_BORDER));
+        auto* refVL = new QVBoxLayout(refFrame);
+        refVL->setContentsMargins(0, 0, 0, 0);
+        refVL->setSpacing(0);
+        auto* refHead = new QLabel("QUICK REFERENCE");
+        refHead->setFont(MF(8));
+        refHead->setStyleSheet(QString(
+            "background:%1;border-bottom:1px solid %2;"
+            "border-top-left-radius:12px;border-top-right-radius:12px;"
+            "padding:9px 14px;color:%3;letter-spacing:2px;"
+        ).arg(C_CARD, C_BORDER, C_MUTED));
+        m_refPanel = new SidebarPanel;
+        connect(m_refPanel, &SidebarPanel::itemClicked, this, &MainWindow::onSidebarItemClicked);
+        connect(m_refPanel, &SidebarPanel::itemDoubleClicked, this, &MainWindow::onSidebarItemDoubleClicked);
+        refVL->addWidget(refHead);
+        refVL->addWidget(m_refPanel, 1);
+        sbL->addWidget(refFrame);
+
+        // Session Frame
+        auto* sessFrame = new QFrame;
+        sessFrame->setObjectName("sessFrame");
+        sessFrame->setStyleSheet(QString(
+            "QFrame#sessFrame{background:%1;border:1px solid %2;border-radius:12px;}"
+        ).arg(C_SURFACE, C_BORDER));
+        auto* sessVL = new QVBoxLayout(sessFrame);
+        sessVL->setContentsMargins(0, 0, 0, 0);
+        sessVL->setSpacing(0);
+        auto* sessHead = new QLabel("SESSION");
+        sessHead->setFont(MF(8));
+        sessHead->setStyleSheet(QString(
+            "background:%1;border-bottom:1px solid %2;"
+            "border-top-left-radius:12px;border-top-right-radius:12px;"
+            "padding:9px 14px;color:%3;letter-spacing:2px;"
+        ).arg(C_CARD, C_BORDER, C_MUTED));
+        auto* sessBody = new QWidget;
+        sessBody->setStyleSheet("background:transparent;");
+        auto* sessBodyL = new QVBoxLayout(sessBody);
+        sessBodyL->setContentsMargins(14, 10, 14, 12);
+        sessBodyL->setSpacing(5);
+        auto makeRow = [&](const QString& t, QLabel*& valLbl, const QString& valColor) {
+            auto* row = new QHBoxLayout;
+            row->setContentsMargins(0, 0, 0, 0);
+            auto* lbl = new QLabel(t);
+            lbl->setFont(MF(9));
+            lbl->setStyleSheet(QString("color:%1;background:transparent;").arg(C_MUTED));
+            valLbl = new QLabel("—");
+            valLbl->setFont(MF(9));
+            valLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(valColor));
+            row->addWidget(lbl);
+            row->addSpacing(6);
+            row->addWidget(valLbl);
+            row->addStretch();
+            sessBodyL->addLayout(row);
+            };
+        makeRow("Calculations:", m_countLbl, C_TEXT);
+        m_countLbl->setText("0");
+        makeRow("Last result:", m_lastResultLbl, C_ACCENT);
+        makeRow("Last Expression Ran:", m_lastExprLbl, C_ACCENT);
+        auto* clearBtn = new QPushButton("Clear History");
+        clearBtn->setFont(MF(9));
+        clearBtn->setFixedHeight(26);
+        clearBtn->setStyleSheet(QString(
+            "QPushButton{background:none;border:1px solid %1;color:%2;padding:2px 12px;border-radius:6px;}"
+            "QPushButton:hover{border-color:%3;color:%3;}"
+        ).arg(C_BORDER, C_MUTED, C_ERR));
+        connect(clearBtn, &QPushButton::clicked, this, &MainWindow::onClear);
+        sessBodyL->addSpacing(2);
+        sessBodyL->addWidget(clearBtn);
+        sessVL->addWidget(sessHead);
+        sessVL->addWidget(sessBody);
+        sbL->addWidget(sessFrame);
+
+        return sidebar;
     }
-    tbL->addStretch();
-    auto* termTitle = new QLabel("mathx v1.0 \xe2\x80\x94 session"); termTitle->setFont(MF(8));
-    termTitle->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:1px;").arg(C_MUTED));
-    tbL->addWidget(termTitle);
-
-    m_output = new OutputArea;
-
-    m_inputRow = new QFrame; m_inputRow->setObjectName("inputRow"); m_inputRow->setFixedHeight(52);
-    auto* inputRow = m_inputRow;
-    inputRow->setStyleSheet(QString(
-        "QFrame#inputRow{background:%1;border-top:1px solid %2;"
-        "border-bottom-left-radius:12px;border-bottom-right-radius:12px;}"
-    ).arg(C_CARD, C_BORDER));
-    auto* ir = new QHBoxLayout(inputRow); ir->setContentsMargins(16, 0, 14, 0); ir->setSpacing(10);
-
-    auto* promptSym = new QLabel(">>"); promptSym->setFont(MF(12, QFont::Bold));
-    promptSym->setStyleSheet(QString("color:%1;background:transparent;").arg(C_ACCENT));
-
-    m_promptLbl = new QLabel; m_promptLbl->setFont(MF(10));
-    m_promptLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(C_ACCENT));
-    m_promptLbl->hide();
-
-
-
-    m_input = new DraggableExpressionEdit(this);
-    m_input->setPlaceholderText("Enter expression, equation, or shape...");
-    m_input->setFont(MF(10)); m_input->setFrame(false);
-    m_input->setStyleSheet(QString("QLineEdit{background:transparent;border:none;color:%1;}").arg(C_TEXT));
-
-    m_runBtn = new QPushButton("RUN"); m_runBtn->setFont(MF(9, QFont::Bold)); m_runBtn->setFixedSize(72, 32);
-    m_runBtn->setStyleSheet(QString(
-        "QPushButton{background:%1;border:none;color:#000;border-radius:6px;letter-spacing:1px;}"
-        "QPushButton:hover{background:%2;}"
-    ).arg(C_ACCENT, C_ACCENT_DIM));
-
-    m_stopBtn = new QPushButton("STOP"); m_stopBtn->setFont(MF(9, QFont::Bold)); m_stopBtn->setFixedSize(72, 32);
-    m_stopBtn->setStyleSheet(QString(
-        "QPushButton{background:%1;border:none;color:#fff;border-radius:6px;letter-spacing:1px;}"
-        "QPushButton:hover{background:%2;}"
-    ).arg(C_VRED, C_DRED));
-    m_stopBtn->hide();
-
-
-
-    ir->addWidget(promptSym);
-    ir->addWidget(m_promptLbl);
-    ir->addWidget(m_input, 1);
-    ir->addWidget(m_runBtn);
-    ir->addWidget(m_stopBtn);
-
-
-    tl->addWidget(termBar);
-    tl->addWidget(m_output, 1);
-    tl->addWidget(inputRow);
-
-    // Construct input subsystems now that widgets exist
-    m_histNav = new HistoryNavigator(m_history);
-    m_promptCtrl = new PromptController(m_promptLbl, m_input, this);
-
-    // Wire signals
-    connect(m_runBtn, &QPushButton::clicked, this, &MainWindow::onRun);
-    connect(m_input, &QLineEdit::returnPressed, this, &MainWindow::onRun);
-    connect(m_stopBtn, &QPushButton::clicked, this, &MainWindow::onStop);
-    connect(m_output, &OutputArea::calcFinish, this, &MainWindow::onCalcFinish);
-
-    connect(m_promptCtrl, &PromptController::paramReady, this, &MainWindow::onParamReady);
-    connect(m_promptCtrl, &PromptController::promptComplete, this, &MainWindow::onPromptComplete);
-    connect(m_promptCtrl, &PromptController::promptCancelled, this, &MainWindow::onPromptCancelled);
-    connect(m_promptCtrl, &PromptController::needsMoreInput,
-        this, [this](const QString& param, const QString& reason) {
-            m_output->addResultLine(QString("\xe2\x9a\xa0 %1").arg(reason), "err");
-            m_output->addPromptRequest(param);
-            m_input->setFocus();
-        });
-
-    connect(MathEngine::instance(), &MathEngine::simplification,
-        m_output, &OutputArea::addSimplified);
-
-    connect(m_input, &QLineEdit::textEdited, this, [this]() {
-        m_histNav->reset();
-        });
-
-    m_input->installEventFilter(this);
-}
-
-QWidget* MainWindow::createSidebar() {
-    auto* sidebar = new QWidget;
-    sidebar->setFixedWidth(290);
-    sidebar->setStyleSheet("background:transparent;");
-    auto* sbL = new QVBoxLayout(sidebar);
-    sbL->setContentsMargins(0, 0, 0, 0);
-    sbL->setSpacing(12);
-
-    // Quick Reference Frame
-    auto* refFrame = new QFrame;
-    refFrame->setObjectName("refFrame");
-    refFrame->setStyleSheet(QString(
-        "QFrame#refFrame{background:%1;border:1px solid %2;border-radius:12px;}"
-    ).arg(C_SURFACE, C_BORDER));
-    auto* refVL = new QVBoxLayout(refFrame);
-    refVL->setContentsMargins(0, 0, 0, 0);
-    refVL->setSpacing(0);
-    auto* refHead = new QLabel("QUICK REFERENCE");
-    refHead->setFont(MF(8));
-    refHead->setStyleSheet(QString(
-        "background:%1;border-bottom:1px solid %2;"
-        "border-top-left-radius:12px;border-top-right-radius:12px;"
-        "padding:9px 14px;color:%3;letter-spacing:2px;"
-    ).arg(C_CARD, C_BORDER, C_MUTED));
-    m_refPanel = new SidebarPanel;
-    connect(m_refPanel, &SidebarPanel::itemClicked, this, &MainWindow::onSidebarItemClicked);
-    connect(m_refPanel, &SidebarPanel::itemDoubleClicked, this, &MainWindow::onSidebarItemDoubleClicked);
-    refVL->addWidget(refHead);
-    refVL->addWidget(m_refPanel, 1);
-    sbL->addWidget(refFrame);
-
-    // Session Frame
-    auto* sessFrame = new QFrame;
-    sessFrame->setObjectName("sessFrame");
-    sessFrame->setStyleSheet(QString(
-        "QFrame#sessFrame{background:%1;border:1px solid %2;border-radius:12px;}"
-    ).arg(C_SURFACE, C_BORDER));
-    auto* sessVL = new QVBoxLayout(sessFrame);
-    sessVL->setContentsMargins(0, 0, 0, 0);
-    sessVL->setSpacing(0);
-    auto* sessHead = new QLabel("SESSION");
-    sessHead->setFont(MF(8));
-    sessHead->setStyleSheet(QString(
-        "background:%1;border-bottom:1px solid %2;"
-        "border-top-left-radius:12px;border-top-right-radius:12px;"
-        "padding:9px 14px;color:%3;letter-spacing:2px;"
-    ).arg(C_CARD, C_BORDER, C_MUTED));
-    auto* sessBody = new QWidget;
-    sessBody->setStyleSheet("background:transparent;");
-    auto* sessBodyL = new QVBoxLayout(sessBody);
-    sessBodyL->setContentsMargins(14, 10, 14, 12);
-    sessBodyL->setSpacing(5);
-    auto makeRow = [&](const QString& t, QLabel*& valLbl, const QString& valColor) {
-        auto* row = new QHBoxLayout;
-        row->setContentsMargins(0, 0, 0, 0);
-        auto* lbl = new QLabel(t);
-        lbl->setFont(MF(9));
-        lbl->setStyleSheet(QString("color:%1;background:transparent;").arg(C_MUTED));
-        valLbl = new QLabel("—");
-        valLbl->setFont(MF(9));
-        valLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(valColor));
-        row->addWidget(lbl);
-        row->addSpacing(6);
-        row->addWidget(valLbl);
-        row->addStretch();
-        sessBodyL->addLayout(row);
-        };
-    makeRow("Calculations:", m_countLbl, C_TEXT);
-    m_countLbl->setText("0");
-    makeRow("Last result:", m_lastResultLbl, C_ACCENT);
-    makeRow("Last Expression Ran:", m_lastExprLbl, C_ACCENT);
-    auto* clearBtn = new QPushButton("Clear History");
-    clearBtn->setFont(MF(9));
-    clearBtn->setFixedHeight(26);
-    clearBtn->setStyleSheet(QString(
-        "QPushButton{background:none;border:1px solid %1;color:%2;padding:2px 12px;border-radius:6px;}"
-        "QPushButton:hover{border-color:%3;color:%3;}"
-    ).arg(C_BORDER, C_MUTED, C_ERR));
-    connect(clearBtn, &QPushButton::clicked, this, &MainWindow::onClear);
-    sessBodyL->addSpacing(2);
-    sessBodyL->addWidget(clearBtn);
-    sessVL->addWidget(sessHead);
-    sessVL->addWidget(sessBody);
-    sbL->addWidget(sessFrame);
-
-    return sidebar;
-}

@@ -23,7 +23,7 @@ CRTTextLabel::CRTTextLabel(const QString& text, QWidget* parent)
     m_flickerTimer->start(80);
 }
 
-// ── Setters ────────────────────────────────────────────────────────────────
+// -- Setters ----------------------------------------------------------------
 
 void CRTTextLabel::setText(const QString& text) {
     if (m_text == text) return;
@@ -97,7 +97,7 @@ void CRTTextLabel::setSubtitle(const QString& subtitle, int pointSize) {
     update();
 }
 
-// ── Size hint ──────────────────────────────────────────────────────────────
+// -- Size hint --------------------------------------------------------------
 
 QSize CRTTextLabel::sizeHint() const {
     QFontMetrics fm(m_font);
@@ -114,7 +114,7 @@ QSize CRTTextLabel::sizeHint() const {
     return QSize(w, h);
 }
 
-// ── Paint ──────────────────────────────────────────────────────────────────
+// -- Paint ------------------------------------------------------------------
 
 void CRTTextLabel::paintEvent(QPaintEvent*) {
     QImage img(size(), QImage::Format_ARGB32_Premultiplied);
@@ -238,7 +238,7 @@ void CRTTextLabel::stripTargetColors(QImage& img) {
     }
 }
 
-// ── Slots ──────────────────────────────────────────────────────────────────
+// -- Slots ------------------------------------------------------------------
 
 void CRTTextLabel::onFlickerTick() {
     // Gentle organic flicker — mostly steady with occasional dips

@@ -29,7 +29,7 @@
 #include "BigNum.h"
 
 
-// ── Resolved unit ─────────────────────────────────────────────────────────────
+// -- Resolved unit -------------------------------------------------------------
 struct ResolvedUnit {
     QString category;
     double  toBase = 0;
@@ -40,7 +40,7 @@ struct ResolvedUnit {
     QString formula;   // human‑readable conversion explanation
 };
 
-// ── SI prefix table ───────────────────────────────────────────────────────────
+// -- SI prefix table -----------------------------------------------------------
 struct SIPrefix { QString sym; double factor; };
 static const QVector<SIPrefix> SI_PREFIXES = {
     {"Y",1e24},{"Z",1e21},{"E",1e18},{"P",1e15},{"T",1e12},{"G",1e9},
@@ -49,7 +49,7 @@ static const QVector<SIPrefix> SI_PREFIXES = {
     {"p",1e-12},{"f",1e-15},{"a",1e-18},{"z",1e-21},{"y",1e-24},
 };
 
-// ── SI base definitions ───────────────────────────────────────────────────────
+// -- SI base definitions -------------------------------------------------------
 struct SIBase {
     QString     symbol;
     QString     category;
@@ -87,7 +87,7 @@ static const QVector<SIBase> SI_BASES = {
     {"L",   "volume",           0.001,   true,  {"litre","liter","litres","liters"}},
     {"b",   "data",             1.0,     true,  {"byte","bytes"}},
 };
-// ── Manual non-SI units ───────────────────────────────────────────────────────
+// -- Manual non-SI units -------------------------------------------------------
 struct ManualUnit {
     QString     key;
     QString     category;
@@ -256,7 +256,7 @@ static const QVector<ManualUnit> MANUAL = {
     {"kml",     "fueleco",1.0,             {"km/l"}},
 };
 
-// ── Non-linear units ──────────────────────────────────────────────────────────
+// -- Non-linear units ----------------------------------------------------------
 struct NonLinearUnit {
     QString     key;
     QString     category;
@@ -307,7 +307,7 @@ static const QVector<NonLinearUnit> NONLINEAR = {
             {"lper100km","l100km"}},
 };
 
-// ── Build lookup map (once) ───────────────────────────────────────────────────
+// -- Build lookup map (once) ---------------------------------------------------
 static QMap<QString, ResolvedUnit> buildUnitMap() {
     QMap<QString, ResolvedUnit> map;
 

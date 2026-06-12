@@ -191,7 +191,7 @@ double MathEngine::evalSide(const QString& side, const QString& varName, double 
 
 using PolyMap = QMap<QString, double>;  // key="" → constant term
 
-// ── formatPoly ────────────────────────────────────────────────────────────────
+// -- formatPoly ----------------------------------------------------------------
 static QString formatPoly(const PolyMap& poly) {
     if (poly.isEmpty()) return "0";
 
@@ -222,7 +222,7 @@ static QString formatPoly(const PolyMap& poly) {
     return result.isEmpty() ? "0" : result;
 }
 
-// ── parseTerm ─────────────────────────────────────────────────────────────────
+// -- parseTerm -----------------------------------------------------------------
 // Parses a single flat term (no parens): "2x", "-x", "3", "0.5x"
 // Returns false for anything it can't handle (x^2, xy, etc.)
 static bool parseTerm(const QString& raw, double signMul, PolyMap& out) {
@@ -252,7 +252,7 @@ static bool parseTerm(const QString& raw, double signMul, PolyMap& out) {
 }
 
 
-// ── Term parser ───────────────────────────────────────────────────────────────
+// -- Term parser ---------------------------------------------------------------
 // Parses a flat (no-parens) term like "2x", "-x", "3", "0.5x"
 // Returns false if the term contains anything unexpected (e.g. x^2, xy)
 static bool parseTerm(const QString& raw, PolyMap& out) {
@@ -282,7 +282,7 @@ static bool parseTerm(const QString& raw, PolyMap& out) {
     out[var] += coeff;
     return true;
 }
-// ── splitTopLevel ─────────────────────────────────────────────────────────────
+// -- splitTopLevel -------------------------------------------------------------
 // Splits `expr` on top-level (depth-0) `+` and `-`.
 // Returns list of {sign, token} pairs where sign is +1.0 or -1.0.
 struct SignedToken { double sign; QString token; };
@@ -347,7 +347,7 @@ static bool flattenExpr(const QString& expr, double signMul, PolyMap& out) {
 }
 
 
-// ── tryFraction ───────────────────────────────────────────────────────────────
+// -- tryFraction ---------------------------------------------------------------
 static QString tryFraction(const QString& e) {
     static QRegularExpression re(R"(^(-?\d+)\s*/\s*(-?\d+)$)");
     auto m = re.match(e);
@@ -365,7 +365,7 @@ static QString tryFraction(const QString& e) {
         : QString("%1/%2").arg(rn).arg(rd);
 }
 
-// ── tryConstantFold ───────────────────────────────────────────────────────────
+// -- tryConstantFold -----------------------------------------------------------
 static QString tryConstantFold(const QString& e) {
     static QRegularExpression re(
         R"(^([\d.]+)\s*\*\s*(pi|e)\s*\*\s*1$)"
@@ -384,7 +384,7 @@ static QString tryConstantFold(const QString& e) {
     if (coeff.isEmpty() || constName.isEmpty()) return {};
     return coeff + ((constName == "pi") ? "\xcf\x80" : "e");
 }
-// ── expandBrackets ────────────────────────────────────────────────────────────
+// -- expandBrackets ------------------------------------------------------------
 // Finds the innermost parenthesised group, simplifies it, and substitutes
 // the result back as a flat string. Repeats until no parens remain.
 // Returns the fully expanded string, or empty string on failure.
@@ -441,7 +441,7 @@ static QString expandBrackets(const QString& input) {
 
     return e;
 }
-// ── trySimplify — main entry point ────────────────────────────────────────────
+// -- trySimplify — main entry point --------------------------------------------
 static QString trySimplify(const QString& expr) {
     QString e = expr.trimmed();
     // Normalize all bracket types to ()
@@ -598,7 +598,7 @@ static QString preprocessNaturalLanguage(const QString& expr) {
 CalcResult MathEngine::tryArithmetic(const QString& expr) {
 QString processed = NaturalLanguage::preprocess(expr);
 
-    // ── Common measurement conversions (natural language) ────────────────────
+    // -- Common measurement conversions (natural language) --------------------
 // Handles: "1 furlong", "3 furlongs in meters", "2 nautical miles"
 // These are fixed-unit lookups — no "to" keyword needed
     

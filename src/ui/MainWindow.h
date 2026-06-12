@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <QMainWindow>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -18,6 +18,7 @@
 #include "HistoryDock.h"
 #include "FocusGlow.h"
 #include "FocusAnchor.h"
+#include "settings/SettingsPage.h"
 #include "GeoModeWidget.h"
 #include <QStackedWidget>
 
@@ -33,7 +34,7 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     void onShowProjection(const QString& type, const QMap<QString, double>& params);
-   
+
     RunState getRunState();
     ~MainWindow();
 protected:
@@ -48,16 +49,16 @@ private slots:
     void onSidebarItemClicked(const QString& expr);
     void onSidebarItemDoubleClicked(const QString& expr);
     void onShowGeometryMode(const QString& type, const QMap<QString, double>& params);
- 
+
     void setRunState(RunState state);
     void onStop();
     void onCalcFinish(RunState state, QString result);
     void onWorkerFinish(int jobId, const QString& result, const QString& type, const QString& formula);
     //    void performFactorial(BigInt fac_num);
 
+ 
 
-
-        // PromptController slots
+    // PromptController slots
     void onParamReady(const QString& param, const QString& value);
     void onPromptComplete(const QString& fullExpr);
     void onPromptCancelled();
@@ -73,11 +74,15 @@ private:
     int m_originalSpacing;
     QStackedWidget* m_centralStack = nullptr;
     GeoModeWidget* m_geoModeWidget = nullptr;
+    QWidget* m_settingsPage = nullptr;
+    QPushButton* m_settingsBtn = nullptr;   // gear button in terminal header
+    QPushButton* m_settingsBackBtn = nullptr;   // >_ button on settings page
+    SettingsPage* m_settingsPageWidget = nullptr;   // the actual settings UI
     void setupUi();
     void setupHeader();
     void setupTerminal();
     QWidget* createSidebar();
-   void recreateGeometryMode();
+    void recreateGeometryMode();
     void run(const QString& expr);
     bool tryStartPrompt(const QString& expr);
     void handlePromptInput(const QString& value);
@@ -113,6 +118,7 @@ private:
     QThread* m_workerThread = nullptr;
     PersistentWorker* m_worker = nullptr;
     QMap<int, QString> m_pendingJobs;
+    QMap<int, int> m_streamingJobs;  // jobId → streamId for active streams
     int m_nextJobId = 0;
     QString     m_lastResult;
     QString     m_currentMode = "all";

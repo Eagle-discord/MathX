@@ -43,7 +43,7 @@ OutputArea::OutputArea(QWidget* parent) : QScrollArea(parent) {
 }
 
 static QLabel* makeLbl(const QString& html, QFont font, const QString& extraStyle = "") {
-    
+
 
     auto* l = new QLabel;
     l->setTextFormat(Qt::RichText);
@@ -54,7 +54,7 @@ static QLabel* makeLbl(const QString& html, QFont font, const QString& extraStyl
     return l;
 }
 
-// ── ClickableLabel ────────────────────────────────────────────────────────────
+// -- ClickableLabel ------------------------------------------------------------
 // Result label that shows "Copy" on hover and copies plain text on click.
 class ClickableLabel : public QLabel {
 public:
@@ -129,7 +129,7 @@ static ClickableLabel* makeResultLbl(const QString& html, const QString& plainTe
     const QString& formula = "")
 {
 
-    return new ClickableLabel(html, plainText, font, color, extraStyle, nullptr,formula);
+    return new ClickableLabel(html, plainText, font, color, extraStyle, nullptr, formula);
 }
 void OutputArea::addSplash() {
     int at = m_layout->count() - 1;
@@ -140,23 +140,23 @@ void OutputArea::addSplash() {
         QString("<span style='color:%1;font-weight:700;'>MATHX Unlimited Calculator</span><span style='color:%2'>--ALPHA</span>").arg(C_ACCENT).arg(C_DRED),
         MF(11, QFont::Bold));
     m_layout->insertWidget(at++, title);
-/*
-    m_relNotes = new QLabel;
-    m_relNotes->setText(QString("<span style='color:%1'>***WARNING***</span><span style='color:%1'>This program is currently in the alpha development phase</span><span style='color:%1'>Expect Bugs and Glitches, More features will be coming soon!</span>").arg(C_ERR).toHtmlEscaped());
-    m_relNotes->setFont(MF(9));
-    */
-
-  
-   /* for (QString line : { "**WARNING**",
-        "This program is currently in alpha.",
-        "Expect bugs, glitches and runtime errors.",
-        "Algebraic simplification and quadratic solving are experimental – some forms may fail.",
-        "More features and optimizations coming soon!"
-    }) {
+    /*
+        m_relNotes = new QLabel;
+        m_relNotes->setText(QString("<span style='color:%1'>***WARNING***</span><span style='color:%1'>This program is currently in the alpha development phase</span><span style='color:%1'>Expect Bugs and Glitches, More features will be coming soon!</span>").arg(C_ERR).toHtmlEscaped());
+        m_relNotes->setFont(MF(9));
+        */
 
 
-        m_layout->insertWidget(m_layout->count() - 1, makeLbl(QString("<span style='color:%1'>%2</span>").arg(C_WARN).arg(line), MF(10)));
-    }*/
+        /* for (QString line : { "**WARNING**",
+             "This program is currently in alpha.",
+             "Expect bugs, glitches and runtime errors.",
+             "Algebraic simplification and quadratic solving are experimental – some forms may fail.",
+             "More features and optimizations coming soon!"
+         }) {
+
+
+             m_layout->insertWidget(m_layout->count() - 1, makeLbl(QString("<span style='color:%1'>%2</span>").arg(C_WARN).arg(line), MF(10)));
+         }*/
     m_layout->insertWidget(at++, makeLbl(
         QString("<span style='color:%1;'>"
             "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80"
@@ -276,7 +276,7 @@ static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWi
     QFontMetrics fm(font);
     const int len = text.length();
 
-    // ── Fast path: monospace ──────────────────────────────────────────────────
+    // -- Fast path: monospace --------------------------------------------------
     // Measure one character. For monospace fonts this gives us the exact number
     // of characters per line via integer division — no search loop needed.
     const int charW = fm.horizontalAdvance(QChar('0'));
@@ -303,7 +303,7 @@ static QString wrapTextByWidth(const QString& text, const QFont& font, int maxWi
         }
     }
 
-    // ── Fallback: binary search (proportional / unusual fonts) ───────────────
+    // -- Fallback: binary search (proportional / unusual fonts) ---------------
     // O(n log n). Each iteration calls horizontalAdvance(QString) with a
     // freshly-allocated mid() substring — unavoidable for proportional fonts
     // since there's no range overload, but log n calls per line keeps it fast.
@@ -425,7 +425,7 @@ void OutputArea::scrollToBottom() {
 }
 
 void OutputArea::addPromptRequest(const QString& paramName) {
-    
+
     auto* l = makeLbl(
         QString("<span style='color:%1;'>  %2 </span>"
             "<span style='color:%3;'>=</span>"

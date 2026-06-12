@@ -18,7 +18,7 @@
 #define POW BigNum::pow
 #define DEFER QTimer::singleShot(0,this,[this]{recompute();});
 
-// ── Circle ────────────────────────────────────────────────────────────────────
+// -- Circle --------------------------------------------------------------------
 CircleCard::CircleCard(double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Circle", this));
     m_layout->addWidget(geoHint());
@@ -39,7 +39,7 @@ void CircleCard::recompute() {
     m_rows["Circumference :"]->setValue(BigNum::fmt(2 * PI * bdr));
     m_rows["Area          :"]->setValue(BigNum::fmt(PI * bdr * bdr));
 }
-// ── Ellipse ───────────────────────────────────────────────────────────────────
+// -- Ellipse -------------------------------------------------------------------
 EllipseCard::EllipseCard(double a, double b, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Ellipse", this));
     m_layout->addWidget(geoHint());
@@ -67,7 +67,7 @@ void EllipseCard::recompute() {
     m_rows["Focal Distance  :"]->setValue(FMT(focal));
 }
 
-// ── Triangle (SSS) ────────────────────────────────────────────────────────────
+// -- Triangle (SSS) ------------------------------------------------------------
 TriangleCard::TriangleCard(double a, double b, double c, QWidget* p) : GeoCard(p) {
 
     m_layout->addWidget(geoTitle("Triangle (SSS)", this));
@@ -108,7 +108,7 @@ void TriangleCard::recompute() {
     m_rows["Circumradius:"]->setValue(FMT(a * b * c / (4 * area)));
 }
 
-// ── Right Triangle ────────────────────────────────────────────────────────────
+// -- Right Triangle ------------------------------------------------------------
 RightTriCard::RightTriCard(double a, double b, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Right Triangle", this));
     m_layout->addWidget(geoHint());
@@ -140,7 +140,7 @@ void RightTriCard::recompute() {
     m_rows["Circumradius:"]->setValue(FMT(c / 2));
 }
 
-// ── Rectangle ─────────────────────────────────────────────────────────────────
+// -- Rectangle -----------------------------------------------------------------
 RectCard::RectCard(double w, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Rectangle", this));
     m_layout->addWidget(geoHint());
@@ -161,7 +161,7 @@ void RectCard::recompute() {
     m_rows["Diagonal  :"]->setValue(FMT(SQ(w * w + h * h)));
 }
 
-// ── Square ────────────────────────────────────────────────────────────────────
+// -- Square --------------------------------------------------------------------
 SquareCard::SquareCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Square", this));
     m_layout->addWidget(geoHint());
@@ -180,7 +180,7 @@ void SquareCard::recompute() {
     m_rows["Diagonal  :"]->setValue(FMT(s * SQ(BD(2))));
 }
 
-// ── Parallelogram ─────────────────────────────────────────────────────────────
+// -- Parallelogram -------------------------------------------------------------
 ParallelCard::ParallelCard(double b, double h, double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Parallelogram", this));
     m_layout->addWidget(geoHint());
@@ -200,7 +200,7 @@ void ParallelCard::recompute() {
     m_rows["Area      :"]->setValue(FMT(b * h));
 }
 
-// ── Trapezoid ─────────────────────────────────────────────────────────────────
+// -- Trapezoid -----------------------------------------------------------------
 TrapezoidCard::TrapezoidCard(double a, double b, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Trapezoid", this));
     m_layout->addWidget(geoHint());
@@ -220,7 +220,7 @@ void TrapezoidCard::recompute() {
     m_rows["Mid-line :"]->setValue(FMT((a + b) / 2));
 }
 
-// ── Rhombus ───────────────────────────────────────────────────────────────────
+// -- Rhombus -------------------------------------------------------------------
 RhombusCard::RhombusCard(double d1, double d2, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Rhombus", this));
     m_layout->addWidget(geoHint());
@@ -242,7 +242,7 @@ void RhombusCard::recompute() {
     m_rows["Area      :"]->setValue(FMT(d1 * d2 / 2));
 }
 
-// ── Regular Polygon ───────────────────────────────────────────────────────────
+// -- Regular Polygon -----------------------------------------------------------
 RegPolyCard::RegPolyCard(int n, double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle(QString("Regular %1-gon").arg(n)));
     m_layout->addWidget(geoHint());
@@ -269,7 +269,7 @@ void RegPolyCard::recompute() {
     m_rows["Circumradius:"]->setValue(FMT(s / (2 * sinPN)));
 }
 
-// ── Sector ────────────────────────────────────────────────────────────────────
+// -- Sector --------------------------------------------------------------------
 SectorCard::SectorCard(double r, double deg, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Circle Sector", this));
     m_layout->addWidget(geoHint());
@@ -293,7 +293,7 @@ void SectorCard::recompute() {
     m_rows["Perimeter   :"]->setValue(FMT(arc + 2 * r));
 }
 
-// ── Annulus ───────────────────────────────────────────────────────────────────
+// -- Annulus -------------------------------------------------------------------
 AnnulusCard::AnnulusCard(double R, double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Annulus (Ring)", this));
     m_layout->addWidget(geoHint());

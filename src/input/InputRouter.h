@@ -4,7 +4,7 @@
 #include <QKeyEvent>
 #include "InputAction.h"
 
-// ── InputRouter ───────────────────────────────────────────────────────────────
+// -- InputRouter ---------------------------------------------------------------
 // Sole responsibility: translate a QKeyEvent into an InputAction.
 //
 // Owns NO state. Takes context flags as parameters so callers decide
@@ -14,7 +14,7 @@
 // Usage:
 //   InputAction action = InputRouter::translate(ke, promptActive, historyEmpty);
 //   switch (action) { ... }
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 class InputRouter {
 public:
     // Translate a key event into a semantic action given the current context.

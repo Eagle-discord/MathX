@@ -6,15 +6,20 @@
 #include <QDebug>
 
 static bool getQuadraticCoefficients(const QString& expr, double& a, double& b, double& c) {
+    // Detect which variable is in the expression instead of assuming "x"
+    QSet<QString> vars = Expr::detectVariables(expr);
+    if (vars.size() != 1) return false;
+    QString var = *vars.begin();
+
     VarMap vm;
     bool ok;
-    vm["x"] = 0.0;
+    vm[var] = 0.0;
     double f0 = Expr::evalWith(expr, vm, ok);
     if (!ok) return false;
-    vm["x"] = 1.0;
+    vm[var] = 1.0;
     double f1 = Expr::evalWith(expr, vm, ok);
     if (!ok) return false;
-    vm["x"] = 2.0;
+    vm[var] = 2.0;
     double f2 = Expr::evalWith(expr, vm, ok);
     if (!ok) return false;
     c = f0;

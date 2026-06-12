@@ -131,7 +131,11 @@ void ResultRow::leaveEvent(QEvent*) {
 void ResultRow::mousePressEvent(QMouseEvent* e) {
     if (e->button() == Qt::RightButton) {
         // Right‑click copies the value
-        QApplication::clipboard()->setText(m_currentValue);
+        QString copyText = QString("%1  %2").arg(m_rawKey, m_currentValue);
+        if (m_formulaVisible && !m_formulaString.isEmpty())
+            copyText += QString(" = %1").arg(m_formulaString);
+
+        QApplication::clipboard()->setText(copyText);
         m_copied = true;
         m_valLbl->setText(QString("<span style='color:%1;'>Copied!</span>").arg(Theme::ACCENT));
         setStyleSheet(QString("background:%1;border-radius:4px;").arg(Theme::HOVER));

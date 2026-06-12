@@ -1,4 +1,4 @@
-#include "PersistentWorker.h"
+﻿#include "PersistentWorker.h"
 #include "../math/MathEngine.h"
 #include <QThread>
 #include <QRegularExpression>
@@ -45,7 +45,7 @@ void PersistentWorker::process() {
             if (m_stop || m_queue.isEmpty()) continue;
             job = m_queue.dequeue();
             s_cancel = false;
-            m_cancel = false;   
+            m_cancel = false;
             qDebug() << "process: m_cancel reset to false for job" << job.id;
         }
 
@@ -65,7 +65,7 @@ void PersistentWorker::process() {
                 emit resultReady(job.id, "Negative factorial", "err");
                 continue;
             }
-            
+
             try {
                 auto callback = [this, jobId = job.id](int percent) {
                     emit progress(jobId, percent, "Factorial Progress:");

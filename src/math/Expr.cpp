@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <cctype>
 
-// ── Helper: normalise brackets (same as before) ───────────────────────────────
+// -- Helper: normalise brackets (same as before) -------------------------------
 static QString normaliseBrackets(QString s) {
     s.replace('[', '('); s.replace(']', ')');
     s.replace('{', '('); s.replace('}', ')');
@@ -15,7 +15,7 @@ static QString normaliseBrackets(QString s) {
     return s;
 }
 
-// ── Implicit multiplication (existing, unchanged) ─────────────────────────────
+// -- Implicit multiplication (existing, unchanged) -----------------------------
 static QString insertImplicitMul(const QString& s) {
     QString r;
     for (int i = 0; i < s.size(); ++i) {
@@ -37,7 +37,7 @@ static QString insertImplicitMul(const QString& s) {
     return r;
 }
 
-// ── callBuiltin – exactly as in the original Expr.cpp (copied from your code) ─
+// -- callBuiltin – exactly as in the original Expr.cpp (copied from your code) -
 static double callBuiltin(const QString& name, const QVector<double>& args) {
     auto need = [&](int n) {
         if (args.size() < n) throw std::runtime_error(name.toStdString() + " needs " + std::to_string(n) + " argument(s)");
@@ -119,7 +119,7 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     throw std::runtime_error("Unknown function '" + name.toStdString() + "'");
 }
 
-// ── Token types and tokenizer ────────────────────────────────────────────────
+// -- Token types and tokenizer ------------------------------------------------
 enum class TokenType {
     Number, Variable, Add, Sub, Mul, Div, Pow, Mod,
     LParen, RParen, Factorial, Percent, Comma,
@@ -225,7 +225,7 @@ private:
     }
 };
 
-// ── Recursive descent parser ─────────────────────────────────────────────────
+// -- Recursive descent parser -------------------------------------------------
 class Parser {
 public:
     Parser(Tokenizer& tokenizer, const VarMap& vars) : m_tok(tokenizer), m_vars(vars) {}
@@ -394,7 +394,7 @@ static QString replaceXWithTimes(const QString& s) {
     return result;
 }
 
-// ── Public interface ─────────────────────────────────────────────────────────
+// -- Public interface ---------------------------------------------------------
 double Expr::eval(const QString& input, bool& ok) {
     return evalWith(input, {}, ok);
 }

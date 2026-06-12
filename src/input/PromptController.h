@@ -7,7 +7,7 @@
 #include "../input/ShapePrompt.h"
 #include "../input/InputHandler.h"
 
-// ── PromptController ──────────────────────────────────────────────────────────
+// -- PromptController ----------------------------------------------------------
 // Owns all shape-prompt state and is the single authority over:
 //   - whether a prompt is active
 //   - which parameter is currently being collected
@@ -24,7 +24,7 @@
 //   promptComplete(expr)      — all params collected; caller should call run(expr)
 //   promptCancelled()         — user pressed Escape; caller resets UI
 //   needsMoreInput(param)     — invalid input; caller should re-show the prompt
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 class PromptController : public QObject {
     Q_OBJECT
 
@@ -33,11 +33,11 @@ public:
         : QObject(parent), m_promptLbl(promptLbl), m_input(input)
     {}
 
-    // ── Query ─────────────────────────────────────────────────────────────────
+    // -- Query -----------------------------------------------------------------
     bool isActive()      const { return m_prompt.isActive(); }
     QString currentParam() const { return m_prompt.nextParam(); }
 
-    // ── Start ─────────────────────────────────────────────────────────────────
+    // -- Start -----------------------------------------------------------------
     // Begin collecting parameters for the given prompt.
     // Emits nothing — caller should call advanceUI() after to show first param.
     void start(const ShapePrompt& prompt) {
@@ -45,14 +45,14 @@ public:
         showCurrentParam();
     }
 
-    // ── Cancel ────────────────────────────────────────────────────────────────
+    // -- Cancel ----------------------------------------------------------------
     void cancel() {
         m_prompt = ShapePrompt{};
         hidePromptUI();
         emit promptCancelled();
     }
 
-    // ── Submit a value for the current parameter ──────────────────────────────
+    // -- Submit a value for the current parameter ------------------------------
     // Returns false and emits needsMoreInput if value is invalid.
     // Returns true and advances (or completes) on success.
     bool submit(const QString& rawValue, double resolvedValue) {
@@ -79,7 +79,7 @@ public:
         return true;
     }
 
-    // ── Reset (e.g. after onClear) ────────────────────────────────────────────
+    // -- Reset (e.g. after onClear) --------------------------------------------
     void reset() {
         m_prompt = ShapePrompt{};
         hidePromptUI();

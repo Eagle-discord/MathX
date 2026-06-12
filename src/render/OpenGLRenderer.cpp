@@ -70,7 +70,7 @@ void OpenGLRenderer::setMouseCtrl(bool enabled) {
 }
 
 void OpenGLRenderer::mousePressEvent(QMouseEvent* event) {
-    if (event->button() == Qt::RightButton || event->button() == Qt::LeftButton && !m_rotating) {
+    if ((event->button() == Qt::RightButton || event->button() == Qt::LeftButton) && !m_rotating) {
         m_mousePressed = true;
         m_lastMousePos = event->pos();
         setCursor(Qt::ClosedHandCursor);

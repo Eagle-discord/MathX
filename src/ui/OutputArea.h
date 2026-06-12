@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <QScrollArea>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -49,10 +49,10 @@ signals:
 
 private:
     QProgressBar* m_progressBar = nullptr;
-    
+
     QLabel* m_progressLabel = nullptr;
     QWidget* m_container = nullptr;
     QVBoxLayout* m_layout = nullptr;
-    QLabel*       m_relNotes      = nullptr;
+    QLabel* m_relNotes = nullptr;
     void scrollToBottom();
 };

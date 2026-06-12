@@ -49,10 +49,10 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     m_topBar->adjustSize();
 
     // Control panel – now a child of the render widget (overlay)
-    controlPanel = new QWidget(m_renderWidget);
-    controlPanel->setFixedWidth(280);
-    controlPanel->setStyleSheet("background: transparent;"); // semi‑transparent
-    QVBoxLayout* ctrlLayout = new QVBoxLayout(controlPanel);
+    m_controlPanel = new QWidget(m_renderWidget);
+    m_controlPanel->setFixedWidth(280);
+    m_controlPanel->setStyleSheet("background: transparent;"); // semi‑transparent
+    QVBoxLayout* ctrlLayout = new QVBoxLayout(m_controlPanel);
     ctrlLayout->setContentsMargins(16, 20, 16, 20);
     ctrlLayout->setSpacing(16);
 
@@ -62,7 +62,7 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     // title->setStyleSheet("color:#00e87a;");
     // ctrlLayout->addWidget(title, 0, Qt::AlignTop);
 
-    m_slidersContainer = new QWidget(controlPanel);
+    m_slidersContainer = new QWidget(m_controlPanel);
     m_slidersLayout = new QFormLayout(m_slidersContainer);
     m_slidersLayout->setSpacing(12);
     ctrlLayout->addWidget(m_slidersContainer, 1);
@@ -122,17 +122,14 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
 
     ctrlLayout->addWidget(colorGroup);
     // Back button – also a child of render widget (overlay)
-    QPushButton* backBtn = new QPushButton("Back", m_renderWidget);
-    backBtn->setFixedSize(100, 32);
-    backBtn->setStyleSheet(
+    m_backButton = new QPushButton("Back", m_renderWidget);
+    m_backButton->setFixedSize(100, 32);
+    m_backButton->setStyleSheet(
         "QPushButton{background:#00e87a; color:#000; border-radius:6px;}"
         "QPushButton:hover{background:#00b860;}"
     );
-    connect(backBtn, &QPushButton::clicked, this, &GeoModeWidget::onBack);
+    connect(m_backButton, &QPushButton::clicked, this, &GeoModeWidget::onBack);
 
-    // Store pointers for resize positioning
-    m_controlPanel = controlPanel;
-    m_backButton = backBtn;
     QCheckBox* mouseCtrl = new QCheckBox("Camera Control");
     mouseCtrl->setChecked(false);
     connect(mouseCtrl, &QCheckBox::toggled, this, [this](bool checked) {
@@ -152,7 +149,7 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
 
   
     
-    int cpWidth = controlPanel->width(); // 280
+    int cpWidth = m_controlPanel->width(); // 280
     m_renderWidget->setHorizontalOffset(cpWidth / 2);
     // Shape selector
   /*  m_shapeSelector = new QComboBox;
@@ -177,12 +174,12 @@ void GeoModeWidget::rebuildSliders(const QStringList& paramNames, const QMap<QSt
         delete m_slidersContainer;
         m_slidersContainer = nullptr;
     }
-    m_slidersContainer = new QWidget(controlPanel);
+    m_slidersContainer = new QWidget(m_controlPanel);
     m_slidersLayout = new QFormLayout(m_slidersContainer);
     m_slidersLayout->setSpacing(12);
 
     // Insert the new container back into the control panel layout (after the title, before the color group)
-    QVBoxLayout* ctrlLayout = qobject_cast<QVBoxLayout*>(controlPanel->layout());
+    QVBoxLayout* ctrlLayout = qobject_cast<QVBoxLayout*>(m_controlPanel->layout());
     if (ctrlLayout) {
         // Assuming the title is at index 0, we insert at index 1 (or wherever appropriate)
         // In your code, the color group is added after the sliders container.

@@ -5,7 +5,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMouseEvent>
-// ── ClickableLabel ────────────────────────────────────────────────────────────
+// -- ClickableLabel ------------------------------------------------------------
 // Result label that shows "Copy" on hover and copies plain text on click.
 class ClickableLabel : public QLabel {
 public:

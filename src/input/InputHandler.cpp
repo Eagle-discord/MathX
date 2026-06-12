@@ -74,7 +74,7 @@ static QMap<QString, CardFactory> cardFactories() {
         };
     factories["annulus"] = [](const ParamMap& p) -> GeoCard* {
         double R = p.value("major", 0), r = p.value("minor", 0);
-        if (R == 0) R = p.value("major", 0);
+    
         return (R > 0 && r > 0) ? new AnnulusCard(R, r) : nullptr;
         };
 
@@ -88,11 +88,9 @@ static QMap<QString, CardFactory> cardFactories() {
         }
         else if (p.contains("r")) {
             r = p.value("r", 1);
+            d = r * 2;
         }
-        else if (p.contains("r") && p.contains("d")) {
-            r = p.value("r");
-            d = p.value("d");
-        }
+       
         
         return (r > 0) ? new SphereCard(r) : nullptr;
         
@@ -106,10 +104,7 @@ static QMap<QString, CardFactory> cardFactories() {
         }
         else if (p.contains("r")) {
             r = p.value("r", 1);
-        }
-        else if (p.contains("r") && p.contains("d")) {
-            r = p.value("r");
-            d = p.value("d");
+            d = r * 2;
         }
         return (r > 0) ? new HemiSphereCard(r) : nullptr;
         };
@@ -122,11 +117,9 @@ static QMap<QString, CardFactory> cardFactories() {
         }
         else if (p.contains("r")) {
             r = p.value("r", 1);
+            d = r * 2;
         }
-        else if (p.contains("r") && p.contains("d")) {
-            r = p.value("r");
-            d = p.value("d");
-        }
+       
         double h = p.value("h", 0);
         return (r > 0 && h > 0) ? new CylinderCard(r, h) : nullptr;
         };
@@ -179,7 +172,7 @@ static QMap<QString, CardFactory> cardFactories() {
         };
     factories["torus"] = [](const ParamMap& p) -> GeoCard* {
         double R = p.value("major", 0), r = p.value("minor", 0);
-        if (R == 0) R = p.value("major", 0);
+        
         return (R > 0 && r > 0 && r < R) ? new TorusCard(R, r) : nullptr;
         };
     factories["ellipsoid"] = [](const ParamMap& p) -> GeoCard* {
@@ -295,9 +288,7 @@ GeoCard* InputHandler::makeGeoCard(const QString& expr) {
         double val = evaluateParamValue(rawValue, ok);
         if (ok) params[key] = val;
     }
-    qDebug() << "expr:" << expr;
-    qDebug() << "canonical:" << canonical;
-    qDebug() << "params:" << params;
+
     static const QMap<QString, CardFactory> factories = cardFactories();
     if (factories.contains(canonical))
         return factories[canonical](params);

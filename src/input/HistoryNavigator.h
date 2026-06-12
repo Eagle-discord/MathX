@@ -2,7 +2,7 @@
 #include <QString>
 #include <QStringList>
 
-// ── HistoryNavigator ──────────────────────────────────────────────────────────
+// -- HistoryNavigator ----------------------------------------------------------
 // Owns exactly two pieces of state:
 //   - the current navigation index (0 = not navigating)
 //   - the text the user was typing before they started navigating
@@ -23,7 +23,7 @@
 //
 //   // User types anything:
 //   nav.reset();
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 class HistoryNavigator {
 public:
     explicit HistoryNavigator(const QStringList& history)

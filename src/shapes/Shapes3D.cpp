@@ -13,7 +13,7 @@ using BigNum::PI;
 //  3D SHAPES
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ── Sphere ────────────────────────────────────────────────────────────────────
+// -- Sphere --------------------------------------------------------------------
 SphereCard::SphereCard(double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Sphere", this));
     addSlider("r", r, 0.1, geoAutoMax(r), geoAutoStep(r));
@@ -37,7 +37,7 @@ void SphereCard::recompute() {
     
 }
 
-// ── Hemisphere ────────────────────────────────────────────────────────────────
+// -- Hemisphere ----------------------------------------------------------------
 HemiSphereCard::HemiSphereCard(double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Hemisphere", this));
     addSlider("r", r, 0.1, geoAutoMax(r), geoAutoStep(r));
@@ -56,7 +56,7 @@ void HemiSphereCard::recompute() {
     m_rows["Volume      :"]->setValue(BigNum::fmt(BigNum::bd(2) / 3 * BigNum::PI * r * r * r));
 }
 
-// ── Cylinder ──────────────────────────────────────────────────────────────────
+// -- Cylinder ------------------------------------------------------------------
 CylinderCard::CylinderCard(double r, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Cylinder", this));
     double mx = std::max(r, h) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -78,7 +78,7 @@ void CylinderCard::recompute() {
     m_rows["Volume       :"]->setValue(BigNum::fmt(BigNum::PI * r * r * h));
 }
 
-// ── Hollow Cylinder ───────────────────────────────────────────────────────────
+// -- Hollow Cylinder -----------------------------------------------------------
 HollowCylCard::HollowCylCard(double R, double r, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Hollow Cylinder", this));
     double mx = std::max({ R,r,h }) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -103,7 +103,7 @@ void HollowCylCard::recompute() {
     m_rows["Wall Thick   :"]->setValue(BigNum::fmt(R - r));
 }
 
-// ── Cone ──────────────────────────────────────────────────────────────────────
+// -- Cone ----------------------------------------------------------------------
 ConeCard::ConeCard(double r, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Cone", this));
     double mx = std::max(r, h) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -127,7 +127,7 @@ void ConeCard::recompute() {
     m_rows["Volume       :"]->setValue(BigNum::fmt(BigNum::PI * r * r * h / 3));
 }
 
-// ── Frustum (Truncated Cone) ──────────────────────────────────────────────────
+// -- Frustum (Truncated Cone) --------------------------------------------------
 FrustumCard::FrustumCard(double R, double r, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Frustum (Truncated Cone)", this));
     double mx = std::max({ R,r,h }) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -150,7 +150,7 @@ void FrustumCard::recompute() {
     m_rows["Volume       :"]->setValue(BigNum::fmt(BigNum::PI * h / 3 * (R * R + R * r + r * r)));
 }
 
-// ── Cuboid ────────────────────────────────────────────────────────────────────
+// -- Cuboid --------------------------------------------------------------------
 CuboidCard::CuboidCard(double l, double w, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Cuboid", this));
     double mx = std::max({ l,w,h }) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -172,7 +172,7 @@ void CuboidCard::recompute() {
     m_rows["Face Diag lw :"]->setValue(BigNum::fmt(BigNum::sqrt(l * l + w * w)));
 }
 
-// ── Cube ──────────────────────────────────────────────────────────────────────
+// -- Cube ----------------------------------------------------------------------
 CubeCard::CubeCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Cube", this));
     addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
@@ -199,7 +199,7 @@ void CubeCard::recompute() {
 
 }
 
-// ── Tetrahedron ───────────────────────────────────────────────────────────────
+// -- Tetrahedron ---------------------------------------------------------------
 TetraCard::TetraCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Regular Tetrahedron", this));
     addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
@@ -220,7 +220,7 @@ void TetraCard::recompute() {
     m_rows["Circumradius :"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(6)) / 4));
 }
 
-// ── Octahedron ────────────────────────────────────────────────────────────────
+// -- Octahedron ----------------------------------------------------------------
 OctaCard::OctaCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Regular Octahedron", this));
     addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
@@ -239,7 +239,7 @@ void OctaCard::recompute() {
     m_rows["Circumradius :"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(2)) / 2));
 }
 
-// ── Icosahedron ───────────────────────────────────────────────────────────────
+// -- Icosahedron ---------------------------------------------------------------
 IcosaCard::IcosaCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Regular Icosahedron", this));
     addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
@@ -259,7 +259,7 @@ void IcosaCard::recompute() {
     m_rows["Circumradius :"]->setValue(BigNum::fmt(s * BigNum::sqrt(10 + 2 * sqrt5) / 4));
 }
 
-// ── Dodecahedron ──────────────────────────────────────────────────────────────
+// -- Dodecahedron --------------------------------------------------------------
 DodecaCard::DodecaCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Regular Dodecahedron", this));
     addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
@@ -279,7 +279,7 @@ void DodecaCard::recompute() {
     m_rows["Circumradius :"]->setValue(BigNum::fmt(s * BigNum::sqrt(BigNum::bd(3)) * PHI));
 }
 
-// ── Prism (regular n-gon base) ────────────────────────────────────────────────
+// -- Prism (regular n-gon base) ------------------------------------------------
 PrismCard::PrismCard(int n, double s, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle(QString("Regular %1-gon Prism").arg(n)));
     double mx = std::max(s, h) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -305,7 +305,7 @@ void PrismCard::recompute() {
     m_rows["Volume       :"]->setValue(BigNum::fmt(baseArea * h));
 }
 
-// ── Square Pyramid ────────────────────────────────────────────────────────────
+// -- Square Pyramid ------------------------------------------------------------
 PyramidCard::PyramidCard(double b, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Square Pyramid", this));
     double mx = std::max(b, h) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -329,7 +329,7 @@ void PyramidCard::recompute() {
     m_rows["Volume       :"]->setValue(BigNum::fmt(b * b * h / 3));
 }
 
-// ── Torus ─────────────────────────────────────────────────────────────────────
+// -- Torus ---------------------------------------------------------------------
 TorusCard::TorusCard(double major, double minor, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Torus", this));
     // Set larger range for sliders, but limit minor < major dynamically
@@ -381,7 +381,7 @@ void TorusCard::recompute() {
     m_rows["Surface Area :"]->setValue(BigNum::fmt(4 * BigNum::PI * BigNum::PI * bdR * bdr));
     m_rows["Volume       :"]->setValue(BigNum::fmt(2 * BigNum::PI * BigNum::PI * bdR * bdr * bdr));
 }
-// ── Ellipsoid ─────────────────────────────────────────────────────────────────
+// -- Ellipsoid -----------------------------------------------------------------
 EllipsoidCard::EllipsoidCard(double a, double b, double c, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Ellipsoid", this));
     double mx = std::max({ a,b,c }) * 5, step = mx > 50 ? 1.0 : 0.1;
@@ -402,7 +402,7 @@ void EllipsoidCard::recompute() {
     m_rows["Surface \xe2\x89\x88   :"]->setValue(BigNum::fmt(sa));
 }
 
-// ── Capsule ───────────────────────────────────────────────────────────────────
+// -- Capsule -------------------------------------------------------------------
 CapsuleCard::CapsuleCard(double r, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Capsule", this));
     double mx = std::max(r, h) * 5, step = mx > 50 ? 1.0 : 0.1;

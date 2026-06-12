@@ -24,7 +24,7 @@ class MathEngine : public QObject {
     Q_OBJECT
 
 public:
-    // ── Singleton access ──────────────────────────────────────────────────────
+    // -- Singleton access ------------------------------------------------------
     static MathEngine* instance() {
         static MathEngine inst;
         return &inst;
@@ -34,7 +34,7 @@ public:
     MathEngine(const MathEngine&) = delete;
     MathEngine& operator=(const MathEngine&) = delete;
 
-    // ── All methods stay callable as before via instance() ───────────────────
+    // -- All methods stay callable as before via instance() -------------------
     static CalcResult evaluate(const QString& expr);
 
     static double evalSimple(const QString& expr, bool& ok);
