@@ -54,6 +54,7 @@ private:
     void buildCategoryView();   // level 0 — four category cards
     void buildSubcategoryView(CategoryId cat);   // level 1
     void buildSettingView(SubcategoryId sub);     // level 2
+    void buildSearchView(const QString& query);  // search results — overlays current level
 
     // -- Navigation ------------------------------------------------------------
     void navigateTo(int level);  // animates content transition
@@ -68,12 +69,13 @@ private:
     QLineEdit* m_searchBar = nullptr;
     VisibilityControl* m_visControl = nullptr;
     PendingQueueFooter* m_footer = nullptr; // bottom-right pending queue
-    QPushButton* m_addressBackBtn = nullptr;
+
     // -- Content area ----------------------------------------------------------
     QStackedWidget* m_contentStack = nullptr; // swapped on navigation
     QWidget* m_categoryView = nullptr; // level 0
     QWidget* m_subcategoryView = nullptr; // level 1 (rebuilt per category)
     QWidget* m_settingView = nullptr; // level 2 (rebuilt per subcategory)
+    QWidget* m_searchView = nullptr; // search results overlay (rebuilt per query)
 
     // -- Navigation state ------------------------------------------------------
     int                 m_currentLevel = 0;

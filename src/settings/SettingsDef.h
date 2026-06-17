@@ -98,6 +98,13 @@ struct SettingDef {
     // Advanced settings hidden until user sets level to Advanced.
     // Developer settings hidden until Developer level.
     VisibilityLevel minLevel;
+
+    // -- Search aliases --------------------------------------------------------
+    // Extra search terms that should match this setting even though they
+    // don't appear in its labels/description. E.g. "Text size" might also
+    // be found by searching "font size" or "point size".
+    // Optional — defaults to empty, append via initializer list as needed.
+    QStringList     aliases = {};
 };
 
 // -- CategoryDef ---------------------------------------------------------------
@@ -106,9 +113,9 @@ struct CategoryDef {
     CategoryId  id;
     QString     label;          // "Appearance"
     QString     accentColor;    // hex color string matching Theme constants
-    QString     iconName;       // logical icon name resolved by the UI layer
-    // "brush" | "monitor" | "gear" | "server"
+    QString     iconName;       // logical icon name — mapped to an emoji glyph in CategoryCard
     QString     description;    // one line shown on the card in C_MUTED
+    QString     hint;           // short purpose statement shown below description
 };
 
 // -- SubcategoryDef ------------------------------------------------------------

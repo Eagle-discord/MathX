@@ -493,6 +493,8 @@ static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const Q
 CalcResult MathEngine::tryConversion(const QString& expr) {
     static const QMap<QString, ResolvedUnit> MAP = buildUnitMap();
 
+
+
     // Helper to get default target unit for a category
     auto defaultUnitForCategory = [](const QString& category) -> QString {
         static QMap<QString, QString> defaults = {

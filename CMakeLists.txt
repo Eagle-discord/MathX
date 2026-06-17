@@ -149,7 +149,7 @@ endif()
 add_executable(MathX WIN32
     ${COMMON_SOURCES}
     ${COMMON_HEADERS}
- "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp")
+ "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp" "src/shapes/ShapeRegistry.h")
 
 # -- Link libraries ------------------------------------------------------------
 # PRIVATE means: MathX uses these libraries, but if something else linked

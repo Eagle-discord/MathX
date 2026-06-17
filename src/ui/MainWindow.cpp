@@ -830,7 +830,9 @@ void MainWindow::setupUi() {
 
     // Back button wired through prepareToLeave so pending changes apply first
     connect(m_settingsBackBtn, &QPushButton::clicked, this, [this]() {
+
         m_settingsPageWidget->prepareToLeave([this]() {
+
             m_centralStack->setCurrentIndex(0);
             m_settingsBackBtn->hide();
             m_settingsBtn->show();

@@ -4,12 +4,14 @@
 #include "../../settings/SettingsDef.h"
 #include <QScrollArea>
 #include <QGraphicsOpacityEffect>
+#include <QGraphicsDropShadowEffect>
 #include <QPropertyAnimation>
 #include <QSizePolicy>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QResizeEvent>
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 static QFont MF(int pt, int w = QFont::Normal) {
     QFont f(Theme::fontFamily());
@@ -17,6 +19,13 @@ static QFont MF(int pt, int w = QFont::Normal) {
     f.setWeight(static_cast<QFont::Weight>(w));
     f.setStyleHint(QFont::Monospace);
     return f;
+}
+
+// Looks up a category's display label by ID — used for back button text
+static QString categoryLabel(CategoryId id) {
+    for (const CategoryDef& c : allCategories())
+        if (c.id == id) return c.label;
+    return "Back";
 }
 
 // Fades a widget in or out
@@ -37,19 +46,44 @@ static void fadeWidget(QWidget* w, bool in, int ms = 180) {
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-// ── CategoryCard ──────────────────────────────────────────────────────────────
+// -- CategoryCard --------------------------------------------------------------
 // Inline — small enough to live here rather than its own file
 
 class CategoryCard : public QWidget {
     Q_OBJECT
+        // Drives the hover transition — interpolated 0→1 over 150ms.
+        // Used for border glow intensity, border inset ("expand" effect),
+        // and abstract background vibrancy.
+        Q_PROPERTY(qreal hoverProgress READ hoverProgress WRITE setHoverProgress)
+
 public:
+    qreal hoverProgress() const { return m_hoverProgress; }
+    void setHoverProgress(qreal v) { m_hoverProgress = v; update(); }
+
     explicit CategoryCard(const CategoryDef& def, QWidget* parent = nullptr)
         : QWidget(parent), m_def(def)
     {
-        setMinimumHeight(160);
+        setFixedSize(441, 320);
         setCursor(Qt::PointingHandCursor);
-        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
         setAttribute(Qt::WA_StyledBackground, true);
+
+        m_hoverAnim = new QPropertyAnimation(this, "hoverProgress", this);
+        m_hoverAnim->setDuration(150);
+        m_hoverAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+        // Geometry grow animation — makes the card visibly larger on hover
+        // by overriding its layout-assigned rect, expanded by GROW_PX on
+        // each side. raise() in enterEvent keeps it drawn above neighbors.
+        m_growAnim = new QPropertyAnimation(this, "geometry", this);
+        m_growAnim->setDuration(150);
+        m_growAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+        // Map the logical icon name to a visible emoji glyph
+        if (def.iconName == "brush")   m_emoji = "🖌️";
+        else if (def.iconName == "monitor") m_emoji = "🖥️";
+        else if (def.iconName == "gear")    m_emoji = "⚙️";
+        else if (def.iconName == "server")  m_emoji = "🖧";
 
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(16, 16, 16, 16);
@@ -58,25 +92,38 @@ public:
 
         m_label = new QLabel(def.label);
         m_label->setFont(MF(13, QFont::Bold));
-        m_label->setStyleSheet(QString("color:%1; background:transparent;").arg(def.accentColor));
+        m_label->setStyleSheet(QString(
+            "color:%1; background:rgba(0,0,0,90); border-radius:6px; padding:2px 10px;"
+        ).arg(def.accentColor));
         m_label->setAlignment(Qt::AlignCenter);
 
         m_desc = new QLabel(def.description);
         m_desc->setFont(MF(8));
-        m_desc->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::MUTED));
+        m_desc->setStyleSheet(QString(
+            "color:%1; background:rgba(0,0,0,90); border-radius:6px; padding:1px 8px;"
+        ).arg(Theme::TEXT));
         m_desc->setAlignment(Qt::AlignCenter);
- 
-        m_desc->setMinimumWidth(160);  // gives wordWrap something to wrap against
+        m_desc->setWordWrap(false);
 
-        // Single shared backdrop behind both label and description
+        // Hint — short purpose statement, muted, below the description
+        m_hint = new QLabel(def.hint);
+        m_hint->setFont(MF(8));
+        m_hint->setStyleSheet(QString(
+            "color:%1; background:rgba(0,0,0,90); border-radius:6px; padding:1px 8px;"
+        ).arg(Theme::MUTED));
+        m_hint->setAlignment(Qt::AlignCenter);
+        m_hint->setWordWrap(false);
+
+        // Single shared backdrop behind label, description, and hint
         auto* textBox = new QWidget;
         textBox->setMinimumWidth(200);
-        textBox->setStyleSheet("background:rgba(0,0,0,90); border-radius:8px;");
+        textBox->setStyleSheet("background:transparent; border-radius:8px;");
         auto* textBoxLayout = new QVBoxLayout(textBox);
-        textBoxLayout->setContentsMargins(24, 16, 24, 16);
+        textBoxLayout->setContentsMargins(0, 0, 0, 0);
         textBoxLayout->setSpacing(6);
         textBoxLayout->addWidget(m_label);
         textBoxLayout->addWidget(m_desc);
+        textBoxLayout->addWidget(m_hint);
 
         layout->addWidget(textBox, 0, Qt::AlignCenter);
         layout->addStretch(1);
@@ -90,46 +137,89 @@ signals:
 protected:
     void mousePressEvent(QMouseEvent*) override { emit clicked(m_def.id); }
 
-    void enterEvent(QEnterEvent*) override { updateStyle(true); }
-    void leaveEvent(QEvent*)      override { updateStyle(false); }
+    void enterEvent(QEnterEvent*) override {
+        updateStyle(true);
+        m_hoverAnim->stop();
+        m_hoverAnim->setStartValue(m_hoverProgress);
+        m_hoverAnim->setEndValue(1.0);
+        m_hoverAnim->start();
+
+        // Grow beyond the layout cell — raise() so it overlaps neighbors
+        // on top instead of being clipped/pushed by them.
+        raise();
+        m_growAnim->stop();
+        m_growAnim->setStartValue(geometry());
+        m_growAnim->setEndValue(m_normalGeom.adjusted(-GROW_PX, -GROW_PX, GROW_PX, GROW_PX));
+        m_growAnim->start();
+    }
+    void leaveEvent(QEvent*) override {
+        updateStyle(false);
+        m_hoverAnim->stop();
+        m_hoverAnim->setStartValue(m_hoverProgress);
+        m_hoverAnim->setEndValue(0.0);
+        m_hoverAnim->start();
+
+        m_growAnim->stop();
+        m_growAnim->setStartValue(geometry());
+        m_growAnim->setEndValue(m_normalGeom);
+        m_growAnim->start();
+    }
+
+    void resizeEvent(QResizeEvent* e) override {
+        QWidget::resizeEvent(e);
+        // Only the layout's resize calls land here at normal (non-grown) size,
+        // since the grow animation overrides geometry afterward. Track the
+        // layout-assigned rect so we know what to grow from / shrink back to.
+        if (!m_growAnim || m_growAnim->state() != QAbstractAnimation::Running)
+            m_normalGeom = QRect(pos(), e->size());
+    }
 
     void paintEvent(QPaintEvent* e) override {
         QWidget::paintEvent(e);
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
+        p.setRenderHint(QPainter::SmoothPixmapTransform);
 
-        // Faded background icon — large unicode symbol centered.
-        // setAlphaF on the pen has no effect on color emoji glyphs since
-        // they're full-color bitmaps, not outline-rendered text. Use
-        // QPainter::setOpacity instead, which applies to the whole draw.
-        QFont f = MF(80);
-        p.setFont(f);
-        p.setOpacity(0.12);
-        p.setPen(QColor(m_def.accentColor));
-        p.drawText(rect(), Qt::AlignCenter, iconGlyph());
+        // -- Emoji icon --------------------------------------------------------
+        // Large, mostly-opaque glyph in the upper portion of the card, behind
+        // the label/description pills. setOpacity (not pen alpha) is used
+        // since color emoji are full-color bitmaps, not outline glyphs.
+        if (!m_emoji.isEmpty()) {
+            QFont emojiFont = font();
+            emojiFont.setPixelSize(72);
+            p.setFont(emojiFont);
+            p.setOpacity(0.9);
 
-        // Border-only glow — layered translucent rounded outlines, widest
-        // and faintest on the outside, narrowing to a crisp 1.5px edge.
-        // This keeps the glow confined to the border instead of bleeding
-        // across the whole card like a drop shadow would.
+            QRect emojiRect = rect().adjusted(0, 12, 0, -rect().height() / 2);
+            p.drawText(emojiRect, Qt::AlignHCenter | Qt::AlignVCenter, m_emoji);
+            p.setOpacity(1.0);
+        }
+
+        // -- Border-only glow + "expand" effect --------------------------------
+        // The border inset shrinks toward the widget edge as hoverProgress
+        // rises, making the card appear to grow within its allocated cell.
+        // The glow layers brighten and spread further at the same time.
+        const QColor accent(m_def.accentColor);
         p.setOpacity(1.0);
         p.setBrush(Qt::NoBrush);
-        QColor accent(m_def.accentColor);
 
-        const QRectF base = QRectF(rect()).adjusted(0.75, 0.75, -0.75, -0.75);
-        const int glowLayers = m_hovered ? 5 : 3;
-        const qreal maxSpread = m_hovered ? 6.0 : 3.0;
+        const qreal inset = 2.0 - 1.25 * m_hoverProgress;   // 2.0 → 0.75
+        const QRectF base = QRectF(rect()).adjusted(inset, inset, -inset, -inset);
+
+        const int   glowLayers = 3 + static_cast<int>(2 * m_hoverProgress + 0.5); // 3 → 5
+        const qreal maxSpread = 3.0 + 3.0 * m_hoverProgress;                      // 3 → 6
+        const qreal glowAlpha = 0.06 + 0.06 * m_hoverProgress;                    // 0.06 → 0.12
 
         for (int i = glowLayers; i >= 1; --i) {
             const qreal spread = (maxSpread / glowLayers) * i;
             QColor glow = accent;
-            glow.setAlphaF((m_hovered ? 0.10 : 0.06) * (1.0 - (qreal)(i - 1) / glowLayers));
+            glow.setAlphaF(glowAlpha * (1.0 - (qreal)(i - 1) / glowLayers));
             p.setPen(QPen(glow, 1.0 + spread));
             p.drawRoundedRect(base.adjusted(-spread, -spread, spread, spread), 14, 14);
         }
 
-        // Crisp edge on top
-        p.setPen(QPen(accent, 1.5));
+        // Crisp edge on top — brightens slightly on hover via thicker stroke
+        p.setPen(QPen(accent, 1.5 + 0.5 * m_hoverProgress));
         p.drawRoundedRect(base, 14, 14);
     }
 
@@ -144,22 +234,22 @@ private:
         update();
     }
 
-    // Maps iconName to a unicode glyph for the faded background
-    QString iconGlyph() const {
-        if (m_def.iconName == "brush")   return "🖌";
-        if (m_def.iconName == "monitor") return "🖥";
-        if (m_def.iconName == "gear")    return "⚙";
-        if (m_def.iconName == "server")  return "🖧";
-        return "◈";
-    }
-
     CategoryDef  m_def;
+    QString      m_emoji;
     QLabel* m_label = nullptr;
     QLabel* m_desc = nullptr;
+    QLabel* m_hint = nullptr;
     bool         m_hovered = false;
+    qreal        m_hoverProgress = 0.0;
+    QPropertyAnimation* m_hoverAnim = nullptr;
+
+    // Geometry grow on hover
+    static constexpr int GROW_PX = 10;
+    QPropertyAnimation* m_growAnim = nullptr;
+    QRect                m_normalGeom;
 };
 
-// ── SubcategoryCard ───────────────────────────────────────────────────────────
+// -- SubcategoryCard -----------------------------------------------------------
 
 class SubcategoryCard : public QWidget {
     Q_OBJECT
@@ -218,7 +308,7 @@ private:
     QString        m_accent;
 };
 
-// ── SettingRow ────────────────────────────────────────────────────────────────
+// -- SettingRow ----------------------------------------------------------------
 
 class SettingRow : public QWidget {
     Q_OBJECT
@@ -246,7 +336,6 @@ public:
         layout->addWidget(m_desc, 1);
 
         // Control placeholder — will be replaced by actual control widgets
-        // in a follow-up when individual control types are implemented
         m_controlPlaceholder = new QLabel("—");
         m_controlPlaceholder->setFont(MF(9));
         m_controlPlaceholder->setStyleSheet(
@@ -296,7 +385,82 @@ private:
     QLabel* m_controlPlaceholder = nullptr;
 };
 
-// ── VisibilityControl ─────────────────────────────────────────────────────────
+// -- SearchResultRow -----------------------------------------------------------
+// One row in the search results list. Shows a breadcrumb (Category → Sub)
+// in muted/accent colors, the setting's label, and its description.
+// Clicking emits clicked(SettingDef) so SettingsPage can navigate to it.
+
+class SearchResultRow : public QWidget {
+    Q_OBJECT
+public:
+    explicit SearchResultRow(const SettingDef& def, QWidget* parent = nullptr)
+        : QWidget(parent), m_def(def)
+    {
+        setCursor(Qt::PointingHandCursor);
+        setFixedHeight(56);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+        auto* layout = new QVBoxLayout(this);
+        layout->setContentsMargins(16, 6, 16, 6);
+        layout->setSpacing(2);
+
+        // Breadcrumb — "Appearance → Typography" in category accent + muted
+        QString accent = Theme::ACCENT;
+        QString catLabel, subLabel;
+        for (const CategoryDef& c : allCategories()) {
+            if (c.id == def.category) { accent = c.accentColor; catLabel = c.label; break; }
+        }
+        for (const SubcategoryDef& s : allSubcategories()) {
+            if (s.id == def.subcategory) { subLabel = s.label; break; }
+        }
+
+        auto* breadcrumb = new QLabel(
+            QString("<span style='color:%1;'>%2</span>"
+                "<span style='color:%3;'> → </span>"
+                "<span style='color:%4;'>%5</span>")
+            .arg(accent, catLabel, Theme::MUTED, Theme::MUTED, subLabel));
+        breadcrumb->setFont(MF(8));
+        breadcrumb->setStyleSheet("background:transparent;");
+        layout->addWidget(breadcrumb);
+
+        // Setting label — Basic or Advanced depending on visibility level
+        const bool basic = (Settings::instance().visibilityLevel() == VisibilityLevel::Basic);
+        m_label = new QLabel(basic ? def.labelBasic : def.labelAdvanced);
+        m_label->setFont(MF(10, QFont::Bold));
+        m_label->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::TEXT));
+        layout->addWidget(m_label);
+
+        // Description — Basic description, always shown in search results
+        auto* desc = new QLabel(def.descBasic);
+        desc->setFont(MF(8));
+        desc->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::MUTED));
+        layout->addWidget(desc);
+
+        setStyleSheet("SearchResultRow { background:transparent; border-bottom:1px solid "
+            + Theme::BORDER + "; }");
+    }
+
+signals:
+    void clicked(SettingDef def);
+
+protected:
+    void mousePressEvent(QMouseEvent*) override { emit clicked(m_def); }
+
+    void enterEvent(QEnterEvent*) override {
+        setStyleSheet("SearchResultRow { background:" + Theme::HOVER +
+            "; border-bottom:1px solid " + Theme::BORDER + "; }");
+    }
+    void leaveEvent(QEvent*) override {
+        setStyleSheet("SearchResultRow { background:transparent; border-bottom:1px solid "
+            + Theme::BORDER + "; }");
+    }
+
+private:
+    SettingDef m_def;
+    QLabel* m_label = nullptr;
+};
+
+// -- VisibilityControl ---------------------------------------------------------
 
 VisibilityControl::VisibilityControl(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
@@ -407,7 +571,7 @@ void VisibilityControl::hideHintText() {
         fadeWidget(m_hintLabel, false, 200);
 }
 
-// ── PendingQueueFooter ────────────────────────────────────────────────────────
+// -- PendingQueueFooter --------------------------------------------------------
 
 PendingQueueFooter::PendingQueueFooter(QWidget* parent) : QWidget(parent) {
     auto* layout = new QVBoxLayout(this);
@@ -505,7 +669,7 @@ void PendingQueueFooter::playApplySequence(std::function<void()> onComplete) {
     if (onComplete) onComplete();
 }
 
-// ── SettingsPage ──────────────────────────────────────────────────────────────
+// -- SettingsPage --------------------------------------------------------------
 
 SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
     setStyleSheet(QString("background:%1;").arg(Theme::BG));
@@ -542,59 +706,51 @@ SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
 
 void SettingsPage::buildChrome() {
     m_chrome = new QWidget;
-    m_chrome->setStyleSheet(QString(
-        "background:%1; border-bottom:1px solid %2;"
-    ).arg(Theme::SURFACE, Theme::BORDER));
-    m_chrome->setFixedHeight(80);
+    m_chrome->setStyleSheet("background:transparent; border:none;");
+    m_chrome->setFixedHeight(110);
 
     auto* layout = new QVBoxLayout(m_chrome);
     layout->setContentsMargins(24, 8, 24, 8);
     layout->setSpacing(6);
 
-    // Row 1 — address bar (left) + spacer (right side reserved for >_ button in MainWindow)
-    m_addressBar = new QLabel("Settings");
-    m_addressBar->setFont(MF(9));
-    m_addressBar->setStyleSheet(
-        QString("color:%1; background:transparent;").arg(Theme::MUTED));
-    layout->addWidget(m_addressBar, 0, Qt::AlignLeft);
-
-    m_addressBackBtn = new QPushButton("<--");
-    m_addressBackBtn->setStyleSheet(QString(
-        "QPushButton { background:none; border:1px solid %1; color:%2;"
-        "border-radius:6px; padding:0px; }"
-        "QPushButton:hover { border-color:%2; color:%2; }"
-    ).arg(C_BORDER, C_ACCENT));
-    connect(m_addressBackBtn, &QPushButton::clicked, this, &SettingsPage::onBackClicked);
-    m_addressBackBtn->hide();
-
-    layout->addWidget(m_addressBackBtn, 0, Qt::AlignLeft);
-    // Row 2 — search bar (center) + visibility control (right)
-    auto* row2 = new QHBoxLayout;
-    row2->setSpacing(12);
-
-    row2->addStretch(1);
-
+    // Search bar — top of the page, centered, no grey backdrop
     m_searchBar = new QLineEdit;
     m_searchBar->setPlaceholderText("Search settings...");
     m_searchBar->setFont(MF(9));
     m_searchBar->setFixedHeight(30);
     m_searchBar->setFixedWidth(300);
     m_searchBar->setStyleSheet(QString(
-        "QLineEdit { background:%1; border:1px solid %2; border-radius:6px;"
-        "color:%3; padding:0 10px; }"
-        "QLineEdit:focus { border-color:%4; }"
-    ).arg(Theme::BG, Theme::BORDER, Theme::TEXT, Theme::ACCENT));
+        "QLineEdit { background:transparent; border:1px solid %1; border-radius:6px;"
+        "color:%2; padding:0 10px; }"
+        "QLineEdit:focus { border-color:%3; }"
+    ).arg(Theme::BORDER, Theme::TEXT, Theme::ACCENT));
     connect(m_searchBar, &QLineEdit::textChanged, this, &SettingsPage::onSearchChanged);
-    row2->addWidget(m_searchBar);
 
-    row2->addStretch(1);
+    auto* searchRow = new QHBoxLayout;
+    searchRow->setContentsMargins(0, 0, 0, 0);
+    searchRow->addStretch(1);
+    searchRow->addWidget(m_searchBar);
+    searchRow->addStretch(1);
+    layout->addLayout(searchRow);
 
+    // Visibility control — directly below the search bar, also centered
     m_visControl = new VisibilityControl;
     connect(m_visControl, &VisibilityControl::levelChanged,
         this, &SettingsPage::onVisibilityChanged);
-    row2->addWidget(m_visControl, 0, Qt::AlignRight | Qt::AlignVCenter);
 
-    layout->addLayout(row2);
+    auto* visRow = new QHBoxLayout;
+    visRow->setContentsMargins(0, 0, 0, 0);
+    visRow->addStretch(1);
+    visRow->addWidget(m_visControl, 0, Qt::AlignCenter);
+    visRow->addStretch(1);
+    layout->addLayout(visRow);
+
+    // Address bar — below search/visibility, left aligned
+    m_addressBar = new QLabel("Settings");
+    m_addressBar->setFont(MF(9));
+    m_addressBar->setStyleSheet(
+        QString("color:%1; background:transparent;").arg(Theme::MUTED));
+    layout->addWidget(m_addressBar, 0, Qt::AlignLeft);
 }
 
 void SettingsPage::buildCategoryView() {
@@ -605,12 +761,20 @@ void SettingsPage::buildCategoryView() {
     layout->setContentsMargins(24, 32, 24, 32);
     layout->setSpacing(16);
 
-    // Centered heading
-    auto* heading = new QLabel("Settings");
-    heading->setFont(MF(18, QFont::Bold));
+    // Centered heading — all caps, DejaVu Sans, accent green with glow
+    auto* heading = new QLabel("SETTINGS");
+    QFont headingFont("DejaVu Sans", 22, QFont::Bold);
+    heading->setFont(headingFont);
     heading->setStyleSheet(
-        QString("color:%1; background:transparent;").arg(Theme::TEXT));
+        QString("color:%1; background:transparent; letter-spacing:4px;").arg(Theme::ACCENT));
     heading->setAlignment(Qt::AlignCenter);
+
+    auto* headingGlow = new QGraphicsDropShadowEffect(heading);
+    headingGlow->setBlurRadius(24);
+    headingGlow->setOffset(0, 0);
+    headingGlow->setColor(QColor(Theme::ACCENT));
+    heading->setGraphicsEffect(headingGlow);
+
     layout->addWidget(heading);
     layout->addSpacing(16);
 
@@ -621,7 +785,7 @@ void SettingsPage::buildCategoryView() {
     for (const CategoryDef& cat : allCategories()) {
         auto* card = new CategoryCard(cat);
         connect(card, &CategoryCard::clicked, this, &SettingsPage::onCategoryClicked);
-        cardRow->addWidget(card);
+        cardRow->addWidget(card, 0, Qt::AlignTop);
     }
 
     layout->addLayout(cardRow, 1);
@@ -649,6 +813,23 @@ void SettingsPage::buildSubcategoryView(CategoryId cat) {
         if (c.id == cat) { catDef = &c; break; }
     }
 
+    // Back button — top left, returns to category overview (level 0)
+    auto* backBtn = new QPushButton("← Settings");
+    backBtn->setFont(MF(9));
+    backBtn->setCursor(Qt::PointingHandCursor);
+    backBtn->setFixedHeight(28);
+    backBtn->setStyleSheet(QString(
+        "QPushButton { background:none; border:1px solid %1; color:%2;"
+        "border-radius:6px; padding:2px 12px; }"
+        "QPushButton:hover { border-color:%3; color:%3; }"
+    ).arg(Theme::BORDER, Theme::MUTED, Theme::ACCENT));
+    connect(backBtn, &QPushButton::clicked, this, &SettingsPage::onBackClicked);
+
+    auto* backRow = new QHBoxLayout;
+    backRow->addWidget(backBtn, 0, Qt::AlignLeft);
+    backRow->addStretch(1);
+    layout->addLayout(backRow);
+
     // Heading in category accent color
     auto* heading = new QLabel(catDef ? catDef->label : "");
     heading->setFont(MF(16, QFont::Bold));
@@ -658,17 +839,20 @@ void SettingsPage::buildSubcategoryView(CategoryId cat) {
     layout->addWidget(heading);
     layout->addSpacing(8);
 
-    // Subcategory cards
+    // Subcategory cards — capped at 3 per category for layout consistency
     auto* cardRow = new QHBoxLayout;
     cardRow->setSpacing(16);
 
-    for (const SubcategoryDef& sub : subcategoriesFor(cat)) {
-        auto* card = new SubcategoryCard(sub, catDef ? catDef->accentColor : Theme::ACCENT);
+    const QList<SubcategoryDef> subs = subcategoriesFor(cat);
+    const int maxCards = qMin(subs.size(), 3);
+
+    for (int i = 0; i < maxCards; ++i) {
+        auto* card = new SubcategoryCard(subs[i], catDef ? catDef->accentColor : Theme::ACCENT);
         connect(card, &SubcategoryCard::clicked, this, &SettingsPage::onSubcategoryClicked);
         cardRow->addWidget(card);
     }
-    // Fill remaining space if fewer than 4 subcategories
-    cardRow->addStretch(1);
+    // Fill remaining space if fewer than 3 subcategories
+    for (int i = maxCards; i < 3; ++i) cardRow->addStretch(1);
 
     layout->addLayout(cardRow);
     layout->addStretch(1);
@@ -694,6 +878,30 @@ void SettingsPage::buildSettingView(SubcategoryId sub) {
     for (const SubcategoryDef& s : allSubcategories()) {
         if (s.id == sub) { subDef = &s; break; }
     }
+
+    // Find parent category's accent color for the back button
+    QString backAccent = Theme::ACCENT;
+    for (const CategoryDef& c : allCategories()) {
+        if (subDef && c.id == subDef->parentCategory) { backAccent = c.accentColor; break; }
+    }
+
+    // Back button — top left, returns to subcategory overview (level 1)
+    auto* backBtn = new QPushButton(subDef ? "← " + categoryLabel(subDef->parentCategory) : "← Back");
+    backBtn->setFont(MF(9));
+    backBtn->setCursor(Qt::PointingHandCursor);
+    backBtn->setFixedHeight(28);
+    backBtn->setStyleSheet(QString(
+        "QPushButton { background:none; border:1px solid %1; color:%2;"
+        "border-radius:6px; padding:2px 12px; }"
+        "QPushButton:hover { border-color:%3; color:%3; }"
+    ).arg(Theme::BORDER, Theme::MUTED, backAccent));
+    connect(backBtn, &QPushButton::clicked, this, &SettingsPage::onBackClicked);
+
+    auto* backRow = new QHBoxLayout;
+    backRow->addWidget(backBtn, 0, Qt::AlignLeft);
+    backRow->addStretch(1);
+    layout->addLayout(backRow);
+    layout->addSpacing(8);
 
     auto* heading = new QLabel(subDef ? subDef->label : "");
     heading->setFont(MF(14, QFont::Bold));
@@ -728,12 +936,73 @@ void SettingsPage::buildSettingView(SubcategoryId sub) {
     m_contentStack->addWidget(m_settingView);
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+void SettingsPage::buildSearchView(const QString& query) {
+    if (m_searchView) {
+        m_contentStack->removeWidget(m_searchView);
+        delete m_searchView;
+        m_searchView = nullptr;
+    }
+
+    m_searchView = new QWidget;
+    m_searchView->setStyleSheet("background:transparent;");
+
+    auto* layout = new QVBoxLayout(m_searchView);
+    layout->setContentsMargins(24, 24, 24, 24);
+    layout->setSpacing(0);
+
+    const QList<SettingDef> results = searchSettings(query,
+        Settings::instance().visibilityLevel());
+
+    if (results.isEmpty()) {
+        auto* empty = new QLabel("No settings found");
+        empty->setFont(MF(10));
+        empty->setStyleSheet(
+            QString("color:%1; background:transparent;").arg(Theme::MUTED));
+        empty->setAlignment(Qt::AlignCenter);
+        layout->addStretch(1);
+        layout->addWidget(empty);
+        layout->addStretch(1);
+    }
+    else {
+        auto* listContainer = new QWidget;
+        listContainer->setStyleSheet(QString(
+            "background:%1; border-radius:10px;"
+        ).arg(Theme::SURFACE, Theme::BORDER));
+
+        auto* listLayout = new QVBoxLayout(listContainer);
+        listLayout->setContentsMargins(0, 0, 0, 0);
+        listLayout->setSpacing(0);
+
+        for (const SettingDef& def : results) {
+            auto* row = new SearchResultRow(def);
+            connect(row, &SearchResultRow::clicked, this, [this](SettingDef def) {
+                // Clear the search so leaving search mode doesn't re-trigger it
+                m_searchBar->blockSignals(true);
+                m_searchBar->clear();
+                m_searchBar->blockSignals(false);
+
+                m_activeCategory = def.category;
+                m_activeSub = def.subcategory;
+                m_currentLevel = 2;
+                buildSettingView(def.subcategory);
+                navigateTo(2);
+                updateAddressBar();
+                });
+            listLayout->addWidget(row);
+        }
+        listLayout->addStretch(1);
+
+        layout->addWidget(listContainer, 1);
+    }
+
+    m_contentStack->addWidget(m_searchView);
+}
+
+// -- Navigation ----------------------------------------------------------------
 
 void SettingsPage::onCategoryClicked(CategoryId cat) {
     m_activeCategory = cat;
     m_currentLevel = 1;
-    m_addressBackBtn->show();
     buildSubcategoryView(cat);
     navigateTo(1);
     updateAddressBar();
@@ -753,11 +1022,9 @@ void SettingsPage::onSubcategoryClicked(SubcategoryId sub) {
 
 void SettingsPage::onBackClicked() {
     if (m_currentLevel == 0) return;
-
     m_currentLevel--;
     navigateTo(m_currentLevel);
     updateAddressBar();
-    if (m_currentLevel == 0) m_addressBackBtn->hide();
 }
 
 void SettingsPage::navigateTo(int level) {
@@ -810,22 +1077,41 @@ void SettingsPage::updateAddressBar() {
 
 void SettingsPage::onSearchChanged(const QString& query) {
     if (query.trimmed().isEmpty()) {
-        // Return to current level view
+        // Clean up search view and return to current level
+        if (m_searchView) {
+            m_contentStack->removeWidget(m_searchView);
+            delete m_searchView;
+            m_searchView = nullptr;
+        }
+        updateAddressBar();
         navigateTo(m_currentLevel);
         return;
     }
 
-    // Build a search results view inline
-    // Full search results view is a follow-up — for now show result count
+    buildSearchView(query);
+
     const QList<SettingDef> results = searchSettings(query,
         Settings::instance().visibilityLevel());
 
     m_addressBar->setText(
         QString("<span style='color:%1;'>Search: </span>"
-            "<span style='color:%2;'>%3 result%4</span>")
+            "<span style='color:%2;'>\"%3\" — %4 result%5</span>")
         .arg(Theme::MUTED, Theme::TEXT)
+        .arg(query.toHtmlEscaped())
         .arg(results.size())
         .arg(results.size() == 1 ? "" : "s"));
+
+    // Fade directly to the search view regardless of current level
+    QWidget* current = m_contentStack->currentWidget();
+    if (current != m_searchView) {
+        fadeWidget(current, false, 120);
+        m_contentStack->setCurrentWidget(m_searchView);
+        fadeWidget(m_searchView, true, 150);
+    }
+    else {
+        // Already showing a (now-replaced) search view — just fade in the new one
+        fadeWidget(m_searchView, true, 150);
+    }
 }
 
 void SettingsPage::onVisibilityChanged(VisibilityLevel level) {
@@ -840,6 +1126,7 @@ void SettingsPage::onPendingChanged() {
 }
 
 void SettingsPage::prepareToLeave(std::function<void()> onComplete) {
+
     m_footer->playApplySequence(onComplete);
 }
 

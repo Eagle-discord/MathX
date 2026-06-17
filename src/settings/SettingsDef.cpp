@@ -9,28 +9,32 @@ const QList<CategoryDef>& allCategories() {
             "Appearance",
             Theme::WARN,        // amber — warmth, creativity
             "brush",
-            "Fonts, colors, and visual style"
+            "Fonts, colors, and visual style",
+            "Customize the look and feel"
         },
         {
             CategoryId::Display,
             "Display",
             Theme::INFO,        // blue — screens, clarity
             "monitor",
-            "How results and output are presented"
+            "How results and output are presented",
+            "Control how information is shown"
         },
         {
             CategoryId::Behavior,
             "Behavior",
             Theme::ACCENT,      // green — logic, the app's primary identity
             "gear",
-            "How the app is programmed internally"
+            "How the app is programmed internally",
+            "Configure calculation logic and automation"
         },
         {
             CategoryId::System,
             "System",
             Theme::PURPLE,      // purple — infrastructure, depth
             "server",
-            "App-level data and information"
+            "App-level data and information",
+            "Manage application data and diagnostics"
         },
     };
     return list;
@@ -153,7 +157,8 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating text size across the interface",
             "Text size updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {"Font size", "Point size", "Text scale"}
         },
         {
             "appearance/typography/fontFamily",
@@ -165,7 +170,8 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Applying new font across the interface",
             "Font updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {"Typeface", "Font family"}
         },
         {
             "appearance/typography/fontWeight",
@@ -194,7 +200,8 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating accent color across the interface",
             "Accent color updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {"Theme color", "Primary color"}
         },
         {
             "appearance/colors/backgroundColor",
@@ -426,7 +433,8 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Deferred,
             "Updating decimal precision",
             "Precision updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {"Precision", "Rounding"}
         },
         {
             "behavior/computation/bigNumThreshold",
@@ -569,10 +577,17 @@ QList<SettingDef> searchSettings(const QString& query, VisibilityLevel level) {
     const QString q = query.toLower();
     for (const SettingDef& def : allSettings()) {
         if (def.minLevel > level) continue;
+
+        bool aliasMatch = false;
+        for (const QString& alias : def.aliases) {
+            if (alias.toLower().contains(q)) { aliasMatch = true; break; }
+        }
+
         if (def.labelBasic.toLower().contains(q) ||
             def.labelAdvanced.toLower().contains(q) ||
             def.descBasic.toLower().contains(q) ||
-            def.key.toLower().contains(q))
+            def.key.toLower().contains(q) ||
+            aliasMatch)
         {
             result.append(def);
         }

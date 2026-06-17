@@ -4,6 +4,7 @@
 QString NaturalLanguage::preprocess(const QString& input) {
     QString result = input.toLower();
 
+    result.remove(",");
     // 1. Convert "5 percent" -> "5%" (must be done before "of" etc.)
     static QRegularExpression percentWordRe(R"((\d+(?:\.\d+)?)\s+percent\b)");
     result.replace(percentWordRe, "\\1%");
@@ -29,7 +30,7 @@ QString NaturalLanguage::preprocess(const QString& input) {
     result.replace(machRe, "\\1 mach");
 
     // "of" -> "*"
-    static QRegularExpression ofRe(R"(([^\s]+)\s+of\s+([^\s]+))");
+    static QRegularExpression ofRe(R"((\([^()]+\)|[^\s]+)\s+of\s+(\([^()]+\)|[^\s]+))");
     result.replace(ofRe, "(\\1 * \\2)");
 
 
@@ -48,14 +49,14 @@ QString NaturalLanguage::preprocess(const QString& input) {
 
     // "into" -> swapped division: X into Y -> (Y / X)
     static QRegularExpression intoRe(R"(([^\s]+)\s+into\s+([^\s]+))");
-    result.replace(intoRe, "(\\1 * \\2)");
+    result.replace(intoRe, "(\\1 / \\2)");
 
     // "percent" -> /100 (handles standalone and "of" patterns)
  //   static QRegularExpression percentRe(R"((\d+(?:\.\d+)?)\s*percent(?:\s+of\s+)?)");
  //   result.replace(percentRe, "(\\1/100)*");
     // Normalize spaces around parentheses
-    result.replace(QRegularExpression(R"(\s*\()"), "(");
-    result.replace(QRegularExpression(R"(\)\s*)"), ")");
+   // result.replace(QRegularExpression(R"(\s*\()"), "(");
+  //  result.replace(QRegularExpression(R"(\)\s*)"), ")");
     result.replace(QRegularExpression(R"(\s\( \()"), "((");
     result.replace(") (", ")*(");
     QString old;

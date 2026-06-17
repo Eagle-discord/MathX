@@ -21,5 +21,10 @@
 	  <file>fonts/Syne-Medium.ttf</file>
 	  <file>fonts/Syne-Regular.ttf</file>
 	  <file>fonts/Syne-SemiBold.ttf</file>
+	  <file>settings/bg-appearance.png</file>
+	  <file>settings/bg-display.png</file>
+	  <file>settings/bg-behavior.png</file>
+	  <file>settings/bg-system.png</file>
+	  <file>fonts/DejaVuSans.ttf</file>
   </qresource>
 </RCC>

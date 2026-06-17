@@ -627,7 +627,7 @@ QString processed = NaturalLanguage::preprocess(expr);
             { {"tonne","tonnes","metric ton"},    1000.0,     "kilograms"  },
             { {"mph"},                            0.44704,    "meters/second" },
             { {"knot","knots","kn"},              0.514444,   "meters/second" },
-            { {"kilometers", "km", "kilometres"}, 1000, "meters"},
+            { {"kilometers", "km", "kilometres", "kilometer", "kilometre"}, 1000, "meters"},
             {{"feet", "ft"}, 0.3048, "meters"},
             
         };
