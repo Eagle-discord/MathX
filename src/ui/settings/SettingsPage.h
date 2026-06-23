@@ -39,6 +39,7 @@ public:
 
 signals:
     void navigateAway(); // emitted after apply animation completes
+    void copyHistoryRequested(); // user triggered "Copy history" — MainWindow has the actual data
 
 private slots:
     void onCategoryClicked(CategoryId cat);
@@ -47,6 +48,7 @@ private slots:
     void onVisibilityChanged(VisibilityLevel level);
     void onPendingChanged();
     void onBackClicked();
+    void onActionTriggered(QString key); // handles Action-control settings (export/import/reset)
 
 private:
     // -- Layout builders -------------------------------------------------------
@@ -69,6 +71,7 @@ private:
     QLineEdit* m_searchBar = nullptr;
     VisibilityControl* m_visControl = nullptr;
     PendingQueueFooter* m_footer = nullptr; // bottom-right pending queue
+    QLabel* m_pendingHintBar = nullptr; // one-shot "applies on leave" hint
 
     // -- Content area ----------------------------------------------------------
     QStackedWidget* m_contentStack = nullptr; // swapped on navigation
@@ -124,6 +127,11 @@ public:
 
     // Triggers the apply animation sequence then calls onComplete.
     void playApplySequence(std::function<void()> onComplete);
+
+signals:
+    // Emitted once, the first time the Once animation mode auto-downgrades
+    // to Never after playing. SettingsPage shows the redirect message.
+    void applySequenceFinishedFirstTime();
 
 public slots:
     void onPendingChanged();

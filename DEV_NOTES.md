@@ -54,6 +54,24 @@ The prompt input evaluation should use the existing parameter values (stored in 
 **Theory for fix:**  
 The apply pipeline uses `Settings::applyPending()` called when run state becomes idle or on navigation. Ensure `SettingsPage::prepareToLeave` triggers `applyPending(true)` and waits for the callback. The code seems correct; test thoroughly.
 
+## BUG-004 - RegistryWatcher startup freeze
+
+**Symptom**:
+- Application freezes during startup.
+- Runtime counter remains at 0s.
+- UI becomes unresponsive.
+
+**Cause**:
+- RegistryWatcher was created with a QObject parent and later moved to a worker thread.
+- Qt does not allow moving QObjects that already have a parent.
+
+**Theory for Fix**:
+- Create RegistryWatcher without a parent before calling moveToThread().
+- Use deleteLater() for cleanup when the worker thread exits.
+
+**Future bug Prevention**:
+- Verify all worker-thread QObjects have no parent before moveToThread().
+
 ---
 
 ## ? Feature Wishlist (Not bugs)

@@ -111,6 +111,13 @@ const QList<SubcategoryDef>& allSubcategories() {
             "database",
             "History size and cache behavior"
         },
+        {
+            SubcategoryId::Animations,
+            CategoryId::Behavior,
+            "Animations",
+            "sparkle",
+            "Animation preferences for the settings page"
+        },
 
         // -- System ------------------------------------------------------------
         {
@@ -144,9 +151,9 @@ const QList<SubcategoryDef>& allSubcategories() {
 const QList<SettingDef>& allSettings() {
     static const QList<SettingDef> list = {
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // APPEARANCE / TYPOGRAPHY
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "appearance/typography/fontSize",
             CategoryId::Appearance, SubcategoryId::Typography,
@@ -187,9 +194,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Advanced
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // APPEARANCE / COLORS
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "appearance/colors/accentColor",
             CategoryId::Appearance, SubcategoryId::Colors,
@@ -264,9 +271,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Advanced
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // APPEARANCE / THEME
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "appearance/theme/preset",
             CategoryId::Appearance, SubcategoryId::Theme,
@@ -281,9 +288,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Basic
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // DISPLAY / PROGRESS
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "display/progress/style",
             CategoryId::Display, SubcategoryId::Progress,
@@ -310,9 +317,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Basic
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // DISPLAY / RESULTS
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "display/results/truncationLimit",
             CategoryId::Display, SubcategoryId::Results,
@@ -338,9 +345,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Basic
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // DISPLAY / GEOMETRY VIEWER
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "display/geometry/autoRotate",
             CategoryId::Display, SubcategoryId::GeometryViewer,
@@ -378,9 +385,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Basic
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // BEHAVIOR / THREADING
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "behavior/threading/splitThreads",
             CategoryId::Behavior, SubcategoryId::Threading,
@@ -407,9 +414,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Developer
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // BEHAVIOR / COMPUTATION
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "behavior/computation/angleUnit",
             CategoryId::Behavior, SubcategoryId::Computation,
@@ -461,9 +468,9 @@ const QList<SettingDef>& allSettings() {
             VisibilityLevel::Developer
         },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         // BEHAVIOR / MEMORY
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "behavior/memory/historySize",
             CategoryId::Behavior, SubcategoryId::Memory,
@@ -500,14 +507,47 @@ const QList<SettingDef>& allSettings() {
             "Exit behavior updated",
             VisibilityLevel::Advanced
         },
+        {
+            "behavior/memory/copyHistory",
+            CategoryId::Behavior, SubcategoryId::Memory,
+            false, ControlType::Action, {}, {},
+            "Copy history", "Copy session history",
+            "Copies every expression you've run this session to the clipboard",
+            "Joins MainWindow::m_history with newlines and writes to QClipboard",
+            ApplyMode::Immediate,
+            "Copying history to clipboard",
+            "History copied",
+            VisibilityLevel::Basic,
+            {"Copy terminal", "Export history", "Copy calculations"}
+        },
 
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
+        // BEHAVIOR / ANIMATIONS
+        // --------------------------------------------------------------------
+        {
+            "behavior/animations/showApplyAnimation",
+            CategoryId::Behavior, SubcategoryId::Animations,
+            "Once", ControlType::Dropdown,
+            {"Once", "Always", "Never"}, {},
+            "Show apply animation", "Show apply animation",
+            "Whether to play the animation when your settings are applied",
+            "Controls AnimationMode: Once auto-downgrades to Never after first play",
+            ApplyMode::Immediate,
+            "Updating animation preference",
+            "Animation preference updated",
+            VisibilityLevel::Basic,
+            {"Apply animation", "Settings animation", "Transition"},
+            "Settings page",
+            ""
+        },
+
+        // --------------------------------------------------------------------
         // SYSTEM / DATA
-        // ════════════════════════════════════════════════════════════════════
+        // --------------------------------------------------------------------
         {
             "system/data/exportSettings",
             CategoryId::System, SubcategoryId::Data,
-            false, ControlType::Toggle, {}, {},
+            false, ControlType::Action, {}, {},
             "Export settings to file", "Export settings",
             "Save all your settings to a file you can share or back up",
             "Serialises QSettings to JSON via QJsonDocument",
@@ -519,7 +559,7 @@ const QList<SettingDef>& allSettings() {
         {
             "system/data/importSettings",
             CategoryId::System, SubcategoryId::Data,
-            false, ControlType::Toggle, {}, {},
+            false, ControlType::Action, {}, {},
             "Import settings from file", "Import settings",
             "Load settings from a file exported by MathX",
             "Deserialises JSON into QSettings, validates keys against SettingsDef",
@@ -531,7 +571,7 @@ const QList<SettingDef>& allSettings() {
         {
             "system/data/resetAll",
             CategoryId::System, SubcategoryId::Data,
-            false, ControlType::Toggle, {}, {},
+            false, ControlType::Action, {}, {},
             "Reset everything to defaults", "Reset all settings",
             "Wipes all your settings and starts fresh",
             "Calls Settings::instance().resetAll() — irreversible without export",

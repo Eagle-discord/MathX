@@ -15,6 +15,8 @@
 #include "../math/BigNum.h"
 #include "../thread/PersistentWorker.h"
 #include <QThread>
+#include <QElapsedTimer>
+#include <QDateTime>
 #include "HistoryDock.h"
 #include "FocusGlow.h"
 #include "FocusAnchor.h"
@@ -40,7 +42,7 @@ public:
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
     void closeEvent(QCloseEvent* closeEvent) override;
-
+    void resizeEvent(QResizeEvent* resizeEvent) override;
 
 private slots:
     void onRun();
@@ -55,8 +57,8 @@ private slots:
     void onCalcFinish(RunState state, QString result);
     void onWorkerFinish(int jobId, const QString& result, const QString& type, const QString& formula);
     //    void performFactorial(BigInt fac_num);
+    void onCopyHistory();
 
- 
 
     // PromptController slots
     void onParamReady(const QString& param, const QString& value);
@@ -97,6 +99,8 @@ private:
     QWidget* m_header = nullptr;
     QWidget* m_modesBar = nullptr;
     QWidget* m_terminal = nullptr;
+    QWidget* m_termBar = nullptr;
+    QWidget* m_termTitle = nullptr;
     QFrame* m_inputRow = nullptr;  // holds the glow QGraphicsDropShadowEffect
     OutputArea* m_output = nullptr;
     QLineEdit* m_input = nullptr;
@@ -109,13 +113,24 @@ private:
     QLabel* m_lastExprLbl = nullptr;
     QLabel* m_lastResultLbl = nullptr;
     QPushButton* m_activeMode = nullptr;
+    QPushButton* m_copyHistBtn = nullptr;
     QPushButton* m_truncate_toggle = nullptr;
     // Application state
 
     RunState    m_state = RunState::Idle;
     QStringList m_history;
+    QStringList m_copyHistBuffer;
     int         m_calcCount = 0;
     QThread* m_workerThread = nullptr;
+
+    // -- Session uptime ---------------------------------------------------------
+    // QElapsedTimer is monotonic — immune to system clock changes (sleep,
+    // resume, manual clock adjustment) unlike QDateTime::currentDateTime()
+    // diffs would be. Single source of truth for "how long has this run".
+    QElapsedTimer m_sessionTimer;
+    QTimer* m_runtimeUpdateTimer = nullptr; // ticks every second, refreshes m_runtimeLbl
+    QLabel* m_runtimeLbl = nullptr;
+    void updateRuntimeLabel();
     PersistentWorker* m_worker = nullptr;
     QMap<int, QString> m_pendingJobs;
     QMap<int, int> m_streamingJobs;  // jobId → streamId for active streams

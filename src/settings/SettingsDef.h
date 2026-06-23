@@ -10,9 +10,10 @@ enum class ControlType {
     Toggle,       // Boolean — red/green push button
     Dropdown,     // Enum — styled dropdown
     Slider,       // Int — adaptive step slider + inline edit
-    ColorPicker,  // Color — hex/rgb/hsv input + picker popup
+    ColorPicker,  // Color — hex/rgb input + picker popup
     FontInput,    // Font — typed input with autofill suggestions
     TextInput,    // String — plain text input
+    Action,       // One-shot operation — styled button, no persistent state
 };
 
 // -- CategoryId ----------------------------------------------------------------
@@ -39,6 +40,7 @@ enum class SubcategoryId {
     Threading,
     Computation,
     Memory,
+    Animations,   // animation preferences including apply animation mode
 
     // System
     Data,
@@ -101,10 +103,15 @@ struct SettingDef {
 
     // -- Search aliases --------------------------------------------------------
     // Extra search terms that should match this setting even though they
-    // don't appear in its labels/description. E.g. "Text size" might also
-    // be found by searching "font size" or "point size".
-    // Optional — defaults to empty, append via initializer list as needed.
+    // don't appear in its labels/description.
     QStringList     aliases = {};
+
+    // -- Preview metadata ------------------------------------------------------
+    // Used to build the enriched pending queue preview:
+    //   "{labelBasic} - {affects} : {old}{unit} → {new}{unit}"
+    // Both optional — if affects is empty, falls back to "{labelBasic}: old → new"
+    QString         affects = {};    // "Result labels", "Buttons & highlights", ""
+    QString         unit = {};    // "px", "ms", "" — appended to numeric values
 };
 
 // -- CategoryDef ---------------------------------------------------------------

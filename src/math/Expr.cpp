@@ -37,7 +37,7 @@ static QString insertImplicitMul(const QString& s) {
     return r;
 }
 
-// -- callBuiltin – exactly as in the original Expr.cpp (copied from your code) -
+
 static double callBuiltin(const QString& name, const QVector<double>& args) {
     auto need = [&](int n) {
         if (args.size() < n) throw std::runtime_error(name.toStdString() + " needs " + std::to_string(n) + " argument(s)");
@@ -99,7 +99,7 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
         while (b) { a %= b; std::swap(a, b); }
         return (double)a;
     }
-    if (name == "ncr" || name == "c") {
+    if (name == "ncr" || name == "c" || name == "nCr") {
         need(2);
         int n = (int)args[0], r = (int)args[1];
         if (r < 0 || r > n) return 0;
@@ -406,6 +406,7 @@ double Expr::evalWith(const QString& input, const VarMap& vars, bool& ok) {
         s = replaceXWithTimes(s);
         s = s.replace("**", "^");
         s = insertImplicitMul(s);
+        
         Tokenizer tokenizer(s, vars);
         Parser parser(tokenizer, vars);
         double result = parser.parseExpression();

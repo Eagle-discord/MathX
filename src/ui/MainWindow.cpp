@@ -15,6 +15,8 @@
 #include "GeoModeWidget.h"
 #include "settings/SettingsPage.h"
 #include "../settings/Settings.h"
+#include <QApplication>
+#include <QClipboard>
 
 static QString g_fontFamily;
 static void initFont() {
@@ -36,6 +38,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setMinimumSize(900, 640); resize(1100, 750);
     setStyleSheet(QString("QMainWindow,QWidget{background:%1;color:%2;}").arg(C_BG, C_TEXT));
 
+    // Session uptime — starts the moment the window is constructed
+    m_sessionTimer.start();
+    m_runtimeUpdateTimer = new QTimer(this);
+    connect(m_runtimeUpdateTimer, &QTimer::timeout, this, &MainWindow::updateRuntimeLabel);
+    m_runtimeUpdateTimer->start(1000);
 
     // m_focusAnchor = new FocusAnchor(this);
 
@@ -83,6 +90,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_workerThread, &QThread::started, m_worker, &PersistentWorker::process);
     connect(m_worker, &PersistentWorker::resultReady, this, &MainWindow::onWorkerFinish);
 
+
     connect(this, &MainWindow::stop, m_worker, &PersistentWorker::cancelAll);
     connect(m_worker, &PersistentWorker::progress, this, [this](int jobId, int percent, const QString& label) {
         m_output->showProgress(percent, label);
@@ -96,6 +104,28 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         });
     m_workerThread->start();
 }
+// -- updateRuntimeLabel ---------------------------------------------------------
+// Ticks once per second via m_runtimeUpdateTimer. Uses QElapsedTimer (monotonic)
+// rather than a QDateTime diff, so the displayed uptime is immune to system
+// clock changes — sleep/resume, manual clock adjustment, timezone shifts, etc.
+void MainWindow::updateRuntimeLabel() {
+    if (!m_runtimeLbl) return;
+
+    const qint64 totalSeconds = m_sessionTimer.elapsed() / 1000;
+    const qint64 hours = totalSeconds / 3600;
+    const qint64 minutes = (totalSeconds % 3600) / 60;
+    const qint64 seconds = totalSeconds % 60;
+
+    QString runtime;
+    if (hours > 0)
+        runtime += QString::number(hours) + "h ";
+    if (minutes > 0 || hours > 0)
+        runtime += QString::number(minutes) + "m ";
+    runtime += QString::number(seconds) + "s";
+
+    m_runtimeLbl->setText(runtime);
+}
+
 void MainWindow::onShowProjection(const QString& type, const QMap<QString, double>& params) {
     m_geoModeWidget->setShape(type, params);
     m_centralStack->setCurrentIndex(1);
@@ -116,7 +146,7 @@ void MainWindow::recreateGeometryMode() {
         m_geoModeWidget = nullptr;
     }
     m_geoModeWidget = new GeoModeWidget;
-    m_centralStack->insertWidget(1, m_geoModeWidget);
+    m_centralStack->addWidget(m_geoModeWidget);
     // Reconnect the back button signal
     connect(m_geoModeWidget, &GeoModeWidget::backClicked, this, [this]() {
         QLayout* root = centralWidget()->layout();
@@ -124,7 +154,6 @@ void MainWindow::recreateGeometryMode() {
         root->setSpacing(m_originalSpacing);
         m_centralStack->setCurrentIndex(0);
         });
-
 }
 void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString& type, const QString& formula) {
     // Retrieve the original expression (needed for geometry cards)
@@ -135,7 +164,7 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
         GeoCard* card = InputHandler::makeGeoCard(expr);
         if (card) {
             m_output->addGeoCard(card);
-
+            m_copyHistBuffer.append(card->buildCopyText().append("\n\n"));
         }
 
 
@@ -187,9 +216,11 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
             display.append(QString("\n.... %1 more characters (%2 total)")
                 .arg(fullLen - limit).arg(fullLen));
             m_output->addResultLine(display, "big", result);
+            m_copyHistBuffer.append(result);
         }
         else {
             m_output->addResultLine(result, "big");
+            m_copyHistBuffer.append(QString(result).append("\n\n"));
         }
     }
     else if (type != "geo") {
@@ -197,6 +228,7 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
 
         // Normal result (arithmetic, conversion, algebra, trig, big number, error)
         m_output->addResultLine(result, type, result, formula, expr);
+        m_copyHistBuffer.append((QString(result).append("\n\n")));
     }
 
     if (m_output->progressState() == true) m_output->hideProgress();
@@ -211,6 +243,17 @@ void MainWindow::onWorkerFinish(int jobId, const QString& result, const QString&
     }
 
 }
+
+void MainWindow::onCopyHistory()
+{
+    QString copyText = "";
+    for (QString entry : m_copyHistBuffer) {
+        
+        copyText.append(entry);
+    }
+    QApplication::clipboard()->setText(copyText);
+}
+
 
 
 // -- eventFilter ---------------------------------------------------------------
@@ -254,6 +297,22 @@ void MainWindow::closeEvent(QCloseEvent* closeEvent)
         m_workerThread->wait(3000);
     }
 
+}
+
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    QMainWindow::resizeEvent(event);
+
+    /*if (m_termTitle && m_termBar)
+    {
+        const int x =
+            (m_termBar->width() - m_termTitle->width()) / 2;
+
+        const int y =
+            (m_termBar->height() - m_termTitle->height()) / 2;
+
+        m_termTitle->move(x, y);
+    }*/
 }
 
 // -- setRunState ---------------------------------------------------------------
@@ -423,7 +482,8 @@ void MainWindow::onRun() {
     // -- run -----------------------------------------------------------------------
 void MainWindow::run(const QString& expr) {
 
-    m_history.append(expr);
+    m_copyHistBuffer.append(QString(expr).prepend(">> ").append("\n"));
+    m_history.append(QString(expr));
     m_lastExprLbl->setText(expr);
     setRunState(RunState::Running);
     int id = ++m_nextJobId;
@@ -828,11 +888,14 @@ void MainWindow::setupUi() {
     m_settingsPageWidget = new SettingsPage;
     settingsLayout->addWidget(m_settingsPageWidget, 1);
 
+    connect(m_settingsPageWidget, &SettingsPage::copyHistoryRequested, this, [this]() {
+        if (m_history.isEmpty()) return;
+        QApplication::clipboard()->setText(m_history.join('\n'));
+        });
+
     // Back button wired through prepareToLeave so pending changes apply first
     connect(m_settingsBackBtn, &QPushButton::clicked, this, [this]() {
-
         m_settingsPageWidget->prepareToLeave([this]() {
-
             m_centralStack->setCurrentIndex(0);
             m_settingsBackBtn->hide();
             m_settingsBtn->show();
@@ -1001,11 +1064,10 @@ void MainWindow::setupHeader() {
             m_settingsBackBtn->show();
         }
         });
-    m_settingsBtn->setContentsMargins(0, 40, 0, 0);
+
     hl->addSpacing(8);
     hl->addWidget(m_settingsBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     hl->addSpacing(8);
-}
     /*void MainWindow::setupHeader() {
         m_header = new QWidget; m_header->setStyleSheet("background:transparent;");
         auto* hl = new QHBoxLayout(m_header);
@@ -1077,8 +1139,8 @@ void MainWindow::setupHeader() {
         }
         hl->addWidget(m_modesBar);
     }*/
+}
     // -- setupTerminal -------------------------------------------------------------
-
     void MainWindow::setupTerminal() {
         m_terminal = new QFrame; m_terminal->setObjectName("terminal");
         m_terminal->setStyleSheet(QString(
@@ -1086,22 +1148,58 @@ void MainWindow::setupHeader() {
         ).arg(C_SURFACE, C_BORDER));
         auto* tl = new QVBoxLayout(m_terminal); tl->setContentsMargins(0, 0, 0, 0); tl->setSpacing(0);
 
-        auto* termBar = new QWidget; termBar->setObjectName("termBar"); termBar->setFixedHeight(36);
-        termBar->setStyleSheet(QString(
-            "QWidget#termBar{background:%1;border-bottom:1px solid %2;"
+        m_termBar = new QWidget; m_termBar->setObjectName("m_termBar"); m_termBar->setFixedHeight(36);
+        m_termBar->setStyleSheet(QString(
+            "QWidget#m_termBar{background:%1;border-bottom:1px solid %2;"
             "border-top-left-radius:12px;border-top-right-radius:12px;}"
         ).arg(C_CARD, C_BORDER));
-        auto* tbL = new QHBoxLayout(termBar); tbL->setContentsMargins(14, 0, 16, 0); tbL->setSpacing(7);
+        auto* tbL = new QHBoxLayout(m_termBar);
+        tbL->setContentsMargins(14, 2, 16, 2); tbL->setSpacing(7);
         for (const QString& col : { "#ff5f57","#febc2e","#28c840" }) {
             auto* d = new QLabel; d->setFixedSize(12, 12);
             d->setStyleSheet(QString("background:%1;border-radius:6px;").arg(col));
             tbL->addWidget(d);
         }
-        tbL->addStretch();
-        auto* termTitle = new QLabel("mathx v1.0 \xe2\x80\x94 session"); termTitle->setFont(MF(8));
-        termTitle->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:1px;").arg(C_MUTED));
-        tbL->addWidget(termTitle);
+       
+        m_copyHistBtn = new QPushButton("Copy History");
+        m_copyHistBtn->setFont(MF(10));
+        m_copyHistBtn->setStyleSheet(QString(
+            "QPushButton{background:none;border:1px solid %1;color:%1;"
+            "padding:1px 8px;border-radius:4px;}"
+            "QPushButton:hover{border-color:%2;color:%2;}"
+        ).arg(Theme::MUTED, Theme::ACCENT));
+        connect(m_copyHistBtn, &QPushButton::clicked, this, [this]() {
+            onCopyHistory();
+            m_copyHistBtn->setStyleSheet(QString(
+                "QPushButton{background:%2;border:0px solid %1;color:%3;"
+                "padding:1px 8px;border-radius:4px;}"
+                "QPushButton:hover{border-color:%2;color:%1;}"
+            ).arg(Theme::MUTED, Theme::ACCENT, QString("#000000")));
+            m_copyHistBtn->setText("Copied!");
+            QTimer::singleShot(1500, this, [this]() {
+                m_copyHistBtn->setText("Copy History");
+                m_copyHistBtn->setStyleSheet(QString(
+                    "QPushButton{background:none;border:1px solid %1;color:%1;"
+                    "padding:1px 8px;border-radius:4px;}"
+                    "QPushButton:hover{border-color:%2;color:%2;}"
+                ).arg(Theme::MUTED, Theme::ACCENT));
+                });
+            });
+        m_copyHistBtn->setFixedSize(112, 19);
 
+        m_termTitle = new QLabel("mathx v1.0 \xe2\x80\x94 session", m_termBar);
+        m_termTitle->raise();
+        m_termTitle->setFont(MF(9));
+        m_termTitle->setStyleSheet(QString("color:%1;background:transparent;letter-spacing:1px;").arg(C_MUTED));
+
+        tbL->addStretch();
+        tbL->addWidget(m_termTitle, 0, Qt::AlignHCenter);
+        tbL->addStretch();
+        tbL->addWidget(m_copyHistBtn, 0, Qt::AlignRight);
+
+        qDebug() << "bar width =" << m_termBar->width();
+        qDebug() << "title x =" << m_termTitle->geometry().center().x();
+       
         m_output = new OutputArea;
 
         m_inputRow = new QFrame; m_inputRow->setObjectName("inputRow"); m_inputRow->setFixedHeight(52);
@@ -1148,7 +1246,7 @@ void MainWindow::setupHeader() {
         ir->addWidget(m_stopBtn);
 
 
-        tl->addWidget(termBar);
+        tl->addWidget(m_termBar);
         tl->addWidget(m_output, 1);
         tl->addWidget(inputRow);
 
@@ -1253,6 +1351,9 @@ void MainWindow::setupHeader() {
         m_countLbl->setText("0");
         makeRow("Last result:", m_lastResultLbl, C_ACCENT);
         makeRow("Last Expression Ran:", m_lastExprLbl, C_ACCENT);
+        m_runtimeLbl = new QLabel("");
+        makeRow("Uptime:", m_runtimeLbl, C_ACCENT);
+        updateRuntimeLabel(); // populate immediately, don't wait for first 1s tick
         auto* clearBtn = new QPushButton("Clear History");
         clearBtn->setFont(MF(9));
         clearBtn->setFixedHeight(26);
@@ -1261,6 +1362,7 @@ void MainWindow::setupHeader() {
             "QPushButton:hover{border-color:%3;color:%3;}"
         ).arg(C_BORDER, C_MUTED, C_ERR));
         connect(clearBtn, &QPushButton::clicked, this, &MainWindow::onClear);
+
         sessBodyL->addSpacing(2);
         sessBodyL->addWidget(clearBtn);
         sessVL->addWidget(sessHead);

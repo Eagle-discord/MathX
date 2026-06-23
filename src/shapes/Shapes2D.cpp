@@ -16,7 +16,7 @@
 #define COS BigNum::cos
 #define TAN BigNum::tan
 #define POW BigNum::pow
-#define DEFER QTimer::singleShot(0,this,[this]{recompute();});
+#define DEFER QTimer::singleShot(0,this,[this]{recompute();});recompute();
 
 // -- Circle --------------------------------------------------------------------
 CircleCard::CircleCard(double r, QWidget* p) : GeoCard(p) {

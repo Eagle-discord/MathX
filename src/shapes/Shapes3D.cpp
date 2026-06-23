@@ -7,11 +7,11 @@
 #include "../render/RenderWidget.h"
 #include <iostream>
 
-#define DEFER QTimer::singleShot(0,this,[this]{recompute();});
+#define DEFER QTimer::singleShot(0,this,[this]{recompute();});recompute();
 using BigNum::PHI;
 using BigNum::PI;
 //  3D SHAPES
-// ══════════════════════════════════════════════════════════════════════════════
+// ------------------------------------------------------------------------------
 
 // -- Sphere --------------------------------------------------------------------
 SphereCard::SphereCard(double r, QWidget* p) : GeoCard(p) {

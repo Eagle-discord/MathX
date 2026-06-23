@@ -149,7 +149,7 @@ endif()
 add_executable(MathX WIN32
     ${COMMON_SOURCES}
     ${COMMON_HEADERS}
- "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp" "src/shapes/ShapeRegistry.h")
+ "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp" "src/shapes/ShapeRegistry.h" "src/settings/RegistryWatcher.h" "src/settings/RegistryWatcher.cpp" "src/constants/RunSource.h" "src/constants/StateUtils.h" "src/constants/StateUtils.cpp")
 
 # -- Link libraries ------------------------------------------------------------
 # PRIVATE means: MathX uses these libraries, but if something else linked
@@ -160,11 +160,12 @@ target_link_libraries(MathX PRIVATE
     Qt6::Widgets
     Qt6::OpenGLWidgets
     Qt6::OpenGL
+
 )
 
 # OpenGL system libraries
 if(WIN32)
-    target_link_libraries(MathX PRIVATE opengl32 glu32)
+    target_link_libraries(MathX PRIVATE opengl32 glu32 advapi32)
 else()
     find_package(OpenGL REQUIRED)
     target_link_libraries(MathX PRIVATE OpenGL::GL)

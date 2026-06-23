@@ -1,7 +1,14 @@
 ﻿#include "Settings.h"
 #include "SettingsDef.h"
+#include "RegistryWatcher.h"
 
-// -- Constructor ---------------------------------------------------------------
+// ── Destructor ────────────────────────────────────────────────────────────────
+
+Settings::~Settings() {
+    if (m_watcher) m_watcher->stop();
+}
+
+// ── Constructor ───────────────────────────────────────────────────────────────
 
 Settings::Settings(QObject* parent)
     : QObject(parent)
@@ -13,18 +20,33 @@ Settings::Settings(QObject* parent)
     m_hintState = static_cast<HintState>(
         m_store.value("__ui/hintState", 0).toInt());
     m_animationMode = static_cast<AnimationMode>(
-        m_store.value("__ui/animationMode", 0).toInt());
+        m_store.value("__ui/animationMode", 0).toInt()); // 0 = Once
+    m_hasSeenPendingHint = m_store.value("__ui/hasSeenPendingHint", false).toBool();
+    m_hasSeenPostAnimationHint = m_store.value("__ui/hasSeenPostAnimationHint", false).toBool();
 
-    // Debounce timer for Background animation mode
+    // Debounce timer — used when animationMode == Never to apply silently
     m_debounce = new QTimer(this);
     m_debounce->setSingleShot(true);
     m_debounce->setInterval(800);
     connect(m_debounce, &QTimer::timeout, this, [this]() {
         applyPending(true);
         });
+
+    // Build initial snapshot — baseline for diffing external changes
+    for (const SettingDef& def : allSettings())
+        m_snapshot[def.key] = m_store.value(def.key, def.defaultValue);
+
+    // Start registry watcher — detects external writes to HKCU\Software\MathX
+    m_watcher = new RegistryWatcher;
+    connect(m_watcher, &RegistryWatcher::registryChanged,
+        this, &Settings::onRegistryChanged, Qt::QueuedConnection);
+    // Start the watcher after the event loop is fully running
+    QTimer::singleShot(0, this, [this]() {
+        if (m_watcher) m_watcher->start();
+        });
 }
 
-// -- Generic access ------------------------------------------------------------
+// ── Generic access ────────────────────────────────────────────────────────────
 
 QVariant Settings::get(const QString& key) const {
     return m_store.value(key, defaultFor(key));
@@ -37,13 +59,14 @@ void Settings::set(const QString& key, const QVariant& value) {
         // Write directly — no queue, no wait
         m_store.setValue(key, value);
         m_store.sync();
+        m_snapshot[key] = value; // keep snapshot in sync so watcher doesn't re-fire
 
         const SettingDef* def = findSetting(key);
         PendingChange change;
         change.key = key;
         change.oldValue = get(key);
         change.newValue = value;
-        change.label = def ? def->labelAdvanced : key;
+        change.label = buildPreviewLabel(def, value);
         change.applyingLabel = def ? def->applyingLabel : QString();
         change.appliedLabel = def ? def->appliedLabel : QString();
         applyChange(change);
@@ -62,7 +85,7 @@ void Settings::set(const QString& key, const QVariant& value) {
             // Update the pending value in place, keep original oldValue
             existing.newValue = value;
             emit pendingChanged();
-            if (m_animationMode == AnimationMode::Background)
+            if (m_animationMode == AnimationMode::Never)
                 startDebounce();
             return;
         }
@@ -72,19 +95,23 @@ void Settings::set(const QString& key, const QVariant& value) {
     const SettingDef* def = findSetting(key);
     PendingChange change;
     change.key = key;
-    change.oldValue = get(key);   // current active value is the baseline
+    change.oldValue = get(key);
     change.newValue = value;
-    change.label = def ? def->labelAdvanced : key;
+    change.label = buildPreviewLabel(def, value);
     change.applyingLabel = def ? def->applyingLabel : QString();
     change.appliedLabel = def ? def->appliedLabel : QString();
     m_pending.append(change);
     emit pendingChanged();
 
-    if (m_animationMode == AnimationMode::Background)
+    // First pending change ever — show the "applies on leave" hint
+    if (!m_hasSeenPendingHint)
+        emit pendingHintNeeded();
+
+    if (m_animationMode == AnimationMode::Never)
         startDebounce();
 }
 
-// -- Pending queue -------------------------------------------------------------
+// ── Pending queue ─────────────────────────────────────────────────────────────
 
 void Settings::applyPending(bool isIdle) {
     if (m_pending.isEmpty()) return;
@@ -101,6 +128,7 @@ void Settings::applyPending(bool isIdle) {
 
         m_store.setValue(change.key, change.newValue);
         m_store.sync();
+        m_snapshot[change.key] = change.newValue; // keep snapshot in sync
         applyChange(change);
 
         applied.append(change);
@@ -117,7 +145,7 @@ void Settings::startDebounce() {
     if (m_debounce) m_debounce->start(); // restarts timer if already running
 }
 
-// -- UI state ------------------------------------------------------------------
+// ── UI state ──────────────────────────────────────────────────────────────────
 
 void Settings::setVisibilityLevel(VisibilityLevel level) {
     if (m_visibilityLevel == level) return;
@@ -150,17 +178,54 @@ void Settings::setAnimationMode(AnimationMode mode) {
     emit animationModeChanged(mode);
 }
 
-// -- Utility -------------------------------------------------------------------
+bool Settings::shouldPlayApplyAnimation() {
+    switch (m_animationMode) {
+    case AnimationMode::Always:
+        return true;
+    case AnimationMode::Never:
+        return false;
+    case AnimationMode::Once:
+        // First time — auto-downgrade to Never so it never plays again
+        // unless the user explicitly sets Always.
+        setAnimationMode(AnimationMode::Never);
+        return true;
+    }
+    return false;
+}
+
+void Settings::markPendingHintSeen() {
+    if (m_hasSeenPendingHint) return;
+    m_hasSeenPendingHint = true;
+    m_store.setValue("__ui/hasSeenPendingHint", true);
+    m_store.sync();
+}
+
+void Settings::markPostAnimationHintSeen() {
+    if (m_hasSeenPostAnimationHint) return;
+    m_hasSeenPostAnimationHint = true;
+    m_store.setValue("__ui/hasSeenPostAnimationHint", true);
+    m_store.sync();
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
 
 void Settings::resetAll() {
     m_pending.clear();
     m_store.clear();
     m_store.sync();
 
+    // Rebuild snapshot from defaults so the watcher doesn't treat every
+    // key as "externally changed" after the registry is wiped and refilled
+    m_snapshot.clear();
+    for (const SettingDef& def : allSettings())
+        m_snapshot[def.key] = def.defaultValue;
+
     // Reset UI state to factory defaults
     m_visibilityLevel = VisibilityLevel::Basic;
     m_hintState = HintState::Active;
-    m_animationMode = AnimationMode::Full;
+    m_animationMode = AnimationMode::Once;
+    m_hasSeenPendingHint = false;
+    m_hasSeenPostAnimationHint = false;
 
     emit settingsReset();
     emit pendingChanged();
@@ -169,12 +234,60 @@ void Settings::resetAll() {
     emit animationModeChanged(m_animationMode);
 }
 
-// -- Private helpers -----------------------------------------------------------
+// ── Private helpers ───────────────────────────────────────────────────────────
 
 QVariant Settings::defaultFor(const QString& key) const {
     const SettingDef* def = findSetting(key);
     return def ? def->defaultValue : QVariant();
 }
+
+// Builds the enriched preview label for the pending queue:
+//   With affects:  "Font size - Result labels"
+//   Without:       "Font size"
+// The footer then appends ": {old}{unit} → {new}{unit}" around it.
+QString Settings::buildPreviewLabel(const SettingDef* def, const QVariant& /*newValue*/) const {
+    if (!def) return QString();
+    if (!def->affects.isEmpty())
+        return QString("%1 - %2").arg(def->labelBasic, def->affects);
+    return def->labelBasic;
+}
+
+// ── External registry change handler ─────────────────────────────────────────
+// Called on the main thread (queued connection from the watcher thread).
+// Re-reads every known setting key from the registry, diffs against m_snapshot,
+// fires typed signals for anything that changed, then updates the snapshot.
+void Settings::onRegistryChanged() {
+    // Force QSettings to re-read from disk/registry
+    m_store.sync();
+
+    QStringList changedKeys;
+
+    for (const SettingDef& def : allSettings()) {
+        const QVariant fresh = m_store.value(def.key, def.defaultValue);
+        const QVariant cached = m_snapshot.value(def.key, def.defaultValue);
+
+        if (fresh == cached) continue;
+
+        // Something changed externally — treat it as an immediate apply.
+        // We skip the pending queue entirely since this came from outside
+        // the app; there's nothing to "stage" — it's already in the registry.
+        m_snapshot[def.key] = fresh;
+        changedKeys.append(def.key);
+
+        // Re-use the same applyChange() dispatch so typed signals fire
+        // identically whether the change came from the UI or from regedit.
+        PendingChange synthetic;
+        synthetic.key = def.key;
+        synthetic.oldValue = cached;
+        synthetic.newValue = fresh;
+        synthetic.label = buildPreviewLabel(&def, fresh);
+        applyChange(synthetic);
+    }
+
+    if (!changedKeys.isEmpty())
+        emit externalChangeApplied(changedKeys);
+}
+
 
 ApplyMode Settings::applyModeFor(const QString& key) const {
     const SettingDef* def = findSetting(key);
@@ -204,7 +317,7 @@ void Settings::applyChange(const PendingChange& change) {
     else if (k == "behavior/memory/confirmClear")         emit confirmClearChanged(v.toBool());
 }
 
-// -- Typed getters -------------------------------------------------------------
+// ── Typed getters ─────────────────────────────────────────────────────────────
 
 int     Settings::fontSize()          const { return get("appearance/typography/fontSize").toInt(); }
 QString Settings::fontFamily()        const { return get("appearance/typography/fontFamily").toString(); }
@@ -222,7 +335,7 @@ bool    Settings::confirmClear()      const { return get("behavior/memory/confir
 bool    Settings::autoRotate()        const { return get("display/geometry/autoRotate").toBool(); }
 QString Settings::defaultShapeColor() const { return get("display/geometry/defaultShapeColor").toString(); }
 
-// -- Typed setters -------------------------------------------------------------
+// ── Typed setters ─────────────────────────────────────────────────────────────
 
 void Settings::setFontSize(int v) { set("appearance/typography/fontSize", v); }
 void Settings::setFontFamily(const QString& v) { set("appearance/typography/fontFamily", v); }

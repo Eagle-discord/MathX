@@ -1,10 +1,17 @@
 ﻿#include "NaturalLanguage.h"
 #include <QRegularExpression>
+QString normalizeNumericFormatting(QString input)
+{
 
+    QRegularExpression thousandsSep(R"((\d),(?=\d{3}(\D|$)))");
+    while(input.contains(thousandsSep))
+    input.replace(thousandsSep, "\\1");
+    return input;
+}
 QString NaturalLanguage::preprocess(const QString& input) {
     QString result = input.toLower();
 
-    result.remove(",");
+    result = normalizeNumericFormatting(result);
     // 1. Convert "5 percent" -> "5%" (must be done before "of" etc.)
     static QRegularExpression percentWordRe(R"((\d+(?:\.\d+)?)\s+percent\b)");
     result.replace(percentWordRe, "\\1%");

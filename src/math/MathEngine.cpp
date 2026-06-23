@@ -516,6 +516,25 @@ static QString replaceExponentiation(const QString& expr, bool& cancelled) {
     }
     return result;
 }
+// Formats a number with thousands separators for the verification result.
+// e.g. 10000 → "10,000"   3.14159 → "3.14159"
+static QString fmtVerified(double v) {
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    if (std::isnan(v)) return "Undefined";
+
+    // Check if it's a whole number so we can add commas
+    if (v == std::floor(v) && std::abs(v) < 1e15) {
+        long long iv = static_cast<long long>(v);
+        QString s = QString::number(std::abs(iv));
+        // Insert commas every 3 digits from the right
+        for (int i = s.length() - 3; i > 0; i -= 3)
+            s.insert(i, ',');
+        return (iv < 0 ? "-" : "") + s;
+    }
+    return QString::number(v, 'g', 10);
+}
+
+
 // ----------------------------------------------------------------------
 //  tryAlgebra – equation solving using Solver
 // ----------------------------------------------------------------------
@@ -532,11 +551,47 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     if (sides.size() != 2) return {};
     QString lhs = sides[0].trimmed(), rhs = sides[1].trimmed();
 
+    // -- Check for variables ----------------------------------------------------
+    // An expression with '=' is algebra ONLY if it also contains at least one
+    // variable. Without variables, it's an equality assertion to verify.
+    QSet<QString> vars = Expr::detectVariables(lhs + " " + rhs);
+    bool hasVars = !vars.isEmpty();
+
+    if (!hasVars) {
+        // -- Equality verification ----------------------------------------------
+        // e.g. "1000 * 10 = 10000"  →  "1,000 × 10 = 10,000  ✓ TRUE"
+        //      "2 + 2 = 5"          →  "2 + 2 = 5  ✗ FALSE  (actual: 4)"
+        bool lhsOk = false, rhsOk = false;
+        double lhsVal = Expr::eval(lhs, lhsOk);
+        double rhsVal = Expr::eval(rhs, rhsOk);
+
+        if (!lhsOk || !rhsOk) return {}; // unparseable — fall through
+
+        const double epsilon = 1e-10;
+        bool equal = std::abs(lhsVal - rhsVal) < epsilon;
+
+        QString result;
+        if (equal) {
+            result = QString("LHS (Left-hand Side) = %3\nRHS (Right Hand Side) = %4\n%1 = %2  \u2713\nLHS = RHS, Hence Proved")
+                .arg(fmtVerified(lhsVal))
+                .arg(fmtVerified(rhsVal))
+                .arg(lhsVal)
+                .arg(rhsVal);
+        }
+        else {
+            result = QString("%1 = %2  \u2717 FALSE  (actual: %3)")
+                .arg(fmtVerified(lhsVal))
+                .arg(fmtVerified(rhsVal))
+                .arg(fmtVerified(lhsVal));
+        }
+        return { result, "ok" };
+    }
+
+    // -- Algebraic equation — has variables -------------------------------------
     QString solution = Algebra::solveEquation(lhs, rhs);
     if (solution.isEmpty()) return {};
     return { solution, "alg" };
 }
-
 static QString preprocessNaturalLanguage(const QString& expr) {
    QString e = expr.toLower();
    e = NaturalLanguage::preprocess(expr);

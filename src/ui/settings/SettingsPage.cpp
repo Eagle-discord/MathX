@@ -3,6 +3,7 @@
 #include "../../constants/Theme.h"
 #include "../../settings/SettingsDef.h"
 #include <QScrollArea>
+#include <QTimer>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsDropShadowEffect>
 #include <QPropertyAnimation>
@@ -10,6 +11,19 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QResizeEvent>
+#include <QComboBox>
+#include <QSlider>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QColorDialog>
+#include <QCompleter>
+#include <QFontDatabase>
+#include <QEvent>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFile>
 
 // -- Helpers -------------------------------------------------------------------
 
@@ -63,9 +77,9 @@ public:
     explicit CategoryCard(const CategoryDef& def, QWidget* parent = nullptr)
         : QWidget(parent), m_def(def)
     {
+        
         setFixedSize(441, 320);
         setCursor(Qt::PointingHandCursor);
-
         setAttribute(Qt::WA_StyledBackground, true);
 
         m_hoverAnim = new QPropertyAnimation(this, "hoverProgress", this);
@@ -335,18 +349,37 @@ public:
         m_desc->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::MUTED));
         layout->addWidget(m_desc, 1);
 
-        // Control placeholder — will be replaced by actual control widgets
-        m_controlPlaceholder = new QLabel("—");
-        m_controlPlaceholder->setFont(MF(9));
-        m_controlPlaceholder->setStyleSheet(
-            QString("color:%1; background:transparent;").arg(Theme::MUTED));
-        m_controlPlaceholder->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        layout->addWidget(m_controlPlaceholder);
+        // Control area — built by buildControl() based on def.control
+        m_controlContainer = new QWidget;
+        auto* ctrlLayout = new QHBoxLayout(m_controlContainer);
+        ctrlLayout->setContentsMargins(0, 0, 0, 0);
+        ctrlLayout->setSpacing(6);
+        ctrlLayout->setAlignment(Qt::AlignRight);
+        buildControl(ctrlLayout);
+        layout->addWidget(m_controlContainer);
+
+        // Pending indicator — small dot + label shown when this key has a
+        // staged/deferred change waiting. Sits below the control.
+        m_pendingDot = new QLabel;
+        m_pendingDot->setFont(MF(7));
+        m_pendingDot->setStyleSheet(
+            QString("color:%1; background:transparent;").arg(Theme::ACCENT));
+        m_pendingDot->setAlignment(Qt::AlignRight);
+        m_pendingDot->hide();
+        layout->addWidget(m_pendingDot);
 
         refreshForLevel(Settings::instance().visibilityLevel());
 
         connect(&Settings::instance(), &Settings::visibilityLevelChanged,
             this, &SettingRow::refreshForLevel);
+        connect(&Settings::instance(), &Settings::pendingChanged,
+            this, &SettingRow::refreshPendingIndicator);
+        connect(&Settings::instance(), &Settings::pendingApplied,
+            this, &SettingRow::onPendingApplied);
+        connect(&Settings::instance(), &Settings::settingsReset,
+            this, &SettingRow::refreshControlValue);
+
+        refreshPendingIndicator();
 
         setStyleSheet("SettingRow { background:transparent; border-bottom:1px solid "
             + Theme::BORDER + "; }");
@@ -358,6 +391,33 @@ private slots:
         m_label->setText(basic ? m_def.labelBasic : m_def.labelAdvanced);
         m_desc->setText(basic ? m_def.descBasic : "");
         m_desc->setVisible(basic);
+    }
+
+    // Re-checks the pending queue for an entry matching this row's key and
+    // shows/hides the pending dot with the right wording for the apply mode.
+    void refreshPendingIndicator() {
+        const PendingChange* mine = nullptr;
+        for (const PendingChange& c : Settings::instance().pendingChanges()) {
+            if (c.key == m_def.key) { mine = &c; break; }
+        }
+        if (!mine) {
+            m_pendingDot->hide();
+            return;
+        }
+        m_pendingDot->setText(
+            m_def.applyMode == ApplyMode::Deferred
+            ? "● will apply after current calculation"
+            : "● will apply when idle");
+        m_pendingDot->show();
+    }
+
+    // When this row's key is among the ones just applied, refresh the
+    // displayed control value to match and hide the pending dot.
+    void onPendingApplied(const QList<PendingChange>& applied) {
+        for (const PendingChange& c : applied) {
+            if (c.key == m_def.key) { refreshControlValue(); break; }
+        }
+        refreshPendingIndicator();
     }
 
 protected:
@@ -379,10 +439,376 @@ protected:
     }
 
 private:
-    SettingDef  m_def;
+    // -- Control construction ---------------------------------------------------
+    // Dispatches on def.control and builds the appropriate widget(s) into
+    // ctrlLayout. Each branch wires its own change → Settings::set(key, ...).
+    void buildControl(QHBoxLayout* ctrlLayout) {
+        switch (m_def.control) {
+        case ControlType::Toggle:      buildToggle(ctrlLayout);      break;
+        case ControlType::Dropdown:    buildDropdown(ctrlLayout);    break;
+        case ControlType::Slider:      buildSlider(ctrlLayout);      break;
+        case ControlType::ColorPicker: buildColorPicker(ctrlLayout); break;
+        case ControlType::FontInput:   buildFontInput(ctrlLayout);   break;
+        case ControlType::TextInput:   buildTextInput(ctrlLayout);   break;
+        case ControlType::Action:      buildAction(ctrlLayout);      break;
+        }
+    }
+
+    // -- Toggle — red/green push button ---------------------------------------
+    void buildToggle(QHBoxLayout* ctrlLayout) {
+        auto* btn = new QPushButton;
+        btn->setFixedSize(72, 26);
+        btn->setCursor(Qt::PointingHandCursor);
+
+        auto refresh = [this, btn]() {
+            const bool on = Settings::instance().get(m_def.key).toBool();
+            btn->setText(on ? "On" : "Off");
+            btn->setStyleSheet(QString(
+                "QPushButton { background:%1; border:none; border-radius:6px;"
+                "color:%2; font-weight:bold; }"
+            ).arg(on ? Theme::ACCENT : Theme::ERROR, "#000"));
+            };
+        refresh();
+
+        connect(btn, &QPushButton::clicked, this, [this, refresh]() {
+            const bool current = Settings::instance().get(m_def.key).toBool();
+            Settings::instance().set(m_def.key, !current);
+            refresh();
+            });
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(btn);
+    }
+
+    // -- Dropdown — styled QComboBox from def.options -------------------------
+    void buildDropdown(QHBoxLayout* ctrlLayout) {
+        auto* combo = new QComboBox;
+        combo->addItems(m_def.options);
+        combo->setFont(MF(8));
+        combo->setFixedWidth(140);
+        combo->setStyleSheet(QString(
+            "QComboBox { background:%1; border:1px solid %2; border-radius:6px;"
+            "color:%3; padding:2px 8px; }"
+            "QComboBox:hover { border-color:%4; }"
+            "QComboBox QAbstractItemView { background:%1; color:%3;"
+            "selection-background-color:%4; border:1px solid %2; }"
+        ).arg(Theme::SURFACE, Theme::BORDER, Theme::TEXT, Theme::ACCENT));
+
+        auto refresh = [this, combo]() {
+            const QString current = Settings::instance().get(m_def.key).toString();
+            int idx = combo->findText(current);
+            combo->blockSignals(true);
+            combo->setCurrentIndex(idx >= 0 ? idx : 0);
+            combo->blockSignals(false);
+            };
+        refresh();
+
+        connect(combo, &QComboBox::currentTextChanged, this, [this](const QString& text) {
+            Settings::instance().set(m_def.key, text);
+            });
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(combo);
+    }
+
+    // -- Slider — adaptive-step slider + click-to-edit value label -----------
+    void buildSlider(QHBoxLayout* ctrlLayout) {
+        auto* slider = new QSlider(Qt::Horizontal);
+        slider->setFixedWidth(110);
+        slider->setRange(0, SLIDER_STEPS);
+        slider->setCursor(Qt::PointingHandCursor);
+        slider->setStyleSheet(QString(
+            "QSlider::groove:horizontal { background:%1; height:4px; border-radius:2px; }"
+            "QSlider::handle:horizontal { background:%2; width:12px; margin:-5px 0;"
+            "border-radius:6px; }"
+        ).arg(Theme::BORDER, Theme::ACCENT));
+
+        auto* valueLabel = new QLabel;
+        valueLabel->setFont(MF(9, QFont::Bold));
+        valueLabel->setStyleSheet(
+            QString("color:%1; background:transparent;").arg(Theme::ACCENT));
+        valueLabel->setFixedWidth(56);
+        valueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        valueLabel->setCursor(Qt::IBeamCursor);
+
+        const double minV = m_def.range.min, maxV = m_def.range.max;
+
+        auto sliderPosFor = [minV, maxV](double v) -> int {
+            if (maxV <= minV) return 0;
+            return qBound(0, int(((v - minV) / (maxV - minV)) * SLIDER_STEPS + 0.5), SLIDER_STEPS);
+            };
+        auto valueForSliderPos = [minV, maxV](int pos) -> double {
+            return minV + (double(pos) / SLIDER_STEPS) * (maxV - minV);
+            };
+        auto formatValue = [this](double v) -> QString {
+            QString s = (v == int(v)) ? QString::number(int(v)) : QString::number(v, 'g', 4);
+            return m_def.unit.isEmpty() ? s : s + " " + m_def.unit;
+            };
+
+        auto refresh = [this, slider, valueLabel, sliderPosFor, formatValue]() {
+            const double v = Settings::instance().get(m_def.key).toDouble();
+            slider->blockSignals(true);
+            slider->setValue(sliderPosFor(v));
+            slider->blockSignals(false);
+            valueLabel->setText(formatValue(v));
+            };
+        refresh();
+
+        connect(slider, &QSlider::valueChanged, this, [this, valueForSliderPos, formatValue, valueLabel](int pos) {
+            const double v = valueForSliderPos(pos);
+            const double rounded = (m_def.range.step >= 1.0) ? qRound(v) : v;
+            valueLabel->setText(formatValue(rounded));
+            Settings::instance().set(m_def.key, rounded);
+            });
+
+        // Click-to-edit: turn the value label into a QLineEdit on click,
+        // commit on Enter or focus-out, clamped to range.
+        valueLabel->installEventFilter(this);
+        m_editTarget = valueLabel;
+        m_editSlider = slider;
+        m_editSliderPosFor = sliderPosFor;
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(slider);
+        ctrlLayout->addWidget(valueLabel);
+    }
+
+    // -- ColorPicker — swatch + multi-format text input + picker button ------
+    void buildColorPicker(QHBoxLayout* ctrlLayout) {
+        auto* swatch = new QLabel;
+        swatch->setFixedSize(20, 20);
+
+        auto* edit = new QLineEdit;
+        edit->setFixedWidth(90);
+        edit->setFont(MF(8));
+        edit->setStyleSheet(QString(
+            "QLineEdit { background:%1; border:1px solid %2; border-radius:4px;"
+            "color:%3; padding:2px 6px; }"
+        ).arg(Theme::SURFACE, Theme::BORDER, Theme::TEXT));
+
+        auto* pickBtn = new QPushButton("⬚");
+        pickBtn->setFixedSize(24, 24);
+        pickBtn->setCursor(Qt::PointingHandCursor);
+        pickBtn->setStyleSheet(QString(
+            "QPushButton { background:%1; border:1px solid %2; border-radius:4px; color:%3; }"
+            "QPushButton:hover { border-color:%4; }"
+        ).arg(Theme::SURFACE, Theme::BORDER, Theme::TEXT, Theme::ACCENT));
+
+        auto applyColor = [this, swatch](const QColor& c) {
+            swatch->setStyleSheet(QString(
+                "background:%1; border:1px solid %2; border-radius:4px;"
+            ).arg(c.name(), Theme::BORDER));
+            Settings::instance().set(m_def.key, c.name());
+            };
+
+        auto refresh = [this, swatch, edit]() {
+            const QColor c(Settings::instance().get(m_def.key).toString());
+            swatch->setStyleSheet(QString(
+                "background:%1; border:1px solid %2; border-radius:4px;"
+            ).arg(c.name(), Theme::BORDER));
+            edit->blockSignals(true);
+            edit->setText(c.name());
+            edit->blockSignals(false);
+            };
+        refresh();
+
+        connect(edit, &QLineEdit::editingFinished, this, [this, edit, applyColor]() {
+            QColor parsed = parseColorInput(edit->text());
+            if (parsed.isValid()) applyColor(parsed);
+            else edit->setText(QColor(Settings::instance().get(m_def.key).toString()).name());
+            });
+
+        connect(pickBtn, &QPushButton::clicked, this, [this, applyColor, edit]() {
+            QColor start(Settings::instance().get(m_def.key).toString());
+            QColor chosen = QColorDialog::getColor(start, this, "Choose color");
+            if (chosen.isValid()) { applyColor(chosen); edit->setText(chosen.name()); }
+            });
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(swatch);
+        ctrlLayout->addWidget(edit);
+        ctrlLayout->addWidget(pickBtn);
+    }
+
+    // -- FontInput — text field with QCompleter over installed font families -
+    void buildFontInput(QHBoxLayout* ctrlLayout) {
+        auto* edit = new QLineEdit;
+        edit->setFixedWidth(150);
+        edit->setFont(MF(8));
+        edit->setStyleSheet(QString(
+            "QLineEdit { background:%1; border:1px solid %2; border-radius:4px;"
+            "color:%3; padding:2px 6px; }"
+        ).arg(Theme::SURFACE, Theme::BORDER, Theme::TEXT));
+
+        auto* completer = new QCompleter(QFontDatabase::families(), edit);
+        completer->setCaseSensitivity(Qt::CaseInsensitive);
+        completer->setCompletionMode(QCompleter::PopupCompletion);
+        edit->setCompleter(completer);
+
+        auto refresh = [this, edit]() {
+            edit->blockSignals(true);
+            edit->setText(Settings::instance().get(m_def.key).toString());
+            edit->blockSignals(false);
+            };
+        refresh();
+
+        connect(edit, &QLineEdit::editingFinished, this, [this, edit]() {
+            const QString name = edit->text().trimmed();
+            if (QFontDatabase::families().contains(name)) {
+                Settings::instance().set(m_def.key, name);
+            }
+            else {
+                // Invalid font — revert to last valid value
+                edit->setText(Settings::instance().get(m_def.key).toString());
+            }
+            });
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(edit);
+    }
+
+    // -- TextInput — plain text field -----------------------------------------
+    void buildTextInput(QHBoxLayout* ctrlLayout) {
+        auto* edit = new QLineEdit;
+        edit->setFixedWidth(150);
+        edit->setFont(MF(8));
+        edit->setStyleSheet(QString(
+            "QLineEdit { background:%1; border:1px solid %2; border-radius:4px;"
+            "color:%3; padding:2px 6px; }"
+        ).arg(Theme::SURFACE, Theme::BORDER, Theme::TEXT));
+
+        auto refresh = [this, edit]() {
+            edit->blockSignals(true);
+            edit->setText(Settings::instance().get(m_def.key).toString());
+            edit->blockSignals(false);
+            };
+        refresh();
+
+        connect(edit, &QLineEdit::editingFinished, this, [this, edit]() {
+            Settings::instance().set(m_def.key, edit->text());
+            });
+
+        m_refreshFn = refresh;
+        ctrlLayout->addWidget(edit);
+    }
+
+    // -- Action — one-shot button, no persisted state -------------------------
+    void buildAction(QHBoxLayout* ctrlLayout) {
+        auto* btn = new QPushButton(m_def.labelBasic);
+        btn->setFont(MF(8));
+        btn->setFixedHeight(26);
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setStyleSheet(QString(
+            "QPushButton { background:none; border:1px solid %1; color:%2;"
+            "border-radius:6px; padding:2px 12px; }"
+            "QPushButton:hover { border-color:%3; color:%3; }"
+        ).arg(Theme::BORDER, Theme::MUTED, Theme::ACCENT));
+
+        connect(btn, &QPushButton::clicked, this, [this]() {
+            emit actionTriggered(m_def.key);
+            });
+
+        ctrlLayout->addWidget(btn);
+    }
+
+    // Re-reads the current value from Settings and updates the control's
+    // displayed state. Called after a pending change applies or settings reset.
+    void refreshControlValue() {
+        if (m_refreshFn) m_refreshFn();
+    }
+
+    // Parses #RRGGBB, rgb(r,g,b), "r,g,b", or packed rrggbb into a QColor.
+    static QColor parseColorInput(const QString& raw) {
+        const QString s = raw.trimmed();
+        if (s.startsWith('#')) {
+            QColor c(s);
+            return c;
+        }
+        if (s.startsWith("rgb", Qt::CaseInsensitive)) {
+            QString inner = s.mid(s.indexOf('(') + 1);
+            inner.chop(1);
+            QStringList parts = inner.split(',');
+            if (parts.size() == 3)
+                return QColor(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt());
+        }
+        if (s.contains(',')) {
+            QStringList parts = s.split(',');
+            if (parts.size() == 3)
+                return QColor(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt());
+        }
+        if (s.length() == 6 && std::all_of(s.begin(), s.end(), [](QChar c) { return c.isLetterOrNumber(); })) {
+            return QColor("#" + s);
+        }
+        return QColor(); // invalid
+    }
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* ev) override {
+        if (obj == m_editTarget && ev->type() == QEvent::MouseButtonPress) {
+            startSliderEdit();
+            return true;
+        }
+        return QWidget::eventFilter(obj, ev);
+    }
+
+private:
+    // Swaps the slider's value QLabel for a temporary QLineEdit so the user
+    // can type an exact value directly. Commits and clamps on Enter/focus-out.
+    void startSliderEdit() {
+        if (!m_editTarget || m_editingSlider) return;
+        m_editingSlider = true;
+
+        auto* edit = new QLineEdit(m_editTarget->text(), m_editTarget->parentWidget());
+        edit->setFont(m_editTarget->font());
+        edit->setFixedSize(m_editTarget->size());
+        edit->setAlignment(Qt::AlignRight);
+        edit->setStyleSheet(QString(
+            "QLineEdit { background:%1; border:1px solid %2; color:%3; }"
+        ).arg(Theme::SURFACE, Theme::ACCENT, Theme::ACCENT));
+
+        auto* parentLayout = qobject_cast<QHBoxLayout*>(m_editTarget->parentWidget()->layout());
+        int idx = parentLayout->indexOf(m_editTarget);
+        m_editTarget->hide();
+        parentLayout->insertWidget(idx, edit);
+        edit->setFocus();
+        edit->selectAll();
+
+        auto commit = [this, edit]() {
+            bool ok = false;
+            double v = edit->text().trimmed().split(' ').first().toDouble(&ok);
+            if (ok) {
+                v = qBound(m_def.range.min, v, m_def.range.max);
+                Settings::instance().set(m_def.key, v);
+                if (m_editSlider) m_editSlider->setValue(m_editSliderPosFor(v));
+            }
+            if (m_refreshFn) m_refreshFn();
+            edit->deleteLater();
+            m_editTarget->show();
+            m_editingSlider = false;
+            };
+        connect(edit, &QLineEdit::editingFinished, this, commit);
+    }
+
+    static constexpr int SLIDER_STEPS = 1000; // internal resolution, independent of range
+
+    SettingDef   m_def;
     QLabel* m_label = nullptr;
     QLabel* m_desc = nullptr;
-    QLabel* m_controlPlaceholder = nullptr;
+    QLabel* m_pendingDot = nullptr;
+    QWidget* m_controlContainer = nullptr;
+
+    std::function<void()> m_refreshFn;
+
+    // Slider click-to-edit support
+    QLabel* m_editTarget = nullptr;
+    QSlider* m_editSlider = nullptr;
+    std::function<int(double)> m_editSliderPosFor;
+    bool     m_editingSlider = false;
+
+signals:
+    // Bubbled up so SettingsPage can invoke the right action callback
+    // (file dialogs, confirmation dialogs) without Settings depending on Qt UI.
+    void actionTriggered(QString key);
 };
 
 // -- SearchResultRow -----------------------------------------------------------
@@ -627,12 +1053,16 @@ void PendingQueueFooter::rebuild() {
         arrow->setStyleSheet(
             QString("color:%1; background:transparent;").arg(Theme::MUTED));
 
-        auto* oldLbl = new QLabel(change.oldValue.toString());
+        // Append unit suffix if the setting has one (e.g. "13 px")
+        const SettingDef* def = findSetting(change.key);
+        const QString unit = def ? def->unit : QString();
+
+        auto* oldLbl = new QLabel(change.oldValue.toString() + (unit.isEmpty() ? "" : " " + unit));
         oldLbl->setFont(MF(8));
         oldLbl->setStyleSheet(
             QString("color:%1; background:transparent;").arg(Theme::TEXT));
 
-        auto* newLbl = new QLabel(change.newValue.toString());
+        auto* newLbl = new QLabel(change.newValue.toString() + (unit.isEmpty() ? "" : " " + unit));
         newLbl->setFont(MF(8, QFont::Bold));
         newLbl->setStyleSheet(
             QString("color:%1; background:transparent;").arg(Theme::ACCENT));
@@ -663,9 +1093,30 @@ void PendingQueueFooter::playApplySequence(std::function<void()> onComplete) {
         if (onComplete) onComplete();
         return;
     }
-    // Apply animation handled by SettingsAnimations (future module).
-    // For now, apply directly and call onComplete.
-    Settings::instance().applyPending(true);
+
+    // Decide whether to play the full animation. For Once, this call also
+    // performs the auto-downgrade to Never as a side effect.
+    const bool wasOnce = (Settings::instance().animationMode() == AnimationMode::Once);
+    const bool playAnim = Settings::instance().shouldPlayApplyAnimation();
+
+    // Full theatrical apply sequence (queue expand → header float → arrow
+    // step-through → status labels) lives in SettingsAnimations, a future
+    // module. For now both paths apply immediately; the branch exists so
+    // the animation can be slotted in without touching this call site.
+    if (playAnim) {
+        Settings::instance().applyPending(true);
+
+        // This was the first-ever Once playback — show the one-shot message
+        // pointing the user to where to re-enable it.
+        if (wasOnce && !Settings::instance().hasSeenPostAnimationHint()) {
+            Settings::instance().markPostAnimationHintSeen();
+            emit applySequenceFinishedFirstTime();
+        }
+    }
+    else {
+        Settings::instance().applyPending(true);
+    }
+
     if (onComplete) onComplete();
 }
 
@@ -692,12 +1143,37 @@ SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
     scroll->setWidget(m_contentStack);
     root->addWidget(scroll, 1);
 
+    // One-shot hint — "Changes apply automatically when you leave this page."
+    // Shown the very first time the pending queue goes from empty → non-empty.
+    m_pendingHintBar = new QLabel(
+        "Changes will automatically be applied once you leave the page.");
+    m_pendingHintBar->setFont(MF(8));
+    m_pendingHintBar->setStyleSheet(QString(
+        "color:%1; background:%2; padding:6px 16px; border-top:1px solid %3;"
+    ).arg(Theme::MUTED, Theme::SURFACE, Theme::BORDER));
+    m_pendingHintBar->setAlignment(Qt::AlignCenter);
+    m_pendingHintBar->hide();
+    root->addWidget(m_pendingHintBar);
+
+    connect(&Settings::instance(), &Settings::pendingHintNeeded, this, [this]() {
+        fadeWidget(m_pendingHintBar, true, 200);
+        Settings::instance().markPendingHintSeen();
+        });
+
     // Footer — bottom right, outside the scroll area
     m_footer = new PendingQueueFooter(this);
     m_footer->setStyleSheet(QString(
         "background:%1; border-top:1px solid %2;"
     ).arg(Theme::SURFACE, Theme::BORDER));
     root->addWidget(m_footer);
+
+    connect(m_footer, &PendingQueueFooter::applySequenceFinishedFirstTime, this, [this]() {
+        // Reuse the pending hint bar to deliver the one-shot redirect message.
+        m_pendingHintBar->setText(
+            "This animation will be disabled by default. To enable it, go to "
+            "Behavior → Animations → Show apply animation.");
+        fadeWidget(m_pendingHintBar, true, 200);
+        });
 
     // Build initial category view
     buildCategoryView();
@@ -927,6 +1403,7 @@ void SettingsPage::buildSettingView(SubcategoryId sub) {
 
     for (const SettingDef& def : settings) {
         auto* row = new SettingRow(def);
+        connect(row, &SettingRow::actionTriggered, this, &SettingsPage::onActionTriggered);
         listLayout->addWidget(row);
     }
     listLayout->addStretch(1);
@@ -966,7 +1443,7 @@ void SettingsPage::buildSearchView(const QString& query) {
     else {
         auto* listContainer = new QWidget;
         listContainer->setStyleSheet(QString(
-            "background:%1; border-radius:10px;"
+            "background:%1; border-radius:10px; border:1px solid %2;"
         ).arg(Theme::SURFACE, Theme::BORDER));
 
         auto* listLayout = new QVBoxLayout(listContainer);
@@ -1125,9 +1602,80 @@ void SettingsPage::onPendingChanged() {
     // Footer handles its own rebuild via its own connection
 }
 
-void SettingsPage::prepareToLeave(std::function<void()> onComplete) {
+void SettingsPage::onActionTriggered(QString key) {
+    if (key == "behavior/memory/copyHistory") {
+        // SettingsPage has no access to MainWindow::m_history — bubble the
+        // request up so MainWindow can do the actual clipboard write.
+        emit copyHistoryRequested();
+        return;
+    }
+    if (key == "system/data/exportSettings") {
+        const QString path = QFileDialog::getSaveFileName(
+            this, "Export Settings", "mathx-settings.json", "JSON Files (*.json)");
+        if (path.isEmpty()) return;
 
-    m_footer->playApplySequence(onComplete);
+        QJsonObject obj;
+        for (const SettingDef& def : allSettings())
+            obj[def.key] = QJsonValue::fromVariant(Settings::instance().get(def.key));
+
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+            f.close();
+        }
+    }
+    else if (key == "system/data/importSettings") {
+        const QString path = QFileDialog::getOpenFileName(
+            this, "Import Settings", QString(), "JSON Files (*.json)");
+        if (path.isEmpty()) return;
+
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly)) return;
+        const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        f.close();
+        if (!doc.isObject()) return;
+
+        const QJsonObject obj = doc.object();
+        for (auto it = obj.begin(); it != obj.end(); ++it) {
+            // Only import keys that are actually registered settings —
+            // ignores stale/unknown keys from older or hand-edited files.
+            if (findSetting(it.key()))
+                Settings::instance().set(it.key(), it.value().toVariant());
+        }
+        Settings::instance().applyPending(true);
+
+        // Refresh whatever's currently on screen so values update visibly
+        if (m_currentLevel == 2) buildSettingView(m_activeSub);
+    }
+    else if (key == "system/data/resetAll") {
+        auto reply = QMessageBox::question(
+            this, "Reset all settings",
+            "This will reset every setting back to its default value. This cannot be undone.\n\nContinue?",
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (reply != QMessageBox::Yes) return;
+
+        Settings::instance().resetAll();
+        if (m_currentLevel == 2) buildSettingView(m_activeSub);
+    }
+}
+
+void SettingsPage::prepareToLeave(std::function<void()> onComplete) {
+    // If this navigation will trigger the first-time post-animation message,
+    // delay the actual page switch briefly so the user sees it before the
+    // settings page disappears. Otherwise navigate immediately as usual.
+    const bool willShowFirstTimeMessage =
+        Settings::instance().hasPendingChanges() &&
+        Settings::instance().animationMode() == AnimationMode::Once &&
+        !Settings::instance().hasSeenPostAnimationHint();
+
+    m_footer->playApplySequence([this, onComplete, willShowFirstTimeMessage]() {
+        if (willShowFirstTimeMessage) {
+            QTimer::singleShot(1800, this, onComplete);
+        }
+        else if (onComplete) {
+            onComplete();
+        }
+        });
 }
 
 // Required because Q_OBJECT classes (CategoryCard, SubcategoryCard, SettingRow,
