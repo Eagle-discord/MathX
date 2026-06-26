@@ -9,5 +9,6 @@ namespace Expr {
     double eval(const QString& expr, bool& ok);
     double evalWith(const QString& expr, const VarMap& vars, bool& ok);
     QSet<QString> detectVariables(const QString& expr);
+    static QString replaceSuperscripts(const QString& s);
     QString preprocess(const QString& expr);   // kept for compatibility (minimal)
 }

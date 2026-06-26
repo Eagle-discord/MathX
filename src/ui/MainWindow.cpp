@@ -7,6 +7,7 @@
 #include "Animations.h"
 #include <QMessageBox>
 #include "../constants/Theme.h"
+#include "../constants/StateUtils.h"
 #include "..\input\InputRouter.h"
 #include "HistoryDock.h"
 #include "DraggableExpressionEdit.h"
@@ -350,14 +351,29 @@ void MainWindow::setRunState(RunState state) {
 
 // -- submitExpression ----------------------------------------------------------
 void MainWindow::submitExpression(const QString& expr) {
-    m_output->addInputLine(expr);
-    m_lastExprLbl->setText(expr);
-    m_calcCount++;
-    m_countLbl->setText(QString::number(m_calcCount));
-    m_histNav->reset();
-    setRunState(RunState::Running);
+    const bool isApp = (StateUtils::getRunSource() == RunSource::App);
 
+    // Only show input echo, increment counter, and reset history nav for
+    // user-initiated runs — internal (App) runs skip the UI noise entirely.
+    if (!isApp) {
+        m_output->addInputLine(expr);
+        m_lastExprLbl->setText(expr);
+        m_calcCount++;
+        m_countLbl->setText(QString::number(m_calcCount));
+        m_histNav->reset();
+    }
+
+    setRunState(RunState::Running);
     run(expr);
+}
+
+void MainWindow::runExpressionInternally(const QString& expr) {
+    // Set source before calling into the pipeline so every downstream
+    // guard can check StateUtils::getRunSource() without extra parameters.
+    StateUtils::setRunSource(RunSource::App);
+    submitExpression(expr);
+    // Reset immediately so any subsequent user action gets RunSource::User.
+    StateUtils::setRunSource(RunSource::User);
 }
 
 // -- onRun ---------------------------------------------------------------------
@@ -365,6 +381,7 @@ void MainWindow::onRun() {
     // Animations::flash(m_runBtn);
   //   Animations::flash(m_stopBtn);
     QString text = m_input->text().trimmed();
+    StateUtils::setRunSource(RunSource::User);
     if (text.isEmpty()) return;
     m_input->clear();
 
@@ -481,10 +498,14 @@ void MainWindow::onRun() {
     */
     // -- run -----------------------------------------------------------------------
 void MainWindow::run(const QString& expr) {
+    const bool isApp = (StateUtils::getRunSource() == RunSource::App);
 
-    m_copyHistBuffer.append(QString(expr).prepend(">> ").append("\n"));
-    m_history.append(QString(expr));
-    m_lastExprLbl->setText(expr);
+    if (!isApp) {
+        m_copyHistBuffer.append(QString(expr).prepend(">> ").append("\n"));
+        m_history.append(expr);
+        m_lastExprLbl->setText(expr);
+    }
+
     setRunState(RunState::Running);
     int id = ++m_nextJobId;
     m_pendingJobs[id] = expr;

@@ -9,6 +9,8 @@
 #include <QFrame>
 #include <QStringList>
 #include "..\constants\RunState.h"
+#include "..\constants\StateUtils.h"
+#include "..\constants\RunSource.h"
 #include "../input/InputAction.h"
 #include "../input/HistoryNavigator.h"
 #include "../input/PromptController.h"
@@ -46,6 +48,10 @@ protected:
 
 private slots:
     void onRun();
+    // Submits an expression programmatically as if the user pressed Enter.
+    // Sets RunSource::App so submitExpression skips UI noise (history nav,
+    // counter increment, addInputLine) — only the worker pipeline runs.
+    void runExpressionInternally(const QString& expr);
     void onModeChanged(const QString& mode);
     void onClear();
     void onSidebarItemClicked(const QString& expr);

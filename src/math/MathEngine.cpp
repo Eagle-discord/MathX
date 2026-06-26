@@ -833,3 +833,4 @@ CalcResult MathEngine::evaluate(const QString& expr) {
     r = tryArithmetic(expr);  if (!r.type.isEmpty()) return r;
     throw std::runtime_error("Cannot parse expression");
 }
+

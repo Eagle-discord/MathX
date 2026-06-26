@@ -4,7 +4,8 @@
 #include "constants/Theme.h"
 #include <QSurfaceFormat>
 #include <QDir>
-
+#include <sstream>
+#include <iomanip>
 int main(int argc, char* argv[]) {
     QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
@@ -44,6 +45,7 @@ int main(int argc, char* argv[]) {
     }
     // If fonts failed, Theme::fontFamily() falls back to Consolas / Courier New
     // automatically, so the app still runs — just with the system monospace font.
+
 
     MainWindow w;
     w.show();
