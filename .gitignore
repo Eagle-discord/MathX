@@ -2,3 +2,7 @@
 out/
 *.ps1
 CMakeSettings.json
+.claude
+/FeatureList.xlsx
+/~$FeatureList.xlsx
+/changes_new.txt
