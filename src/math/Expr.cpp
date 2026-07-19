@@ -1,11 +1,12 @@
 #include "Expr.h"
 #include <QRegularExpression>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <cctype>
 #include "NaturalLanguage.h"
 
-// -- Helper: normalise brackets (same as before) -------------------------------
+// ── Helper: normalise brackets ──────────────────────────────────────────────
 static QString normaliseBrackets(QString s) {
     s.replace('[', '('); s.replace(']', ')');
     s.replace('{', '('); s.replace('}', ')');
@@ -15,49 +16,81 @@ static QString normaliseBrackets(QString s) {
     s.replace(QChar(0x230A), '('); s.replace(QChar(0x230B), ')');
     return s;
 }
-static int nextNonSpace(const QString& s, int start)
-{
-    while (start < s.size() && s[start].isSpace())
-        ++start;
 
-    return start;
+// Reads the numeric literal starting at index i (s[i] must begin a number).
+// Includes a decimal part and a valid scientific exponent (e/E [+/-] digits).
+// The exponent is only consumed when real digits follow, so "2exp(x)" keeps
+// "2" as the number and "exp" as a separate identifier.
+static int scanNumberLiteral(const QString& s, int i) {
+    const int len = s.size();
+    while (i < len && s[i].isDigit()) ++i;
+    if (i < len && s[i] == '.') { ++i; while (i < len && s[i].isDigit()) ++i; }
+    if (i < len && (s[i] == 'e' || s[i] == 'E')) {
+        int j = i + 1;
+        if (j < len && (s[j] == '+' || s[j] == '-')) ++j;
+        if (j < len && s[j].isDigit()) { i = j + 1; while (i < len && s[i].isDigit()) ++i; }
+    }
+    return i;
 }
+
+// ── Implicit multiplication (token-aware) ──────────────────────────────────
+// Numbers and identifiers are scanned as whole tokens, then '*' is inserted
+// between adjacent primaries. Scanning numbers whole keeps scientific notation
+// intact ("2e5" stays "2e5", not "2*e*5"); scanning identifiers whole keeps
+// names that contain digits intact ("log2(x)" stays "log2(x)", not
+// "log*2*(x)"). An identifier immediately before '(' is left alone so it stays
+// a function call (sin(x), not sin*(x)).
 static QString insertImplicitMul(const QString& s) {
     QString r;
-    int len = s.size();
-    for (int i = 0; i < len; ++i) {
-        r += s[i];
-        // Skip spaces as the “current” character – they never trigger multiplication
-        if (s[i].isSpace()) continue;
+    const int len = s.size();
+    int i = 0;
+    // Kind of the last non-space token emitted, to decide whether the next
+    // primary needs a '*' in front of it. Spaces don't change it.
+    enum Prev { None, Number, Ident, CloseParen, Bang } prev = None;
 
-        // Find the next non‑space character
-        int j = i + 1;
-        while (j < len && s[j].isSpace()) ++j;
-        if (j >= len) continue;
+    while (i < len) {
+        const QChar c = s[i];
 
-        QChar c = s[i];
-        QChar n = s[j];
-        bool insert = false;
+        if (c.isSpace()) { r += c; ++i; continue; }
 
-        // Original rules, but applied to the next non‑space char
-        if ((c.isDigit() || c == ')') && (n.isLetter() || n == '('))
-            insert = true;
-        else if (c.isLetter() && n.isDigit())
-            insert = true;
-        else if (c == ')' && n.isDigit())
-            insert = true;
-        else if (c == ')' && n == '(')
-            insert = true;
-        else if (c == '!' && (n == '(' || n.isDigit() || n.isLetter()))
-            insert = true;
-
-        if (insert) {
-            r += '*';
+        // Number (consumed whole so scientific notation survives).
+        if (c.isDigit() || (c == '.' && i + 1 < len && s[i + 1].isDigit())) {
+            if (prev == Ident || prev == CloseParen || prev == Bang) r += '*';
+            const int end = scanNumberLiteral(s, i);
+            r += QStringView(s).mid(i, end - i);
+            i = end;
+            prev = Number;
+            continue;
         }
+
+        // Identifier (consumed whole, including trailing digits).
+        if (c.isLetter() || c == '_') {
+            if (prev == Number || prev == CloseParen || prev == Bang) r += '*';
+            const int start = i;
+            while (i < len && (s[i].isLetterOrNumber() || s[i] == '_')) ++i;
+            r += QStringView(s).mid(start, i - start);
+            prev = Ident;
+            continue;
+        }
+
+        // Opening paren: multiply against a preceding value, but not a name
+        // (that would be a function call).
+        if (c == '(') {
+            if (prev == Number || prev == CloseParen || prev == Bang) r += '*';
+            r += c; ++i; prev = None;
+            continue;
+        }
+
+        // Any other single char (operators, ')', '!', ',', '%').
+        r += c; ++i;
+        if (c == ')')      prev = CloseParen;
+        else if (c == '!') prev = Bang;
+        else               prev = None;
     }
     return r;
 }
 
+// ── Built-in functions ──────────────────────────────────────────────────────
 static double callBuiltin(const QString& name, const QVector<double>& args) {
     auto need = [&](int n) {
         if (args.size() < n) throw std::runtime_error(name.toStdString() + " needs " + std::to_string(n) + " argument(s)");
@@ -65,10 +98,8 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     auto d2r = [](double d) { return d * M_PI / 180.0; };
     auto r2d = [](double r) { return r * 180.0 / M_PI; };
 
-    if (name == "sin") {
-        need(1);
-        return std::sin(d2r(args[0])); 
-    }
+    // Single-argument functions
+    if (name == "sin") { need(1); return std::sin(d2r(args[0])); }
     if (name == "cos") { need(1); return std::cos(d2r(args[0])); }
     if (name == "tan") { need(1); return std::tan(d2r(args[0])); }
     if (name == "sinh") { need(1); return std::sinh(args[0]); }
@@ -80,7 +111,6 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     if (name == "asinh") { need(1); return r2d(std::asinh(args[0])); }
     if (name == "acosh") { need(1); return r2d(std::acosh(args[0])); }
     if (name == "atanh") { need(1); return r2d(std::atanh(args[0])); }
-    if (name == "atan2") { need(2); return r2d(std::atan2(args[0], args[1])); }
     if (name == "sinr") { need(1); return std::sin(args[0]); }
     if (name == "cosr") { need(1); return std::cos(args[0]); }
     if (name == "tanr") { need(1); return std::tan(args[0]); }
@@ -93,126 +123,127 @@ static double callBuiltin(const QString& name, const QVector<double>& args) {
     if (name == "log") { need(1); if (args[0] <= 0) throw std::runtime_error("log non-positive"); return std::log10(args[0]); }
     if (name == "ln") { need(1); if (args[0] <= 0) throw std::runtime_error("ln non-positive"); return std::log(args[0]); }
     if (name == "log2") { need(1); return std::log2(args[0]); }
-    if (name == "logbase") { need(2); return std::log(args[1]) / std::log(args[0]); }
     if (name == "exp") { need(1); return std::exp(args[0]); }
     if (name == "floor") { need(1); return std::floor(args[0]); }
     if (name == "ceil") { need(1); return std::ceil(args[0]); }
     if (name == "round") { need(1); return std::round(args[0]); }
     if (name == "sign") { need(1); return (args[0] > 0) - (args[0] < 0); }
+
+    // Multi-argument functions
     if (name == "min") {
-        need(2);
+        need(1);
         double result = args[0];
-        for (int i = 1; i <= args.size(); i++) {
+        for (int i = 1; i < args.size(); ++i)
             result = std::min(result, args[i]);
-        }
-        return result; 
-    }
-    if (name == "max") {
-        need(2);
-        double result = args[0];
-        for (int i = 1; i <= args.size() - 1; i++) {
-            result = std::max(result, args[i]);
-        }
         return result;
     }
-    if (name == "pow") { need(2); return std::pow(args[0], args[1]); }
-    if (name == "mod") { need(2); return std::fmod(args[0], args[1]); }
-    if (name == "hypot") { need(2); return std::hypot(args[0], args[1]); }
-    if (name == "fact") {
+    if (name == "max") {
         need(1);
-        throw std::runtime_error("__BIGFACT__:" + std::to_string((long long)args[0]));
-    }
-    if (name == "lcm") {
-        need(2);
-
-        auto gcd_ll = [](long long a, long long b) {
-            while (b) {
-                a %= b;
-                std::swap(a, b);
-            }
-            return a;
-            };
-
-        long long result = std::llabs((long long)args[0]);
-
-        for (int i = 1; i < args.size(); ++i) {
-            long long b = std::llabs((long long)args[i]);
-
-            if (result == 0 || b == 0)
-                return 0;
-
-            result = result / gcd_ll(result, b) * b;
-        }
-
-        return (double)result;
-    }
-    if (name == "avg") {
-        need(1);
-
-        double total = 0;
-
-        for (double x : args)
-            total += x;
-
-        return total / args.size();
-    }
-    if (name == "prod") {
-        need(1);
-
-        double result = 1;
-
-        for (double x : args)
-            result *= x;
-
+        double result = args[0];
+        for (int i = 1; i < args.size(); ++i)
+            result = std::max(result, args[i]);
         return result;
     }
     if (name == "sum") {
         need(1);
-
         double total = 0;
-
-        for (double x : args)
-            total += x;
-
+        for (double x : args) total += x;
         return total;
     }
+    if (name == "prod") {
+        need(1);
+        double result = 1;
+        for (double x : args) result *= x;
+        return result;
+    }
+    if (name == "avg") {
+        need(1);
+        double total = 0;
+        for (double x : args) total += x;
+        return total / args.size();
+    }
+
     if (name == "gcd" || name == "hcf") {
         need(2);
-
         long long result = std::llabs((long long)args[0]);
-
         for (int i = 1; i < args.size(); ++i) {
             long long b = std::llabs((long long)args[i]);
-
-            while (b) {
-                result %= b;
-                std::swap(result, b);
-            }
+            while (b) { result %= b; std::swap(result, b); }
         }
-
         return (double)result;
     }
+    if (name == "lcm") {
+        need(2);
+        long long result = std::llabs((long long)args[0]);
+        for (int i = 1; i < args.size(); ++i) {
+            const long long operand = std::llabs((long long)args[i]);
+            if (result == 0 || operand == 0) return 0;
+            // Euclid's loop CONSUMES its second argument -- it exits when b hits
+            // zero. The old code then multiplied by that now-zero `b`, so every
+            // lcm() returned 0 (BUG-005). Run gcd on scratch copies and multiply
+            // by the saved operand instead.
+            long long a = result, b = operand;
+            while (b) { a %= b; std::swap(a, b); }   // a == gcd(result, operand)
+            result = result / a * operand;           // divide first: avoids overflow
+        }
+        return (double)result;
+    }
+
+    if (name == "atan2") { need(2); return r2d(std::atan2(args[0], args[1])); }
+    // logbase(value, base) -- log(value)/log(base). The operands were reversed,
+    // so logbase(8,2) returned log(2)/log(8) = 0.333 instead of 3 (BUG-006).
+    if (name == "logbase") { need(2); return std::log(args[0]) / std::log(args[1]); }
+    if (name == "pow") { need(2); return std::pow(args[0], args[1]); }
+    if (name == "mod") { need(2); return std::fmod(args[0], args[1]); }
+    if (name == "hypot") { need(2); return std::hypot(args[0], args[1]); }
     if (name == "ncr" || name == "c" || name == "nCr") {
         need(2);
-        int n = (int)args[0], r = (int)args[1];
+        long long n = (long long)args[0], r = (long long)args[1];
         if (r < 0 || r > n) return 0;
         r = std::min(r, n - r);
-        long long res = 1;
-        for (int i = 0; i < r; ++i) res = res * (n - i) / (i + 1);
-        return (double)res;
+        // Accumulate in double, not long long: for large n/r the integer
+        // product overflows long long and silently wraps to garbage, whereas
+        // double just saturates towards +inf, matching this evaluator's
+        // general double-precision semantics (see pow, etc.).
+        double res = 1.0;
+        for (long long i = 0; i < r; ++i) res = res * double(n - i) / double(i + 1);
+        return std::round(res);
     }
     if (name == "npr") {
         need(2);
-        int n = (int)args[0], r = (int)args[1];
+        long long n = (long long)args[0], r = (long long)args[1];
         if (r < 0 || r > n) return 0;
-        long long res = 1;
-        for (int i = 0; i < r; ++i) res *= (n - i);
-        return (double)res;
+        double res = 1.0;
+        for (long long i = 0; i < r; ++i) res *= double(n - i);
+        return std::round(res);
+    }
+    if (name == "fact") {
+        need(1);
+        // This used to throw a "__BIGFACT__:n" sentinel intended for a handler
+        // further up that was never written -- grep found exactly one hit in the
+        // tree, the throw itself. evalWith() catches every exception and reports
+        // ok=false, so the sentinel was swallowed and ANY fact() inside a larger
+        // expression died as "Cannot parse expression" (BUG-007). Standalone
+        // fact(n) / n! only worked because dispatchEvaluate's factRe intercepts
+        // it before Expr ever runs -- which is also why "fact(5) = 120" failed:
+        // the '=' stopped that regex matching.
+        //
+        // The exact big-integer path still belongs upstream (BigNum::bigFactorial
+        // via dispatchEvaluate). Here we just evaluate in double, consistent with
+        // the rest of this evaluator: exact to 20!, then approximate, then inf
+        // past 170! -- the same saturating behaviour as pow() and ncr().
+        const double n = args[0];
+        if (n < 0)               throw std::runtime_error("factorial of a negative number");
+        if (n != std::floor(n))  throw std::runtime_error("factorial of a non-integer");
+        if (n > 170.0)           return std::numeric_limits<double>::infinity();
+        double res = 1.0;
+        for (int i = 2; i <= (int)n; ++i) res *= i;
+        return res;
     }
     throw std::runtime_error("Unknown function '" + name.toStdString() + "'");
 }
 
-// -- Token types and tokenizer ------------------------------------------------
+// ── Token types and tokenizer ────────────────────────────────────────────────
 enum class TokenType {
     Number, Variable, Add, Sub, Mul, Div, Pow, Mod,
     LParen, RParen, Factorial, Percent, Comma,
@@ -232,7 +263,9 @@ public:
     }
 
     Token current() const { return m_curr; }
-    void next() { m_curr = readToken(); }
+    void next() {
+        m_curr = readToken();
+    }
 
 private:
     QString m_str;
@@ -302,27 +335,39 @@ private:
             m_pos++;
         QString id = m_str.mid(start, m_pos - start).toLower();
 
-        // List of known functions (must match callBuiltin)
-        static QSet<QString> functions = {
+        // Look ahead (skipping whitespace) to see if this is a function call
+        int lookahead = m_pos;
+        while (lookahead < m_str.size() && m_str[lookahead].isSpace())
+            ++lookahead;
+        bool isFunctionCall = (lookahead < m_str.size() && m_str[lookahead] == '(');
+
+        // Built‑in functions (from your existing list)
+        static const QSet<QString> functions = {
             "sin","cos","tan","sinh","cosh","tanh","asin","acos","atan",
             "asinh","acosh","atanh","atan2","sinr","cosr","tanr","asinr","acosr","atanr",
             "sqrt","cbrt","abs","log","ln","log2","exp","floor","ceil","round","sign",
-            "min","max","pow","mod","hypot","fact","gcd","hcf","lcm","ncr","npr","c","logbase","sum", "prod", "avg",
+            "min","max","pow","mod","hypot","fact","gcd","hcf","lcm","ncr","npr","c","logbase",
+            "sum","prod","avg"
         };
-        // Known constants – treat as variables so the parser can handle them
+
+        if (isFunctionCall && functions.contains(id))
+            return { TokenType::Function, id };
+
+        // Constants
         static const QSet<QString> constants = { "pi", "e", "tau", "inf" };
         if (constants.contains(id))
             return { TokenType::Variable, id };
-        if (functions.contains(id))
-            return { TokenType::Function, id };
-        else if (m_vars.contains(id))
+
+        // User‑defined variable (from the map)
+        if (m_vars.contains(id))
             return { TokenType::Variable, id };
-        else
-            return { TokenType::Invalid };  // Unknown identifier -> error
+
+        // Unknown identifier – treat as variable (or error, but variable is safer)
+        return { TokenType::Variable, id };
     }
 };
 
-// -- Recursive descent parser -------------------------------------------------
+// ── Recursive descent parser ─────────────────────────────────────────────────
 class Parser {
 public:
     Parser(Tokenizer& tokenizer, const VarMap& vars) : m_tok(tokenizer), m_vars(vars) {}
@@ -359,22 +404,22 @@ private:
     }
 
     double parseMulDiv() {
-        double left = parsePow();
+        double left = parseUnary();
         while (true) {
             TokenType tt = m_tok.current().type;
             if (tt == TokenType::Mul) {
                 m_tok.next();
-                left *= parsePow();
+                left *= parseUnary();
             }
             else if (tt == TokenType::Div) {
                 m_tok.next();
-                double right = parsePow();
+                double right = parseUnary();
                 if (right == 0.0) throw std::runtime_error("Division by zero");
                 left /= right;
             }
             else if (tt == TokenType::Mod) {
                 m_tok.next();
-                double right = parsePow();
+                double right = parseUnary();
                 if (right == 0.0) throw std::runtime_error("Modulo by zero");
                 left = std::fmod(left, right);
             }
@@ -383,16 +428,8 @@ private:
         return left;
     }
 
-    double parsePow() {
-        double left = parseUnary();
-        if (m_tok.current().type == TokenType::Pow) {
-            m_tok.next();
-            double right = parsePow(); // right‑associative
-            left = std::pow(left, right);
-        }
-        return left;
-    }
-
+    // Unary +/- binds looser than '^' (so -2^2 == -(2^2) == -4), but tighter
+    // than * / %, so it can appear right after those operators (e.g. 2*-3).
     double parseUnary() {
         Token t = m_tok.current();
         if (t.type == TokenType::Add) {
@@ -404,8 +441,18 @@ private:
             return -parseUnary();
         }
         else {
-            return parsePrimary();
+            return parsePow();
         }
+    }
+
+    double parsePow() {
+        double left = parsePrimary();
+        if (m_tok.current().type == TokenType::Pow) {
+            m_tok.next();
+            double right = parseUnary(); // right‑associative, allows signed exponents
+            left = std::pow(left, right);
+        }
+        return left;
     }
 
     double applyPostfix(double val) {
@@ -439,17 +486,17 @@ private:
             return applyPostfix(t.value);
         }
         else if (t.type == TokenType::Variable) {
-
             QString name = t.text;
             m_tok.next();
-            // Constants
-            if (name == "pi") return M_PI;
-            if (name == "e") return M_E;
-            if (name == "tau") return 2.0 * M_PI;
-            if (name == "inf") return std::numeric_limits<double>::infinity();
+            if (name == "pi")  return applyPostfix(M_PI);
+            if (name == "e")   return applyPostfix(M_E);
+            if (name == "tau") return applyPostfix(2.0 * M_PI);
+            if (name == "inf") return applyPostfix(std::numeric_limits<double>::infinity());
 
-            double val = m_vars.value(name, 0.0);
-            return applyPostfix(val);
+            auto it = m_vars.constFind(name);
+            if (it == m_vars.constEnd())
+                throw std::runtime_error("Unknown identifier '" + name.toStdString() + "'");
+            return applyPostfix(it.value());
         }
         else if (t.type == TokenType::LParen) {
             m_tok.next();
@@ -478,6 +525,7 @@ private:
     }
 };
 
+// ── Replace 'x' as multiplication ────────────────────────────────────────────
 static QString replaceXWithTimes(const QString& s) {
     QString result;
     int len = s.length();
@@ -498,10 +546,46 @@ static QString replaceXWithTimes(const QString& s) {
     return result;
 }
 
-// -- Public interface ---------------------------------------------------------
+// ── Replace superscript digits with '^' ──────────────────────────────────────
+static QString Expr::replaceSuperscripts(const QString& s) {
+    QString out;
+    auto isSup = [](QChar c) {
+        return QString("⁰¹²³⁴⁵⁶⁷⁸⁹").contains(c);
+        };
+    auto toDigit = [](QChar c) {
+        switch (c.unicode()) {
+        case L'⁰': return '0';
+        case L'¹': return '1';
+        case L'²': return '2';
+        case L'³': return '3';
+        case L'⁴': return '4';
+        case L'⁵': return '5';
+        case L'⁶': return '6';
+        case L'⁷': return '7';
+        case L'⁸': return '8';
+        case L'⁹': return '9';
+        default: return '?';
+        }
+        };
+    for (int i = 0; i < s.size(); ++i) {
+        if (isSup(s[i])) {
+            out += '^';
+            while (i < s.size() && isSup(s[i])) {
+                out += toDigit(s[i]);
+                ++i;
+            }
+            --i;
+        }
+        else {
+            out += s[i];
+        }
+    }
+    return out;
+}
+
+// ── Public interface ──────────────────────────────────────────────────────────
 double Expr::eval(const QString& input, bool& ok) {
-    QString expr = input;
-    expr = NaturalLanguage::preprocess(expr);
+    QString expr = NaturalLanguage::preprocess(input);
 
     return evalWith(expr, {}, ok);
 }
@@ -513,7 +597,6 @@ double Expr::evalWith(const QString& input, const VarMap& vars, bool& ok) {
         s = replaceXWithTimes(s);
         s = s.replace("**", "^");
         s = insertImplicitMul(s);
-        
         Tokenizer tokenizer(s, vars);
         Parser parser(tokenizer, vars);
         double result = parser.parseExpression();
@@ -522,77 +605,40 @@ double Expr::evalWith(const QString& input, const VarMap& vars, bool& ok) {
         ok = true;
         return result;
     }
-    catch (const std::exception& e) {
+    catch (const std::exception&) {
         ok = false;
         return 0.0;
     }
 }
 
 QSet<QString> Expr::detectVariables(const QString& expr) {
-    QSet<QString> vars;
+    // Names that are NOT variables: constants and built-in functions, matched
+    // as whole identifiers (so the letters inside "sin"/"sqrt" are never each
+    // mistaken for a variable).
     static const QSet<QString> exclude = {
-        "pi","e","tau","inf","sin","cos","tan","asin","acos","atan","atan2",
-        "sinr","cosr","tanr","asinr","acosr","atanr","sqrt","cbrt","abs",
-        "log","ln","log2","exp","floor","ceil","round","sign","min","max",
-        "pow","mod","hypot","fact","ncr","npr","gcd","lcm","logbase", "sum", "prod", "avg"
+        "pi","e","tau","inf",
+        "sin","cos","tan","sinh","cosh","tanh","asin","acos","atan",
+        "asinh","acosh","atanh","atan2","sinr","cosr","tanr","asinr","acosr","atanr",
+        "sqrt","cbrt","abs","log","ln","log2","exp","floor","ceil","round","sign",
+        "min","max","pow","mod","hypot","fact","gcd","hcf","lcm","ncr","npr","logbase",
+        "sum","prod","avg"
     };
-    QRegularExpression re(R"([a-df-z])"); // a-d, f-z (exclude 'e')
-    auto it = re.globalMatch(expr.toLower());
+
+    // Match numeric literals (incl. scientific notation) OR identifiers, so a
+    // number like "2e5" is consumed whole and its "e5" is not read as a name.
+    // Only the identifier alternative (group 1) yields a candidate variable.
+    static const QRegularExpression tokRe(
+        R"((?:\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([A-Za-z_][A-Za-z0-9_]*))");
+
+    QSet<QString> vars;
+    auto it = tokRe.globalMatch(expr);
     while (it.hasNext()) {
-        auto m = it.next();
-        QString v = m.captured(0);
-        if (!exclude.contains(v)) vars.insert(v);
+        const QString id = it.next().captured(1);
+        if (id.isEmpty()) continue;                 // matched a number, not a name
+        const QString lid = id.toLower();
+        if (!exclude.contains(lid)) vars.insert(lid);
     }
     return vars;
-}
-static QString Expr::replaceSuperscripts(const QString& s)
-{
-    QString out;
-
-    auto isSup = [](QChar c)
-        {
-            return QString("⁰¹²³⁴⁵⁶⁷⁸⁹").contains(c);
-        };
-
-    auto toDigit = [](QChar c)
-        {
-            switch (c.unicode())
-            {
-            case L'⁰': return '0';
-            case L'¹': return '1';
-            case L'²': return '2';
-            case L'³': return '3';
-            case L'⁴': return '4';
-            case L'⁵': return '5';
-            case L'⁶': return '6';
-            case L'⁷': return '7';
-            case L'⁸': return '8';
-            case L'⁹': return '9';
-            default: return '?';
-            }
-        };
-
-    for (int i = 0; i < s.size(); ++i)
-    {
-        if (isSup(s[i]))
-        {
-            out += '^';
-
-            while (i < s.size() && isSup(s[i]))
-            {
-                out += toDigit(s[i]);
-                ++i;
-            }
-
-            --i;
-        }
-        else
-        {
-            out += s[i];
-        }
-    }
-
-    return out;
 }
 
 QString Expr::preprocess(const QString& expr) {

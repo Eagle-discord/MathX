@@ -18,9 +18,9 @@ CRTTextLabel::CRTTextLabel(const QString& text, QWidget* parent)
 
 
 
-    m_flickerTimer = new QTimer(this);
-    connect(m_flickerTimer, &QTimer::timeout, this, &CRTTextLabel::onFlickerTick);
-    m_flickerTimer->start(80);
+   // m_flickerTimer = new QTimer(this);
+   // connect(m_flickerTimer, &QTimer::timeout, this, &CRTTextLabel::onFlickerTick);
+   // m_flickerTimer->start(80);
 }
 
 // -- Setters ----------------------------------------------------------------

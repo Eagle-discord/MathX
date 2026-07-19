@@ -8,5 +8,6 @@ public:
     void setDarkTheme(bool) override {}
     void setRotationEnabled(bool) override {}
     void setMouseCtrl(bool) override {};
+    void clearMesh()override {}
     QWidget* widget() override { return nullptr; }
 };

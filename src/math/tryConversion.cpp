@@ -42,11 +42,19 @@ struct ResolvedUnit {
 
 // -- SI prefix table -----------------------------------------------------------
 struct SIPrefix { QString sym; double factor; };
+// Order matters: the input reaches unit resolution already lower-cased, which
+// collapses the case-distinct SI prefixes M/m, P/p, Z/z, Y/y onto one key each.
+// We list the everyday *small* prefix (milli, pico, zepto, yocto) BEFORE its
+// uppercase partner (mega, peta, zetta, yotta) so the common unit wins — e.g.
+// "mm" resolves to millimetre, not megametre. (Reach mega/peta/... by spelling
+// the unit out, e.g. "megametre".) Non-colliding prefixes may appear in any order.
 static const QVector<SIPrefix> SI_PREFIXES = {
-    {"Y",1e24},{"Z",1e21},{"E",1e18},{"P",1e15},{"T",1e12},{"G",1e9},
-    {"M",1e6}, {"k",1e3}, {"h",1e2}, {"da",1e1},
-    {"d",1e-1},{"c",1e-2},{"m",1e-3},{"u",1e-6},{"n",1e-9},
-    {"p",1e-12},{"f",1e-15},{"a",1e-18},{"z",1e-21},{"y",1e-24},
+    {"E",1e18},{"T",1e12},{"G",1e9},{"k",1e3},{"h",1e2},{"da",1e1},
+    {"d",1e-1},{"c",1e-2},
+    {"m",1e-3},{"u",1e-6},{"n",1e-9},{"p",1e-12},
+    {"f",1e-15},{"a",1e-18},{"z",1e-21},{"y",1e-24},
+    // Uppercase collision-partners last (their lower-cased key is already taken).
+    {"M",1e6},{"P",1e15},{"Z",1e21},{"Y",1e24},
 };
 
 // -- SI base definitions -------------------------------------------------------
@@ -202,11 +210,13 @@ static const QVector<ManualUnit> MANUAL = {
     {"pdl",     "force",  0.13825495,      {"poundal"}},
     // Speed (base: m/s)
     { "celeritas", "speed", 299792458.0, {"lightspeed", "speed of light", "times the speed of light"}},
-    { "m/s",    "speed",  1.0,             {"meterpersecond","meterspersecond","mps", "meters/s", "meters/second"}},
-    { "km/h",   "speed",  1.0 / 3.6,         {"kph","kmh", "kilometers/h", "km/hour", "kilometers/hour"}},
-    { "ft/s",   "speed",  0.3048,          {"fps"} },
-    {"mph",     "speed",  0.44704,         {"mileperhour"}},
-    {"kph",     "speed",  1.0 / 3.6,         {"km/h","kmh", "kmph"}},
+    { "mph",     "speed",  0.44704,         {"miles per hour","mile per hour","mileperhour","milesperhour"} },
+    { "kph",     "speed",  1.0 / 3.6,         {"km/h","kmh","kmph","kilometers per hour","kilometres per hour","kilometer per hour","kilometre per hour"} },
+    { "knot",    "speed",  0.51444444,      {"knots","kn","kt","nautical mile per hour","nautical miles per hour"} },
+    { "mach",    "speed",  343.0,           {"mach speed","speed of sound","times the speed of sound","times mach"} },
+    { "m/s",     "speed",  1.0,             {"meters per second","metres per second","meter per second","metre per second","meterspersecond","metrespersecond"} },
+    { "km/h",    "speed",  1.0 / 3.6,         {"kilometers per hour","kilometres per hour"} },
+    { "ft/s",    "speed",  0.3048,          {"feet per second","foot per second","fps"} },
     {"knot",    "speed",  0.51444444,      {"knots","kn","kt"}},
     {"fps",     "speed",  0.3048,          {"ft/s"}},
     {"mach",    "speed",  343.0,           {"mach speed", "speed of sound", "times the speed of sound", "times mach speed"}},
@@ -214,12 +224,15 @@ static const QVector<ManualUnit> MANUAL = {
     {"rpm",     "frequency",1.0 / 60.0,      {}},
     {"rps",     "frequency",1.0,           {}},
     // Data (base: byte) — SI decimal
-    {"kb",      "data",   1000.0,          {"kilobyte","kilobytes"}},
-    {"mb",      "data",   1e6,             {"megabyte","megabytes"}},
-    {"gb",      "data",   1e9,             {"gigabyte","gigabytes"}},
-    {"tb",      "data",   1e12,            {"terabyte","terabytes"}},
-    {"pb",      "data",   1e15,            {"petabyte","petabytes"}},
-    {"eb",      "data",   1e18,            {"exabyte","exabytes"}},
+    // Data
+    { "kb",      "data",   1000.0,          {"kilobyte","kilobytes","kilo byte","kilo bytes"} },
+    { "mb",      "data",   1e6,             {"megabyte","megabytes","mega byte","mega bytes"} },
+    { "gb",      "data",   1e9,             {"gigabyte","gigabytes","giga byte","giga bytes"} },
+    { "tb",      "data",   1e12,            {"terabyte","terabytes","tera byte","tera bytes"} },
+    { "pb",      "data",   1e15,            {"petabyte","petabytes"} },
+    { "kib",     "data",   1024.0,          {"kibibyte","kibibytes"} },
+    { "mib",     "data",   1048576.0,       {"mebibyte","mebibytes"} },
+    { "gib",     "data",   1073741824.0,    {"gibibyte","gibibytes"} },
     // Data — binary IEC
     {"kib",     "data",   1024.0,          {"kibibyte"}},
     {"mib",     "data",   1048576.0,       {"mebibyte"}},
@@ -312,7 +325,7 @@ static QMap<QString, ResolvedUnit> buildUnitMap() {
     QMap<QString, ResolvedUnit> map;
 
     auto addLinear = [&](const QString& rawKey, const QString& cat, double toBase) {
-        QString k = rawKey.toLower();
+        QString k = rawKey.toLower().trimmed().simplified(); // normalize spaces
         if (!map.contains(k))
             map[k] = { cat, toBase, {}, {}, false, true };
         };
@@ -320,7 +333,7 @@ static QMap<QString, ResolvedUnit> buildUnitMap() {
     auto addNonLinear = [&](const QString& rawKey, const QString& cat,
         std::function<double(double)> toFn,
         std::function<double(double)> fromFn) {
-            QString k = rawKey.toLower();
+            QString k = rawKey.toLower().trimmed().simplified(); // normalize spaces
             if (!map.contains(k))
                 map[k] = { cat, 0, toFn, fromFn, true, true };
         };
@@ -368,7 +381,46 @@ static QMap<QString, ResolvedUnit> buildUnitMap() {
             }
         }
     }
+    static const QMap<QString, QString> SI_PREFIX_WORDS = {
+    {"Y","yotta"},{"Z","zetta"},{"E","exa"},{"P","peta"},
+    {"T","tera"}, {"G","giga"},{"M","mega"},{"k","kilo"},
+    {"h","hecto"},{"da","deca"},{"d","deci"},{"c","centi"},
+    {"m","milli"},{"u","micro"},{"n","nano"},{"p","pico"},
+    {"f","femto"},{"a","atto"},{"z","zepto"},{"y","yocto"}
+    };
 
+    for (const SIBase& base : SI_BASES) {
+        if (!base.prefixable) continue;
+        for (const SIPrefix& pfx : SI_PREFIXES) {
+            double factor = base.toSI * pfx.factor;
+            QString wordPrefix = SI_PREFIX_WORDS.value(pfx.sym);
+            if (wordPrefix.isEmpty()) continue;
+
+            // For each base alias, generate "kilo+alias" and "kilo+alias+s"
+            for (const QString& alias : base.aliases) {
+                QString wordForm = wordPrefix + alias;         // "kilogram"
+                QString wordForms = wordPrefix + alias + "s";  // "kilograms"
+                if (!map.contains(wordForm.toLower()))
+                    addLinear(wordForm, base.category, factor);
+                if (!map.contains(wordForms.toLower()))
+                    addLinear(wordForms, base.category, factor);
+            }
+            // Also try symbol-based: "kilometre", "kilometres", "kilometer", "kilometers"
+            for (const QString& alias : base.aliases) {
+                // handle metre/meter duality
+                if (alias.endsWith("re")) {
+                    QString erForm = wordPrefix + alias;
+                    QString erForms = wordPrefix + alias + "s";
+                    QString erForm2 = wordPrefix + QString(alias).replace("re", "er");
+                    QString erForms2 = wordPrefix + QString(alias).replace("re", "er") + "s";
+                    for (auto& w : { erForm, erForms, erForm2, erForms2 }) {
+                        if (!map.contains(w.toLower()))
+                            addLinear(w, base.category, factor);
+                    }
+                }
+            }
+        }
+    }
     return map;
 }
 
@@ -446,6 +498,15 @@ static QString getTemperatureFormula(const QString& from, const QString& to) {
     // fallback: factor (though not meaningful for temperature)
     return {};
 }
+// Add after the existing SI prefix loop
+static const QMap<QString, QString> SI_PREFIX_WORDS = {
+    {"Y","yotta"},{"Z","zetta"},{"E","exa"},{"P","peta"},
+    {"T","tera"}, {"G","giga"},{"M","mega"},{"k","kilo"},
+    {"h","hecto"},{"da","deca"},{"d","deci"},{"c","centi"},
+    {"m","milli"},{"u","micro"},{"n","nano"},{"p","pico"},
+    {"f","femto"},{"a","atto"},{"z","zepto"},{"y","yocto"}
+};
+
 
 // ----------------------------------------------------------------------
 // Helper: convert simple units (no '/') – handles linear and non‑linear
@@ -482,7 +543,7 @@ static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const Q
 
     return {
         QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(BigNum::fmt(result)).arg(toUnit),
-        "conv",
+        ResultType::conv,
         formula
     };
 }
@@ -547,7 +608,7 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
                 double result = val * factor;
                 return {
                     QString("%1 %2 = %3 m/s").arg(val).arg(fromUnit).arg(BigNum::fmt(result)),
-                    "conv",
+                    ResultType::conv,
                     QString("1 %1 = %2 m/s").arg(fromUnit).arg(factor)
                 };
             }
@@ -556,15 +617,16 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
     }
 
     // Standard conversion pattern: "value unit to unit"
+// Allow letters, digits, spaces, slashes, dots, hyphens — but NOT "to" as standalone word
     static QRegularExpression re(
-        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([A-Za-z0-9/]+)\s+to\s+([A-Za-z0-9/]+)\s*$)",
+        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([\w/.*\- ]+?)\s+to\s+([\w/.*\- ]+?)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
     auto m = re.match(processed.trimmed());
     if (!m.hasMatch()) return {};
 
     double val = m.captured(1).toDouble();
-    QString fromUnit = m.captured(2).toLower();
-    QString toUnit = m.captured(3).toLower();
+    QString fromUnit = m.captured(2).toLower().trimmed().simplified();
+    QString toUnit = m.captured(3).toLower().trimmed().simplified();
 
     // Simple units (no '/') – use dedicated helper
     if (!fromUnit.contains('/') && !toUnit.contains('/')) {
@@ -622,11 +684,11 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
 
     double factor = fromFactor / toFactor;
     QString formula = QString("1 %1 = %2 %3").arg(fromUnit).arg(factor).arg(toUnit);
-    if (fromUnit == "mach") return { QString("%1 %2 = %3 %4").arg(fromUnit).arg(val).arg(result).arg(toUnit), "conv", formula };
-    else if (toUnit == "mach") return { QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(toUnit).arg(result), "conv",formula };
+    if (fromUnit == "mach") return { QString("%1 %2 = %3 %4").arg(fromUnit).arg(val).arg(result).arg(toUnit), ResultType::conv, formula };
+    else if (toUnit == "mach") return { QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(toUnit).arg(result), ResultType::conv,formula };
     return {
         QString("%1 %2 = %3 %4").arg(val).arg(fromUnit).arg(BigNum::fmt(result)).arg(toUnit),
-        "conv",
+        ResultType::conv,
         formula
     };
 }

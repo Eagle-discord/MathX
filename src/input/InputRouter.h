@@ -20,9 +20,11 @@ public:
     // Translate a key event into a semantic action given the current context.
     //   promptActive  — true when a shape parameter prompt is in progress
     //   historyEmpty  — true when there are no history entries to navigate
+    //   ghostVisible  — true when an inline completion is currently offered
     static InputAction translate(const QKeyEvent* ke,
-                                 bool promptActive,
-                                 bool historyEmpty)
+        bool promptActive,
+        bool historyEmpty,
+        bool ghostVisible = false)
     {
         if (!ke) return InputAction::None;
 
@@ -31,6 +33,13 @@ public:
         case Qt::Key_Return:
         case Qt::Key_Enter:
             return InputAction::Submit;
+
+        case Qt::Key_Tab:
+            // Only claim Tab when there's actually something to accept.
+            // Otherwise it must fall through to Qt so focus traversal still
+            // works -- stealing Tab unconditionally would trap keyboard users in
+            // the input field with no way out.
+            return ghostVisible ? InputAction::Complete : InputAction::None;
 
         case Qt::Key_Escape:
             // Escape only means anything when a prompt is active

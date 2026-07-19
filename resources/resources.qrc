@@ -21,10 +21,16 @@
 	  <file>fonts/Syne-Medium.ttf</file>
 	  <file>fonts/Syne-Regular.ttf</file>
 	  <file>fonts/Syne-SemiBold.ttf</file>
-	  <file>settings/bg-appearance.png</file>
-	  <file>settings/bg-display.png</file>
-	  <file>settings/bg-behavior.png</file>
-	  <file>settings/bg-system.png</file>
 	  <file>fonts/DejaVuSans.ttf</file>
+	  <file>fonts/cmunrm.ttf</file>
+	  <file>fonts/cmunti.ttf</file>
+	  <file>fonts/cmunbx.ttf</file>
+	  <file>fonts/NotoSans-Regular.ttf</file>
+	  <file>shaders/glass.vert</file>
+	  <file>shaders/glass.frag</file>
+	  <file>shaders/fullscreen.vert</file>
+	  <file>shaders/prefilter.frag</file>
+	  <file>shaders/blur.frag</file>
+	  <file>shaders/composite.frag</file>
   </qresource>
 </RCC>

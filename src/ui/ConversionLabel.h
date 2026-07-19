@@ -1,64 +1,73 @@
-﻿#include <QLabel>
-#include <QTimer>
-#include <QApplication>
-#include <QClipBoard>
-#include <QMouseEvent>
+﻿#pragma once
+#include "CopyableLabel.h"
+#include <QRegularExpression>
 
-
-// Conversion result label: single‑click copies value, double‑click shows/hides formula
-class ConversionLabel : public QLabel {
+class ConversionLabel : public CopyableLabel {
     Q_OBJECT
+        Q_PROPERTY(QString result READ result WRITE setResultProp)
+
 public:
-    ConversionLabel(const QString& resultNum, const QString& formulaStr,
-        const QFont& font, const QString& color,
-        const QString& extraStyle = "")
-        : QLabel(resultNum), m_result(resultNum), m_formula(formulaStr),
-        m_showFormula(false), m_copied(false)
+    ConversionLabel(const QString& resultNum, const QString& plainText,
+        const QString& formulaStr, const QFont& font,
+        const QString& color, const QString& extraStyle = "")
+        : CopyableLabel(resultNum),
+        m_result(resultNum),
+        m_plainText(plainText),          // <- given, not guessed
+        m_extraStyle(extraStyle)
+   
     {
         setFont(font);
-        setStyleSheet("background:transparent; color:" + color + ";" + extraStyle + ";padding-left:22px");
         setWordWrap(true);
-        setCursor(Qt::PointingHandCursor);
-        setText(resultNum);
-        m_resetTimer = new QTimer(this);
-        m_resetTimer->setSingleShot(true);
-        connect(m_resetTimer, &QTimer::timeout, this, &ConversionLabel::resetCopy);
+        setTextFormat(Qt::RichText);
+
+        // Original toggled the formula inline on a plain left click (not a
+        // double click, and no right-click conflict since right click is
+        // reserved for copy) — LeftClickToggle preserves that exactly.
+        setupCopyable(m_plainText, color, formulaStr,
+            DetailTrigger::LeftClickToggle, HoverHint::Never);
     }
 
+    QString result() const { return m_result; }
+    void setResultProp(const QString& v) {
+        m_result = v;
+        m_plainText = stripHtml(v);
+        setCopyText(m_plainText);
+        refreshDisplay();
+    }
+
+    // Live-update hook (see CopyableLabel::setNormalText). We already have a
+    // setter with exactly these semantics — reuse it rather than duplicate.
+    void setNormalText(const QString& html) override { setResultProp(html); }
+    
+
 protected:
-    void mousePressEvent(QMouseEvent* e) override {
-        if (e->button() == Qt::RightButton) {
-            // Single click: copy the numeric result (not the formula)
-            QApplication::clipboard()->setText(m_result);
-            m_copied = true;
-            setText("Copied!");
-            m_resetTimer->start(800);
-        }
-        else if (e->button() == Qt::LeftButton && !m_formula.isEmpty()) {
-            toggleFormula();
-        }
-        QLabel::mousePressEvent(e);
+    QString normalText() const override { return m_result; }
+
+    void applyNormalStyle() override {
+        setStyleSheet(QString("background:transparent; color:%1; %2; padding-left:22px;")
+            .arg(color(), m_extraStyle));
+    }
+    void applyCopiedStyle() override {
+        // Original ConversionLabel didn't recolor on copy, just swapped text
+        // to "Copied!" and left the stylesheet as-is — preserve that.
+        // (No style change here; text swap is handled by CopyableLabel.)
+    }
+    void applyDetailStyle() override {
+        setStyleSheet(QString("background:transparent; color:%1; %2; padding-left:22px;")
+            .arg(color(), m_extraStyle));
+        // Detail color previously came from the inline <span style='color:MUTED'>
+        // wrapping the formula text, not a stylesheet change — CopyableLabel's
+        // refreshDisplay() already wraps the detail in a MUTED span, so the
+        // base label style stays the same as normal here.
     }
 
 private:
-    void toggleFormula() {
-        m_showFormula = !m_showFormula;
-        if (m_showFormula) {
-            setText(m_result + "  [ " + m_formula + " ]");
-        }
-        else {
-            setText(m_result);
-        }
+    static QString stripHtml(const QString& s) {
+        QString plain = s;
+        plain.replace(QRegularExpression("<br\\s*/?>", QRegularExpression::CaseInsensitiveOption), "\n");
+        plain.remove(QRegularExpression("<[^>]*>"));
+        return plain.trimmed();
     }
 
-    void resetCopy() {
-        m_copied = false;
-        setText(m_showFormula ? (m_result + "  [ " + m_formula + " ]") : m_result);
-    }
-
-    QString m_result;
-    QString m_formula;
-    bool m_showFormula;
-    bool m_copied;
-    QTimer* m_resetTimer;
+    QString m_result, m_plainText, m_extraStyle;
 };

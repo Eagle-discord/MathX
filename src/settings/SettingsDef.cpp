@@ -3,40 +3,48 @@
 
 // -- Category registry ---------------------------------------------------------
 const QList<CategoryDef>& allCategories() {
-    static const QList<CategoryDef> list = {
-        {
-            CategoryId::Appearance,
-            "Appearance",
-            Theme::WARN,        // amber — warmth, creativity
-            "brush",
-            "Fonts, colors, and visual style",
-            "Customize the look and feel"
-        },
-        {
-            CategoryId::Display,
-            "Display",
-            Theme::INFO,        // blue — screens, clarity
-            "monitor",
-            "How results and output are presented",
-            "Control how information is shown"
-        },
-        {
-            CategoryId::Behavior,
-            "Behavior",
-            Theme::ACCENT,      // green — logic, the app's primary identity
-            "gear",
-            "How the app is programmed internally",
-            "Configure calculation logic and automation"
-        },
-        {
-            CategoryId::System,
-            "System",
-            Theme::PURPLE,      // purple — infrastructure, depth
-            "server",
-            "App-level data and information",
-            "Manage application data and diagnostics"
-        },
-    };
+    static const QList<CategoryDef> list = []() {
+        QList<CategoryDef> l;
+        l.reserve(4);
+
+        CategoryDef appearance;
+        appearance.id = CategoryId::Appearance;
+        appearance.label = "Appearance";
+        appearance.accentColor = Theme::WARN;
+        appearance.iconName = "brush";
+        appearance.description = "Fonts, colors, and visual style";
+        appearance.hint = "Customize the look and feel";
+        l.append(appearance);
+
+        CategoryDef display;
+        display.id = CategoryId::Display;
+        display.label = "Display";
+        display.accentColor = Theme::INFO;
+        display.iconName = "monitor";
+        display.description = "How results and output are presented";
+        display.hint = "Control how information is shown";
+        l.append(display);
+
+        CategoryDef behavior;
+        behavior.id = CategoryId::Behavior;
+        behavior.label = "Behavior";
+        behavior.accentColor = Theme::ACCENT();
+        behavior.iconName = "gear";
+        behavior.description = "How the app is programmed internally";
+        behavior.hint = "Configure calculation logic and automation";
+        l.append(behavior);
+
+        CategoryDef system;
+        system.id = CategoryId::System;
+        system.label = "System";
+        system.accentColor = Theme::PURPLE;
+        system.iconName = "server";
+        system.description = "App-level data and information";
+        system.hint = "Manage application data and diagnostics";
+        l.append(system);
+
+        return l;
+        }();
     return list;
 }
 
@@ -118,6 +126,13 @@ const QList<SubcategoryDef>& allSubcategories() {
             "sparkle",
             "Animation preferences for the settings page"
         },
+        {
+            SubcategoryId::Developer,
+            CategoryId::Behavior,
+            "Developer",
+            "code",
+            "Advanced developer-only tools"
+        },
 
         // -- System ------------------------------------------------------------
         {
@@ -147,6 +162,13 @@ const QList<SubcategoryDef>& allSubcategories() {
 //   Immediate — safe at any time (visual, display)
 //   Staged    — structural changes, apply on next Idle (threading, thresholds)
 //   Deferred  — math-affecting changes, apply after current op (angle unit, precision)
+//
+// NOTE on `affects`: this feeds the pending-queue and apply-animation labels
+// ("{labelBasic} - {affects}"). Every setting that can enter the pending
+// queue (i.e. every non-Action control) has one filled in below, so no
+// label ever falls back to the bare, sometimes-ambiguous labelBasic alone.
+// Action-type settings (one-shot buttons) never enter the pending queue,
+// so `affects` is intentionally left blank for them.
 
 const QList<SettingDef>& allSettings() {
     static const QList<SettingDef> list = {
@@ -154,7 +176,7 @@ const QList<SettingDef>& allSettings() {
         // --------------------------------------------------------------------
         // APPEARANCE / TYPOGRAPHY
         // --------------------------------------------------------------------
-        {
+        /*{
             "appearance/typography/fontSize",
             CategoryId::Appearance, SubcategoryId::Typography,
             10, ControlType::Slider, {}, {8.0, 16.0, 1.0},
@@ -165,8 +187,9 @@ const QList<SettingDef>& allSettings() {
             "Updating text size across the interface",
             "Text size updated",
             VisibilityLevel::Basic,
-            {"Font size", "Point size", "Text scale"}
-        },
+            {"Font size", "Point size", "Text scale"},
+            "All interface text"
+        },*/
         {
             "appearance/typography/fontFamily",
             CategoryId::Appearance, SubcategoryId::Typography,
@@ -178,7 +201,8 @@ const QList<SettingDef>& allSettings() {
             "Applying new font across the interface",
             "Font updated",
             VisibilityLevel::Basic,
-            {"Typeface", "Font family"}
+            {"Typeface", "Font family"},
+            "All interface text"
         },
         {
             "appearance/typography/fontWeight",
@@ -191,9 +215,116 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating font weight",
             "Font weight updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "All interface text"
         },
-
+        {
+        "appearance/typography/fontSizeSplash",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        9, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "Splash text size", "Splash screen font size",
+        "Changes the size of the welcome title, instructions, and examples shown on launch",
+        "Point size applied to the terminal splash screen content (title, instructions, sidebar examples)",
+        ApplyMode::Immediate,
+        "Updating splash text size",
+        "Splash text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Welcome text", "Splash screen"},
+        "Splash screen",
+        "pt"
+        },
+        // --------------------------------------------------------------------
+        // The five below were READ by Settings.cpp but never registered here.
+        // get() on an unregistered key returns an invalid QVariant, and
+        // QVariant().toInt() is 0 -- so WidgetRegistry's constructor overwrote
+        // its own sane defaults (10/9/9/10/9) with zeroes and then called
+        // setPointSize(0) on every tracked widget for the rest of the session.
+        // That produced the "QFont::setPointSize: Point size <= 0 (0)" storm --
+        // two per result line, forever -- plus five CacheOverflowExceptions at
+        // startup, and made every label silently fall back to a system font
+        // instead of the one main.cpp loads.
+        //
+        // The defaults here MUST match WidgetRegistry.h's in-class initialisers.
+        // Registered alongside fontSizeSplash because they are the same setting
+        // for different surfaces; splash was registered and the others were not,
+        // which is exactly why only splash worked.
+        // --------------------------------------------------------------------
+        {
+        "appearance/typography/fontSizeUI",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        10, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "UI text size", "Interface font size",
+        "Changes the size of buttons, labels, and panel text",
+        "Point size applied to widgets registered with WidgetRole::FontUI",
+        ApplyMode::Immediate,
+        "Updating UI text size",
+        "UI text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Buttons", "Interface"},
+        "Interface",
+        "pt"
+        },
+        {
+        "appearance/typography/fontSizeResults",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        9, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "Result text size", "Result font size",
+        "Changes the size of calculation results in the terminal",
+        "Point size applied to widgets registered with WidgetRole::FontResults",
+        ApplyMode::Immediate,
+        "Updating result text size",
+        "Result text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Results", "Output"},
+        "Results",
+        "pt"
+        },
+        {
+        "appearance/typography/fontSizeSeparators",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        9, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "Separator text size", "Separator font size",
+        "Changes the size of timing lines and separators between results",
+        "Point size applied to widgets registered with WidgetRole::FontSeparators",
+        ApplyMode::Immediate,
+        "Updating separator text size",
+        "Separator text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Separators", "Timing"},
+        "Separators",
+        "pt"
+        },
+        {
+        "appearance/typography/fontSizeInput",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        10, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "Input text size", "Input font size",
+        "Changes the size of text in the expression input bar",
+        "Point size applied to widgets registered with WidgetRole::FontInput",
+        ApplyMode::Immediate,
+        "Updating input text size",
+        "Input text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Input", "Prompt"},
+        "Input bar",
+        "pt"
+        },
+        {
+        "appearance/typography/fontSizeSidebar",
+        CategoryId::Appearance, SubcategoryId::Typography,
+        9, ControlType::Slider, {}, {7.0, 20.0, 1.0},
+        "Sidebar text size", "Sidebar font size",
+        "Changes the size of the quick reference and session panel text",
+        "Point size applied to widgets registered with WidgetRole::FontSidebar",
+        ApplyMode::Immediate,
+        "Updating sidebar text size",
+        "Sidebar text size updated",
+        VisibilityLevel::Advanced,
+        {"Font size", "Sidebar", "Reference"},
+        "Sidebar",
+        "pt"
+        },
         // --------------------------------------------------------------------
         // APPEARANCE / COLORS
         // --------------------------------------------------------------------
@@ -208,7 +339,8 @@ const QList<SettingDef>& allSettings() {
             "Updating accent color across the interface",
             "Accent color updated",
             VisibilityLevel::Basic,
-            {"Theme color", "Primary color"}
+            {"Theme color", "Primary color"},
+            "Buttons & highlights"
         },
         {
             "appearance/colors/backgroundColor",
@@ -220,7 +352,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating background color",
             "Background color updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Window background"
         },
         {
             "appearance/colors/surfaceColor",
@@ -232,7 +366,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating surface color",
             "Surface color updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Panels & cards"
         },
         {
             "appearance/colors/borderColor",
@@ -244,7 +380,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating border color",
             "Border color updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Panel outlines"
         },
         {
             "appearance/colors/textColor",
@@ -256,7 +394,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating text color",
             "Text color updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Primary text"
         },
         {
             "appearance/colors/mutedColor",
@@ -268,7 +408,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating muted color",
             "Muted color updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Labels & hints"
         },
 
         // --------------------------------------------------------------------
@@ -285,7 +427,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Applying theme",
             "Theme applied",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Entire color palette"
         },
 
         // --------------------------------------------------------------------
@@ -302,7 +446,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating progress display style",
             "Progress style updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Progress indicator"
         },
         {
             "display/progress/showForHeavyOnly",
@@ -314,7 +460,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating progress visibility rules",
             "Progress visibility updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Progress indicator"
         },
 
         // --------------------------------------------------------------------
@@ -330,7 +478,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating truncation limit",
             "Truncation limit updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Result output"
         },
         {
             "display/results/showSeparator",
@@ -342,7 +492,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating separator visibility",
             "Separator setting updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Result output"
         },
 
         // --------------------------------------------------------------------
@@ -358,7 +510,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating auto-rotate setting",
             "Auto-rotate updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "3D shape viewer"
         },
         {
             "display/geometry/defaultShapeColor",
@@ -370,7 +524,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating default shape color",
             "Shape color updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "3D shape viewer"
         },
         {
             "display/geometry/showPropertyLabels",
@@ -382,7 +538,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating property label visibility",
             "Property labels updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "3D shape viewer"
         },
 
         // --------------------------------------------------------------------
@@ -398,7 +556,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Staged,
             "Reconfiguring thread architecture",
             "Thread architecture updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Calculation engine"
         },
         {
             "behavior/threading/workerPriority",
@@ -411,7 +571,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Staged,
             "Updating worker thread priority",
             "Thread priority updated",
-            VisibilityLevel::Developer
+            VisibilityLevel::Developer,
+            {},
+            "Calculation engine"
         },
 
         // --------------------------------------------------------------------
@@ -428,7 +590,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Deferred,
             "Switching angle unit",
             "Angle unit updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Trig functions"
         },
         {
             "behavior/computation/decimalPlaces",
@@ -441,7 +605,8 @@ const QList<SettingDef>& allSettings() {
             "Updating decimal precision",
             "Precision updated",
             VisibilityLevel::Basic,
-            {"Precision", "Rounding"}
+            {"Precision", "Rounding"},
+            "Result formatting"
         },
         {
             "behavior/computation/bigNumThreshold",
@@ -453,7 +618,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Staged,
             "Updating big number threshold",
             "Threshold updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Big number calculations"
         },
         {
             "behavior/computation/streamChunkSize",
@@ -465,7 +632,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Staged,
             "Updating stream chunk size",
             "Chunk size updated",
-            VisibilityLevel::Developer
+            VisibilityLevel::Developer,
+            {},
+            "Big number calculations"
         },
 
         // --------------------------------------------------------------------
@@ -481,7 +650,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating history size",
             "History size updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Session history"
         },
         {
             "behavior/memory/confirmClear",
@@ -493,7 +664,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating clear confirmation setting",
             "Confirmation setting updated",
-            VisibilityLevel::Basic
+            VisibilityLevel::Basic,
+            {},
+            "Clear History button"
         },
         {
             "behavior/memory/clearOnExit",
@@ -505,7 +678,9 @@ const QList<SettingDef>& allSettings() {
             ApplyMode::Immediate,
             "Updating exit behavior",
             "Exit behavior updated",
-            VisibilityLevel::Advanced
+            VisibilityLevel::Advanced,
+            {},
+            "Session history"
         },
         {
             "behavior/memory/copyHistory",
@@ -519,6 +694,7 @@ const QList<SettingDef>& allSettings() {
             "History copied",
             VisibilityLevel::Basic,
             {"Copy terminal", "Export history", "Copy calculations"}
+            // Action — never enters the pending queue, no `affects` needed
         },
 
         // --------------------------------------------------------------------
@@ -542,6 +718,24 @@ const QList<SettingDef>& allSettings() {
         },
 
         // --------------------------------------------------------------------
+        // BEHAVIOR / DEVELOPER
+        // --------------------------------------------------------------------
+        {
+        "behavior/developer/widgetInspector",
+        CategoryId::Behavior, SubcategoryId::Developer,
+        false, ControlType::Toggle, {}, {},
+        "Widget inspector", "Enable widget inspector",
+        "Lets you click any terminal label to view and edit its properties",
+        "Enables hover glow + click-to-edit on every MasterLabel-derived widget",
+        ApplyMode::Immediate,
+        "Toggling widget inspector",
+        "Widget inspector updated",
+        VisibilityLevel::Developer,
+        {"Inspector", "Debug", "Widget editor"},
+        "Terminal labels"
+        },
+
+        // --------------------------------------------------------------------
         // SYSTEM / DATA
         // --------------------------------------------------------------------
         {
@@ -555,6 +749,7 @@ const QList<SettingDef>& allSettings() {
             "Exporting settings",
             "Settings exported",
             VisibilityLevel::Basic
+            // Action — no `affects` needed
         },
         {
             "system/data/importSettings",
@@ -567,6 +762,7 @@ const QList<SettingDef>& allSettings() {
             "Importing settings",
             "Settings imported",
             VisibilityLevel::Basic
+            // Action — no `affects` needed
         },
         {
             "system/data/resetAll",
@@ -579,6 +775,7 @@ const QList<SettingDef>& allSettings() {
             "Resetting all settings to defaults",
             "Settings reset",
             VisibilityLevel::Basic
+            // Action — no `affects` needed
         },
     };
     return list;
@@ -587,10 +784,13 @@ const QList<SettingDef>& allSettings() {
 // -- Lookup helpers ------------------------------------------------------------
 
 const SettingDef* findSetting(const QString& key) {
-    for (const SettingDef& def : allSettings()) {
-        if (def.key == key) return &def;
-    }
-    return nullptr;
+    static const QHash<QString, const SettingDef*> index = []() {
+        QHash<QString, const SettingDef*> h;
+        for (const SettingDef& def : allSettings())
+            h.insert(def.key, &def);
+        return h;
+        }();
+    return index.value(key, nullptr);
 }
 
 QList<SettingDef> settingsFor(SubcategoryId sub, VisibilityLevel level) {

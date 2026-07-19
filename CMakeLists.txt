@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(MathX VERSION 1.0 LANGUAGES CXX)
 
 # -- C++ Standard --------------------------------------------------------------
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # -- Qt Auto-tools -------------------------------------------------------------
@@ -20,7 +20,7 @@ set(CMAKE_AUTORCC ON)
 #
 # How to pass your Qt path:
 #
-#   Option A — CMake CLI (recommended):
+#   Option A — CMake CLI:
 #     cmake -B build -DQt6_DIR="C:/Qt/6.11.0/msvc2022_64/lib/cmake/Qt6"
 #
 #   Option B — set an environment variable called Qt6_DIR once on your machine,
@@ -70,6 +70,8 @@ set(COMMON_SOURCES
     src/shapes/cube/cube.cpp
     src/shapes/sphere/sphere.cpp
     src/shapes/cylinder/cylinder.cpp
+    src/shapes/cuboid/cuboid.cpp
+
     resources/resources.qrc
 )
 
@@ -149,7 +151,7 @@ endif()
 add_executable(MathX WIN32
     ${COMMON_SOURCES}
     ${COMMON_HEADERS}
- "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/Settingsdef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp" "src/shapes/ShapeRegistry.h" "src/settings/RegistryWatcher.h" "src/settings/RegistryWatcher.cpp" "src/constants/RunSource.h" "src/constants/StateUtils.h" "src/constants/StateUtils.cpp")
+ "src/settings/Settings.h" "src/settings/Settings.cpp" "src/settings/SettingsDef.h" "src/settings/SettingsDef.cpp" "src/ui/settings/SettingsPage.h" "src/ui/settings/SettingsPage.cpp" "src/shapes/ShapeRegistry.h" "src/settings/RegistryWatcher.h" "src/settings/RegistryWatcher.cpp" "src/constants/RunSource.h" "src/constants/StateUtils.h" "src/constants/StateUtils.cpp" "src/subSystems/WidgetRegistry.h" "src/subSystems/WidgetRegistry.cpp" "src/ui/Memusage.cpp" "src/ui/MemoryUsage.h" "src/ui/MemoryUsage.cpp" "src/constants/Theme.cpp" "src/ui/BatchRunner.h" "src/ui/BatchRunner.cpp" "src/ui/BatchPanel.h" "src/ui/BatchPanel.cpp" "src/shapes/ShapeRegistry.cpp" "src/ui/ModdedBtn.h" "src/ui/ModdedBtn.cpp" "src/shapes/ResultRow.h" "src/shapes/SliderRow.h" "src/shapes/ShapeDefs.h" "src/shapes/RenderMode.h" "src/ui/PropertiesPanel.h" "src/shapes/circle/circle.h" "src/shapes/circle/circle.cpp" "src/shapes/MeshShape.h" "src/shapes/MeshShape.cpp" "src/ui/CopyableLabel.h" "src/ui/CopyableLabel.cpp" "src/ui/MasterLabel.h" "src/ui/WidgetEditorPage.h" "src/ui/WidgetEditorPage.cpp" "src/math/PolyEngine.cpp" "src/math/PolyEngine.h" "src/math/ExprTree.cpp" "src/math/ExprTree.h" "src/math/TreeParser.cpp" "src/math/TreeParser.h" "src/math/TreePoly.cpp" "src/math/TreePoly.h" "src/math/TreeSolver.cpp" "src/math/TreeSolver.h" "src/ui/CopyableLabel.h" "src/ui/ExprTokens.cpp" "src/ui/ExprTokens.h" "src/ui/ScrubbableExpression.cpp" "src/ui/ScrubbableExpression.h" "src/ui/SessionPanel.cpp" "src/ui/SessionPanel.h" "src/constants/ResultTypes.h" "src/render/MathText.h" "src/render/MathText.cpp" "src/ui/FeatureViewerPage.h" "src/ui/FeatureViewerPage.cpp" "src/input/Completer.h" "src/ui/GhostLineEdit.h" "src/ui/DemoTyper.h")
 
 # -- Link libraries ------------------------------------------------------------
 # PRIVATE means: MathX uses these libraries, but if something else linked

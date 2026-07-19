@@ -99,6 +99,7 @@ SidebarPanel::SidebarPanel(QWidget* parent) : QWidget(parent) {
     outer->addWidget(m_scroll);
 
     buildRefs();
+    buildMode("all");       // only build "all" at startup
     renderMode("all");
 }
 
@@ -203,44 +204,65 @@ void SidebarPanel::buildRefs() {
     };
 }
 
-void SidebarPanel::clearContent() {
-    while (m_layout->count() > 1) {
-        QLayoutItem* item = m_layout->takeAt(0);
-        if (item->widget()) item->widget()->deleteLater();
-        delete item;
-    }
-}
+
 
 void SidebarPanel::renderMode(const QString& mode) {
-    clearContent();
-    auto sections = m_refs.value(mode, m_refs["all"]);
+    if (mode == m_currentMode) return;
+
+    // Destroy current mode widgets to free memory
+    if (!m_currentMode.isEmpty()) {
+        for (auto* w : m_sectionWidgets[m_currentMode]) {
+            m_layout->removeWidget(w);
+            delete w;
+        }
+        m_sectionWidgets.remove(m_currentMode);
+    }
+
+    // Build new mode on demand
+    if (!m_sectionWidgets.contains(mode))
+        buildMode(mode);
+
+    // Show new mode widgets
+    for (auto* w : m_sectionWidgets[mode])
+        w->show();
+
+    m_currentMode = mode;
+}
+
+void SidebarPanel::buildMode(const QString& mode) {
     auto bc = barColors();
-    int insertAt = 0;
+    QList<QWidget*> widgets;
+    auto sections = m_refs.value(mode, m_refs["all"]);
 
     for (const RefSection& sec : sections) {
         auto [bg, fg] = bc.value(sec.label, { "#00e87a", "#000000" });
 
-        // Full-width flat bar — no border-radius, spans entire width
-        QLabel* bar = new QLabel(sec.label.toUpper());
+        auto* bar = new QLabel(sec.label.toUpper(), m_container);
         bar->setFont(MF(8, QFont::Bold));
         bar->setFixedHeight(22);
         bar->setStyleSheet(QString(
-            "background: %1; color: %2;"
-            "padding: 0px 14px;"
-            "letter-spacing: 2px;"
+            "background:%1;color:%2;padding:0px 14px;letter-spacing:2px;"
         ).arg(bg, fg));
-        m_layout->insertWidget(insertAt++, bar);
+        bar->hide();
+        m_layout->insertWidget(m_layout->count() - 1, bar);
+        widgets.append(bar);
 
         for (const RefItem& item : sec.items) {
-            RefLabel* rl = new RefLabel(item.text, item.note);
-            connect(rl, &RefLabel::clicked,       this, &SidebarPanel::itemClicked);
+            auto* rl = new RefLabel(item.text, item.note, m_container);
+            connect(rl, &RefLabel::clicked, this, &SidebarPanel::itemClicked);
             connect(rl, &RefLabel::doubleClicked, this, &SidebarPanel::itemDoubleClicked);
-            m_layout->insertWidget(insertAt++, rl);
+            rl->hide();
+            m_layout->insertWidget(m_layout->count() - 1, rl);
+            widgets.append(rl);
         }
 
-        // Gap between sections
-        auto* gap = new QWidget; gap->setFixedHeight(6);
-        gap->setStyleSheet("background: transparent;");
-        m_layout->insertWidget(insertAt++, gap);
+        auto* gap = new QWidget(m_container);
+        gap->setFixedHeight(6);
+        gap->setStyleSheet("background:transparent;");
+        gap->hide();
+        m_layout->insertWidget(m_layout->count() - 1, gap);
+        widgets.append(gap);
     }
+
+    m_sectionWidgets[mode] = widgets;
 }

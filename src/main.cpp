@@ -1,4 +1,5 @@
-﻿#include <QApplication>
+﻿#include <math/MathEngine.h>
+#include <QApplication>
 #include <QFontDatabase>
 #include "ui/MainWindow.h"
 #include "constants/Theme.h"
@@ -6,7 +7,16 @@
 #include <QDir>
 #include <sstream>
 #include <iomanip>
+#include <math/NaturalLanguage.h>
+#include <QTimer>
+#include "constants/ResultTypes.h"
 int main(int argc, char* argv[]) {
+    // ResultType travels through a queued (cross-thread) signal
+    // (PersistentWorker::resultReady, emitted on the worker thread). Queued
+    // connections marshal arguments by metatype, so register it before any
+    // worker thread starts.
+    qRegisterMetaType<ResultType>("ResultType");
+
     QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication::setHighDpiScaleFactorRoundingPolicy(
@@ -49,5 +59,16 @@ int main(int argc, char* argv[]) {
 
     MainWindow w;
     w.show();
+    QTimer::singleShot(0, []() {
+        NaturalLanguage::warmUp();
+        });
+    QTimer::singleShot(0, []() {
+        NaturalLanguage::warmUp();
+        bool ok;
+        MathEngine::evaluate("2+2");           // Expr + BigDec paths
+        MathEngine::evaluate("1 km to m");     // builds the unit DB
+        MathEngine::evaluate("x = 1");         // assignment path
+        MathEngine::clearVariables();          // undo the side effect
+        });
     return app.exec();
 }

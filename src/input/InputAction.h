@@ -9,4 +9,5 @@ enum class InputAction {
     HistoryBack,    // Up arrow — go to older history entry
     HistoryForward, // Down arrow — go to newer history entry
     CancelPrompt,   // Escape — abort active shape prompt
+    Complete,       // Tab — accept the inline ghost suggestion
 };

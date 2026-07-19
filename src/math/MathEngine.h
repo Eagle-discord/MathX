@@ -5,11 +5,28 @@
 #include <QMap>
 #include "..\shapes\ShapeDef.h"
 #include "BigNum.h"
+#include "..\constants\ResultTypes.h"
 
 struct CalcResult {
     QString result;
-    QString type;   // "ok","err","geo","trig","conv","alg","big"
+    ResultType type = ResultType::none;   // none == "not handled" (see ResultTypes.h)
     QString formula;
+};
+
+// A user-defined single-variable function, e.g. f(x) = x + 5
+// A user-defined function, e.g. f(x) = x + 5  or  g(x, y) = x^2 + y.
+// Supports one or more parameters; single-parameter definitions keep working
+// exactly as before.
+struct FunctionDef {
+    QString name;              // "f", "P", etc. (original case, as typed)
+    QStringList params;        // parameter names in order, e.g. {"x"} or {"x","y"}
+    QString body;              // RHS expression, e.g. "x + 5" or "x^2 + y"
+    QString display;           // pretty form: "f(x) = x + 5"
+
+    // Backward-compatible accessor: the first parameter. Existing code that
+    // referred to a single varName can use params.value(0).
+    QString varName() const { return params.isEmpty() ? QString() : params.first(); }
+    int arity() const { return params.size(); }
 };
 
 struct UnitDef {
@@ -49,6 +66,21 @@ public:
     static long long nPr(int n, int r);
     static bool      solveEquation(const QString& eq, double& result);
 
+    // -- User-defined functions: f(x) = ...  -----------------------------------
+    // Query / manage functions defined so far via evaluate(), e.g. "f(x) = x + 5".
+    static QStringList  definedFunctionNames();          // e.g. {"f","P"}
+    static bool          isFunctionDefined(const QString& name);
+    static const FunctionDef* functionDef(const QString& name); // nullptr if none
+    static void          clearFunctions();
+
+    // -- Persistent variables: x = 5, then reuse x  ----------------------------
+    // Assignments made via evaluate() ("x = 5") persist and are substituted into
+    // later expressions. `ans` always holds the last numeric result.
+    static QStringList  definedVariableNames();          // e.g. {"x","ans"}
+    static bool          isVariableDefined(const QString& name);
+    static QString       variableValue(const QString& name); // display value, "" if none
+    static void          clearVariables();
+
 signals:
     // Emitted by tryAlgebra when a simplifiable form is detected.
     // 'before' is the raw input, 'after' is the list of simplified forms.
@@ -57,11 +89,22 @@ signals:
 private:
     // Private constructor — only instance() can create it
     explicit MathEngine(QObject* parent = nullptr) : QObject(parent) {}
-    
+
     static CalcResult tryConversion(const QString& expr);
     static CalcResult tryGeometry(const QString& expr);
     static CalcResult tryTrig(const QString& expr);
     static double evalSide(const QString& side, const QString& varName, double val);
     static CalcResult tryAlgebra(const QString& expr);
     static CalcResult tryArithmetic(const QString& expr);
+    static CalcResult tryFunctionDefinition(const QString& expr);
+    static CalcResult tryFunctionCall(const QString& expr);
+    static CalcResult tryFactor(const QString& expr);
+    static CalcResult trySystem(const QString& expr);
+    static CalcResult tryAssignment(const QString& expr);
+    static CalcResult tryStatements(const QString& expr);
+    static CalcResult tryConditional(const QString& expr);
+    static CalcResult tryWhere(const QString& expr);
+
+    // The real dispatcher. evaluate() wraps this to record `ans`.
+    static CalcResult dispatchEvaluate(const QString& expr);
 };

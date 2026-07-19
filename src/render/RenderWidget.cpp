@@ -21,7 +21,10 @@ RenderWidget::RenderWidget(QWidget* parent) : QWidget(parent) {
         qDebug() << "RenderWidget: Using Vulkan backend (stub)";
 }
 
-RenderWidget::~RenderWidget() = default;
+RenderWidget::~RenderWidget() {
+
+    qDebug() << "~RenderWidget";
+};
 
 void RenderWidget::setShape(const QString& type, const QMap<QString, double>& params) {
     m_renderer->setShape(type, params);
@@ -33,6 +36,12 @@ void RenderWidget::setDarkTheme(bool dark) {
 
 void RenderWidget::setMouseCtrl(bool enabled) {
     m_renderer->setMouseCtrl(enabled);
+}
+
+void RenderWidget::clearMeshes()
+{
+    m_renderer->clearMesh();
+    
 }
 
 void RenderWidget::setRotationEnabled(bool enabled) {
@@ -48,6 +57,14 @@ void RenderWidget::setHorizontalOffset(int offsetPixels) {
 void RenderWidget::setShapeColor(float r, float g, float b) {
     if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
         gl->setShapeColor(r, g, b);
+}
+void RenderWidget::startFormulaAnimation(const QString& shapeType, const QString& formulaKey) {
+    if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
+        gl->startFormulaAnimation(shapeType, formulaKey);
+}
+void RenderWidget::stopFormulaAnimation() {
+    if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
+        gl->stopFormulaAnimation();
 }
 void RenderWidget::setBackgroundColor(float r, float g, float b) {
     if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))

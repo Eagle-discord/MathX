@@ -1,10 +1,11 @@
 #pragma once
 #include <QString>
+#include "BigNum.h"
 
 struct Polynomial {
-    double a = 0.0; // x^2 coefficient
-    double b = 0.0; // x coefficient
-    double c = 0.0; // constant
+    BigDec a = 0;
+    BigDec b = 0;
+    BigDec c = 0;
 };
 
 namespace PolynomialUtils {

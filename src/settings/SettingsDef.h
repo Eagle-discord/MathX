@@ -41,6 +41,7 @@ enum class SubcategoryId {
     Computation,
     Memory,
     Animations,   // animation preferences including apply animation mode
+    Developer,    // developer-only tools (widget inspector, etc.)
 
     // System
     Data,

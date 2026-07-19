@@ -11,5 +11,6 @@ public:
     virtual void setDarkTheme(bool dark) = 0;
     virtual void setRotationEnabled(bool enabled) = 0;
     virtual void setMouseCtrl(bool enabled) = 0;
+    virtual void clearMesh() = 0;
     virtual QWidget* widget() = 0;
 };

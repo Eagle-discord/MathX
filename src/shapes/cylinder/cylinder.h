@@ -1,11 +1,18 @@
-#include "../RenderShape.h"
+#pragma once
+#include "../MeshShape.h"
 
-class Cylinder : public RenderShape {
-public: 
-	void draw() override;
-	void setParameters(const QMap<QString, double>& params) override;
+class Cylinder : public MeshShape {
+public:
+    void setParameters(const QMap<QString, double>& params) override;
+    void draw() override;
+    bool isCurved() const override { return true; }
+    ~Cylinder() override;
+
+protected:
+    void buildMesh() override;
+
 private:
-	double m_radius = 0.0;
-	double m_height = 0.0;
-	double segments = 0.0;
+    float m_radius = 1.0f;
+    float m_height = 2.0f;
+    int   m_segments = 64;
 };

@@ -8,37 +8,39 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QVBoxLayout>
 
 class RenderWidget;
+class GeoCard;
+class PropertiesPanel;
 
 class GeoModeWidget : public QWidget {
     Q_OBJECT
 public:
     explicit GeoModeWidget(QWidget* parent = nullptr);
-
-    
+    ~GeoModeWidget();
     void enableMouseCtrl(bool enabled);
     void setShape(const QString& type, const QMap<QString, double>& params);
 
-    
-
 signals:
     void backClicked();
-
 private slots:
     void onSliderChanged();
     void onBack();
-
-
 private:
-    void rebuildSliders(const QStringList& paramNames, const QMap<QString, double>& params);
     void clearSliders();
     void onShapeChanged(int index);
     void createSliders(const QStringList& paramNames);
     void resizeEvent(QResizeEvent* event) override;
     void updateShape();
-    
+
     bool m_mouseCtrl = false;
+    int  m_propsPanelWidth = 260;
+    void updatePropsPanelWidth();
+    // Single builder for the properties card. BOTH card-rebuild paths
+    // (onShapeChanged and setShape) must use this — a card built without the
+    // formula connections silently breaks the walkthrough trigger.
+    void rebuildPropsCard();
     QCheckBox* m_rotateCheckbox = nullptr;
     QWidget* m_slidersContainer = nullptr;
     QSlider* m_rSlider = nullptr;
@@ -50,14 +52,18 @@ private:
     QWidget* m_controlPanel = nullptr;
     QCheckBox* m_mouseCtrlEnabled = nullptr;
     QPushButton* m_backButton = nullptr;
-    QWidget* controlPanel = nullptr;
     RenderWidget* m_renderWidget = nullptr;
     QMap<QString, QSlider*> m_sliders;
-    QMap<QString, QLabel*> m_labels;
-    QMap<QString, double> m_params;
+    QMap<QString, QLabel*>  m_labels;
+    QMap<QString, double>   m_params;
     QFormLayout* m_slidersLayout = nullptr;
-    QString m_shapeType;
+    QVBoxLayout* m_ctrlLayout = nullptr;
+    QString      m_shapeType;
     QComboBox* m_shapeSelector = nullptr;
     QWidget* m_topBar = nullptr;
-    QWidget* slidersContainer = nullptr;
+
+    // Properties panel
+    PropertiesPanel* m_propertiesPanel = nullptr;
+    QVBoxLayout* m_propsPanelLayout = nullptr;
+    GeoCard* m_propsCard = nullptr;
 };

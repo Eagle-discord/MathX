@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QWaitCondition>
 #include <atomic>
+#include "../constants/ResultTypes.h"
 
 struct CalcJob {
     int id;
@@ -28,7 +29,7 @@ public slots:
 
 signals:
 
-    void resultReady(int id, const QString& result, const QString& type, const QString& formula = QString());
+    void resultReady(int id, const QString& result, ResultType type, const QString& formula = QString(), double elapsedMs = 0.0);
     void finished(); // queue empty
     void progress(int jobId, int percent, const QString& label);
 public slots:

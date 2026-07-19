@@ -49,6 +49,7 @@ void DraggableResultLabel::rebuildExpression(double newVal) {
     m_originalNumber = newNumStr;
     m_originalValue = newVal;
     m_originalExpr = newExpr;
+    m_currentDelta = 0.0;
 
     // Re-evaluate the new expression
     bool ok;

@@ -203,7 +203,5 @@ The app should be as low-friction as possible, the two philosophies add technica
  //this is where my ideas go, at the end of my dev session, i will move it to future commit ideas
 
 
- ### Discovered bugs
-
 
 

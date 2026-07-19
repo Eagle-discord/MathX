@@ -18,6 +18,11 @@ public:
     void setShapeColor(float r, float g, float b);
     void setBackgroundColor(float r, float g, float b);
     void setMouseCtrl(bool enabled);
+    void clearMeshes();
+
+    // Formula walkthrough (OpenGL backend only; no-op elsewhere)
+    void startFormulaAnimation(const QString& shapeType, const QString& formulaKey);
+    void stopFormulaAnimation();
 private:
 
     std::unique_ptr<Renderer> m_renderer;

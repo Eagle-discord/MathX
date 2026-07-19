@@ -2,13 +2,13 @@
 #include "SettingsDef.h"
 #include "RegistryWatcher.h"
 
-// ── Destructor ────────────────────────────────────────────────────────────────
+// -- Destructor ----------------------------------------------------------------
 
 Settings::~Settings() {
     if (m_watcher) m_watcher->stop();
 }
 
-// ── Constructor ───────────────────────────────────────────────────────────────
+// -- Constructor ---------------------------------------------------------------
 
 Settings::Settings(QObject* parent)
     : QObject(parent)
@@ -46,7 +46,7 @@ Settings::Settings(QObject* parent)
         });
 }
 
-// ── Generic access ────────────────────────────────────────────────────────────
+// -- Generic access ------------------------------------------------------------
 
 QVariant Settings::get(const QString& key) const {
     return m_store.value(key, defaultFor(key));
@@ -55,16 +55,19 @@ QVariant Settings::get(const QString& key) const {
 void Settings::set(const QString& key, const QVariant& value) {
     const ApplyMode mode = applyModeFor(key);
 
-    if (mode == ApplyMode::Immediate) {
-        // Write directly — no queue, no wait
-        m_store.setValue(key, value);
-        m_store.sync();
-        m_snapshot[key] = value; // keep snapshot in sync so watcher doesn't re-fire
-
+    if (mode == ApplyMode::Immediate) { 
         const SettingDef* def = findSetting(key);
         PendingChange change;
+        // Write directly — no queue, no wait
+        // In set(), Immediate branch:
+        change.oldValue = get(key);     // capture BEFORE write
+        m_store.setValue(key, value);   // write once
+        m_store.sync();
+        m_snapshot[key] = value;
+
+
         change.key = key;
-        change.oldValue = get(key);
+
         change.newValue = value;
         change.label = buildPreviewLabel(def, value);
         change.applyingLabel = def ? def->applyingLabel : QString();
@@ -111,7 +114,7 @@ void Settings::set(const QString& key, const QVariant& value) {
         startDebounce();
 }
 
-// ── Pending queue ─────────────────────────────────────────────────────────────
+// -- Pending queue -------------------------------------------------------------
 
 void Settings::applyPending(bool isIdle) {
     if (m_pending.isEmpty()) return;
@@ -127,15 +130,15 @@ void Settings::applyPending(bool isIdle) {
         if (mode == ApplyMode::Staged && !isIdle) continue;
 
         m_store.setValue(change.key, change.newValue);
-        m_store.sync();
+
         m_snapshot[change.key] = change.newValue; // keep snapshot in sync
         applyChange(change);
 
         applied.append(change);
         it.remove();
     }
-
     if (!applied.isEmpty()) {
+        m_store.sync();
         emit pendingChanged();
         emit pendingApplied(applied);
     }
@@ -145,7 +148,7 @@ void Settings::startDebounce() {
     if (m_debounce) m_debounce->start(); // restarts timer if already running
 }
 
-// ── UI state ──────────────────────────────────────────────────────────────────
+// -- UI state ------------------------------------------------------------------
 
 void Settings::setVisibilityLevel(VisibilityLevel level) {
     if (m_visibilityLevel == level) return;
@@ -207,7 +210,7 @@ void Settings::markPostAnimationHintSeen() {
     m_store.sync();
 }
 
-// ── Utility ───────────────────────────────────────────────────────────────────
+// -- Utility -------------------------------------------------------------------
 
 void Settings::resetAll() {
     m_pending.clear();
@@ -234,7 +237,7 @@ void Settings::resetAll() {
     emit animationModeChanged(m_animationMode);
 }
 
-// ── Private helpers ───────────────────────────────────────────────────────────
+// -- Private helpers -----------------------------------------------------------
 
 QVariant Settings::defaultFor(const QString& key) const {
     const SettingDef* def = findSetting(key);
@@ -252,7 +255,7 @@ QString Settings::buildPreviewLabel(const SettingDef* def, const QVariant& /*new
     return def->labelBasic;
 }
 
-// ── External registry change handler ─────────────────────────────────────────
+// -- External registry change handler -----------------------------------------
 // Called on the main thread (queued connection from the watcher thread).
 // Re-reads every known setting key from the registry, diffs against m_snapshot,
 // fires typed signals for anything that changed, then updates the snapshot.
@@ -289,6 +292,7 @@ void Settings::onRegistryChanged() {
 }
 
 
+
 ApplyMode Settings::applyModeFor(const QString& key) const {
     const SettingDef* def = findSetting(key);
     return def ? def->applyMode : ApplyMode::Immediate;
@@ -300,8 +304,8 @@ void Settings::applyChange(const PendingChange& change) {
     const QString& k = change.key;
     const QVariant& v = change.newValue;
 
-    if (k == "appearance/typography/fontSize")       emit fontSizeChanged(v.toInt());
-    else if (k == "appearance/typography/fontFamily")     emit fontFamilyChanged(v.toString());
+  //  if (k == "appearance/typography/fontSize")       emit fontSizeChanged(v.toInt());
+     if (k == "appearance/typography/fontFamily")     emit fontFamilyChanged(v.toString());
     else if (k == "appearance/colors/accentColor")        emit accentColorChanged(v.toString());
     else if (k == "appearance/theme/preset")              emit themeChanged(v.toString());
     else if (k == "display/progress/style")               emit progressStyleChanged(v.toString());
@@ -315,11 +319,26 @@ void Settings::applyChange(const PendingChange& change) {
     else if (k == "behavior/computation/streamChunkSize") emit streamChunkSizeChanged(v.toInt());
     else if (k == "behavior/memory/historySize")          emit historySizeChanged(v.toInt());
     else if (k == "behavior/memory/confirmClear")         emit confirmClearChanged(v.toBool());
+    else if (k == "appearance/typography/fontSizeUI")         emit fontSizeUIChanged(v.toInt());
+    else if (k == "appearance/typography/fontSizeResults")    emit fontSizeResultsChanged(v.toInt());
+    else if (k == "appearance/typography/fontSizeSeparators") emit fontSizeSeparatorsChanged(v.toInt());
+    else if (k == "appearance/typography/fontSizeInput")      emit fontSizeInputChanged(v.toInt());
+    else if (k == "appearance/typography/fontSizeSidebar")    emit fontSizeSidebarChanged(v.toInt());
+    else if (k == "appearance/typography/fontSizeSplash") emit fontSizeSplashChanged(v.toInt());
+    else if (k == "behavior/animations/showApplyAnimation") {
+        const QString s = v.toString();
+        AnimationMode m = AnimationMode::Once;
+        if (s == "Always") m = AnimationMode::Always;
+        else if (s == "Never") m = AnimationMode::Never;
+        setAnimationMode(m);
+    }
+    else if (k == "behavior/computation/decimalPlaces")
+        emit decimalPlacesChanged(v.toInt());
 }
 
-// ── Typed getters ─────────────────────────────────────────────────────────────
+// -- Typed getters -------------------------------------------------------------
 
-int     Settings::fontSize()          const { return get("appearance/typography/fontSize").toInt(); }
+//int     Settings::fontSize()          const { return get("appearance/typography/fontSize").toInt(); }
 QString Settings::fontFamily()        const { return get("appearance/typography/fontFamily").toString(); }
 QString Settings::accentColor()       const { return get("appearance/colors/accentColor").toString(); }
 QString Settings::theme()             const { return get("appearance/theme/preset").toString(); }
@@ -334,10 +353,17 @@ int     Settings::historySize()       const { return get("behavior/memory/histor
 bool    Settings::confirmClear()      const { return get("behavior/memory/confirmClear").toBool(); }
 bool    Settings::autoRotate()        const { return get("display/geometry/autoRotate").toBool(); }
 QString Settings::defaultShapeColor() const { return get("display/geometry/defaultShapeColor").toString(); }
+int     Settings::decimalPlaces() const { return get("behavior/computation/decimalPlaces").toInt(); }
+int     Settings::fontSizeUI()         const { return get("appearance/typography/fontSizeUI").toInt(); }
+int     Settings::fontSizeResults()    const { return get("appearance/typography/fontSizeResults").toInt(); }
+int     Settings::fontSizeSeparators() const { return get("appearance/typography/fontSizeSeparators").toInt(); }
+int     Settings::fontSizeInput()      const { return get("appearance/typography/fontSizeInput").toInt(); }
+int     Settings::fontSizeSidebar()    const { return get("appearance/typography/fontSizeSidebar").toInt(); }
+int Settings::fontSizeSplash() const { return get("appearance/typography/fontSizeSplash").toInt(); }
 
-// ── Typed setters ─────────────────────────────────────────────────────────────
+// -- Typed setters -------------------------------------------------------------
 
-void Settings::setFontSize(int v) { set("appearance/typography/fontSize", v); }
+//void Settings::setFontSize(int v) { set("appearance/typography/fontSize", v); }
 void Settings::setFontFamily(const QString& v) { set("appearance/typography/fontFamily", v); }
 void Settings::setAccentColor(const QString& v) { set("appearance/colors/accentColor", v); }
 void Settings::setTheme(const QString& v) { set("appearance/theme/preset", v); }
@@ -352,3 +378,10 @@ void Settings::setHistorySize(int v) { set("behavior/memory/historySize", v); }
 void Settings::setConfirmClear(bool v) { set("behavior/memory/confirmClear", v); }
 void Settings::setAutoRotate(bool v) { set("display/geometry/autoRotate", v); }
 void Settings::setDefaultShapeColor(const QString& v) { set("display/geometry/defaultShapeColor", v); }
+void Settings::setFontSizeUI(int v) { set("appearance/typography/fontSizeUI", v); }
+void Settings::setFontSizeResults(int v) { set("appearance/typography/fontSizeResults", v); }
+void Settings::setFontSizeSeparators(int v) { set("appearance/typography/fontSizeSeparators", v); }
+void Settings::setFontSizeInput(int v) { set("appearance/typography/fontSizeInput", v); }
+void Settings::setFontSizeSidebar(int v) { set("appearance/typography/fontSizeSidebar", v); }
+void Settings::setFontSizeSplash(int v) { set("appearance/typography/fontSizeSplash", v); }
+void    Settings::setDecimalPlaces(int v) { set("behavior/computation/decimalPlaces", v); }

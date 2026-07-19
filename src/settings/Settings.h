@@ -10,7 +10,7 @@
 // Forward declare — SettingsDef.h defines these fully
 struct SettingDef;
 
-// ── PendingChange ─────────────────────────────────────────────────────────────
+// -- PendingChange -------------------------------------------------------------
 // Represents a single staged or deferred setting change waiting to be applied.
 // Held in the pending queue until applyPending() is called.
 struct PendingChange {
@@ -26,30 +26,30 @@ struct PendingChange {
     }
 };
 
-// ── ApplyMode ─────────────────────────────────────────────────────────────────
+// -- ApplyMode -----------------------------------------------------------------
 // Immediate — applies the instant the control changes, never enters the queue
 // Staged    — queued, applies when RunState transitions to Idle
 // Deferred  — queued, applies when current operation completes
 enum class ApplyMode { Immediate, Staged, Deferred };
 
-// ── AnimationMode ─────────────────────────────────────────────────────────────
+// -- AnimationMode -------------------------------------------------------------
 // Once    — plays the full theatrical apply animation the first time only,
 //           then auto-downgrades to Never and shows the info message.
 // Always  — full animation every time the user navigates away with pending changes.
 // Never   — silent background apply, no animation, no delay.
 enum class AnimationMode { Once, Always, Never };
 
-// ── HintState ─────────────────────────────────────────────────────────────────
+// -- HintState -----------------------------------------------------------------
 // Tracks the lifecycle of the visibility level hint
 // Active   — first open, hint visible, control glowing
 // Passive  — hint on demand via ? icon
 // Dormant  — bare label only, no visual noise
 enum class HintState { Active, Passive, Dormant };
 
-// ── VisibilityLevel ───────────────────────────────────────────────────────────
+// -- VisibilityLevel -----------------------------------------------------------
 enum class VisibilityLevel { Basic, Advanced, Developer };
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// -- Settings ------------------------------------------------------------------
 // Singleton that owns all user preferences for MathX.
 // Wraps QSettings (Windows registry: HKCU\Software\MathX) so every value
 // persists across sessions automatically.
@@ -81,7 +81,7 @@ public:
     }
     ~Settings();
 
-    // ── Generic access ────────────────────────────────────────────────────────
+    // -- Generic access --------------------------------------------------------
     // Reads a value from the store, falling back to the default defined in
     // SettingsDef if not yet set by the user.
     QVariant get(const QString& key) const;
@@ -90,7 +90,7 @@ public:
     // and emits the relevant signal. Otherwise stages it in the pending queue.
     void set(const QString& key, const QVariant& value);
 
-    // ── Pending queue ─────────────────────────────────────────────────────────
+    // -- Pending queue ---------------------------------------------------------
     // Returns a snapshot of all currently staged changes for the UI to display.
     const QList<PendingChange>& pendingChanges() const { return m_pending; }
     bool hasPendingChanges() const { return !m_pending.isEmpty(); }
@@ -104,7 +104,7 @@ public:
     // Resets on every setting interaction. Fires applyPending(true) on timeout.
     void startDebounce();
 
-    // ── UI state ──────────────────────────────────────────────────────────────
+    // -- UI state --------------------------------------------------------------
     VisibilityLevel visibilityLevel() const { return m_visibilityLevel; }
     void setVisibilityLevel(VisibilityLevel level);
 
@@ -130,15 +130,15 @@ public:
     bool hasSeenPostAnimationHint() const { return m_hasSeenPostAnimationHint; }
     void markPostAnimationHintSeen();
 
-    // ── Utility ───────────────────────────────────────────────────────────────
+    // -- Utility ---------------------------------------------------------------
     // Wipes all persisted values and resets UI state to defaults.
     void resetAll();
 
-    // ── Typed convenience accessors ───────────────────────────────────────────
+    // -- Typed convenience accessors -------------------------------------------
     // These exist so consumers can write Settings::instance().fontSize()
     // rather than Settings::instance().get("appearance/typography/fontSize").
     // They always read the active (applied) value, not the pending one.
-    int     fontSize()          const;
+    //int     fontSize()          const;
     QString fontFamily()        const;
     QString accentColor()       const;
     QString theme()             const;
@@ -153,8 +153,16 @@ public:
     bool    confirmClear()      const;
     bool    autoRotate()        const;
     QString defaultShapeColor() const;
+    int  decimalPlaces() const;
+    int fontSizeUI()         const;
+    int fontSizeResults()    const;
+    int fontSizeSeparators() const;
+    int fontSizeInput()      const;
+    int fontSizeSidebar()    const;
+    int  fontSizeSplash() const;
 
-    void setFontSize(int v);
+
+  //  void setFontSize(int v);
     void setFontFamily(const QString& v);
     void setAccentColor(const QString& v);
     void setTheme(const QString& v);
@@ -169,9 +177,15 @@ public:
     void setConfirmClear(bool v);
     void setAutoRotate(bool v);
     void setDefaultShapeColor(const QString& v);
-
+    void setDecimalPlaces(int v);
+    void setFontSizeUI(int v);
+    void setFontSizeResults(int v);
+    void setFontSizeSeparators(int v);
+    void setFontSizeInput(int v);
+    void setFontSizeSidebar(int v);
+    void setFontSizeSplash(int v);
 signals:
-    // ── Immediate signals — fire the moment the setting changes ───────────────
+    // -- Immediate signals — fire the moment the setting changes ---------------
     void fontSizeChanged(int newSize);
     void fontFamilyChanged(const QString& newFamily);
     void accentColorChanged(const QString& newColor);
@@ -184,26 +198,35 @@ signals:
     void confirmClearChanged(bool enabled);
     void autoRotateChanged(bool enabled);
     void defaultShapeColorChanged(const QString& newColor);
+    void decimalPlacesChanged(int places);
+    void fontSizeUIChanged(int pt);
+    void fontSizeResultsChanged(int pt);
+    void fontSizeSeparatorsChanged(int pt);
+    void fontSizeInputChanged(int pt);
+    void fontSizeSidebarChanged(int pt);
 
-    // ── Staged signals — fire when applyPending() commits them ────────────────
+    void fontSizeSplashChanged(int pt);
+
+
+    // -- Staged signals — fire when applyPending() commits them ----------------
     void splitThreadsChanged(bool enabled);
     void bigNumThresholdChanged(int newThreshold);
     void streamChunkSizeChanged(int newSize);
 
-    // ── UI state signals ──────────────────────────────────────────────────────
+    // -- UI state signals ------------------------------------------------------
     void visibilityLevelChanged(VisibilityLevel newLevel);
     void hintStateChanged(HintState newState);
     void animationModeChanged(AnimationMode newMode);
 
-    // ── Queue signals ─────────────────────────────────────────────────────────
+    // -- Queue signals ---------------------------------------------------------
     void pendingChanged();          // queue was modified — UI should refresh
     void pendingApplied(const QList<PendingChange>& applied); // apply complete
     void pendingHintNeeded();       // first-ever pending change — show the hint once
 
-    // ── Reset ─────────────────────────────────────────────────────────────────
+    // -- Reset -----------------------------------------------------------------
     void settingsReset();
 
-    // ── External registry change ───────────────────────────────────────────────
+    // -- External registry change -----------------------------------------------
     // Emitted when HKCU\Software\MathX is modified externally (regedit, script).
     // changedKeys lists every key whose value differs from our in-memory copy.
     // All relevant typed signals are also emitted, so most consumers don't need
@@ -234,6 +257,7 @@ private:
     // for every key that changed, and updates m_snapshot.
     void onRegistryChanged();
 
+
     // In-memory snapshot of the last-known registry state for all known
     // setting keys. Used to diff against after an external change fires,
     // so we know *which* keys actually changed rather than re-reading all.
@@ -248,7 +272,7 @@ private:
     bool                m_hasSeenPendingHint = false;
     bool                m_hasSeenPostAnimationHint = false;
 
-    // ── Registry watcher ──────────────────────────────────────────────────────
+    // -- Registry watcher ------------------------------------------------------
     // Watches HKCU\Software\MathX for external changes so tools like regedit
     // or scripts can modify settings and have the app react live.
     RegistryWatcher* m_watcher = nullptr;

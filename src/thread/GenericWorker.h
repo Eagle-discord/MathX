@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QString>
 #include <atomic>
+#include "../constants/ResultTypes.h"
 
 class GenericWorker : public QObject {
     Q_OBJECT
@@ -10,7 +11,7 @@ public:
 public slots:
     void cancel();
 signals:
-    void finished(const QString& result, const QString& type);
+    void finished(const QString& result, ResultType type);
 private:
     std::atomic<bool> m_cancelled{ false };
 };

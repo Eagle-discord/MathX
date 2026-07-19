@@ -23,39 +23,38 @@ CircleCard::CircleCard(double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Circle", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    addSlider("r", r, 0.1, geoAutoMax(r), geoAutoStep(r));
+    addSlider("r", r, 0, geoAutoMax(r), geoAutoStep(r));
     m_layout->addWidget(geoDiv());
     addResult("Diameter      :", "2r");
     addResult("Circumference :", "2\xcf\x80r");
     addResult("Area          :", "\xcf\x80r\xc2\xb2");
     DEFER;
     m_shapeType = "circle";
-
 }
 void CircleCard::recompute() {
-    double r = m_sliders["r"]->value();   // ensure this returns double
-    BigDec bdr(r);
-    m_rows["Diameter      :"]->setValue(BigNum::fmt(2 * bdr));
-    m_rows["Circumference :"]->setValue(BigNum::fmt(2 * PI * bdr));
-    m_rows["Area          :"]->setValue(BigNum::fmt(PI * bdr * bdr));
+    BigDec r(param("r"));
+    m_rows["Diameter      :"]->setValue(FMT(2 * r));
+    m_rows["Circumference :"]->setValue(FMT(2 * PI * r));
+    m_rows["Area          :"]->setValue(FMT(PI * r * r));
 }
+
 // -- Ellipse -------------------------------------------------------------------
 EllipseCard::EllipseCard(double a, double b, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Ellipse", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max(a, b) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("a", a, 0.1, mx, step);
-    addSlider("b", b, 0.1, mx, step);
+    double mx = std::max(a, b) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("a", a, 0, mx, step);
+    addSlider("b", b, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Area            :", "\xcf\x80 ab");
-    addResult("Perimeter \xe2\x89\x88     :", "Ramanujan approx");
+    addResult("Perimeter \xe2\x89\x88     :", "Ramanujan approx. (no simple exact formula)");
     addResult("Eccentricity    :", "\xe2\x88\x9a(1-b\xc2\xb2/a\xc2\xb2)");
     addResult("Focal Distance  :", "\xe2\x88\x9a(a\xc2\xb2-b\xc2\xb2)");
     DEFER
 }
 void EllipseCard::recompute() {
-    BigDec a(m_sliders["a"]->value()), b(m_sliders["b"]->value());
+    BigDec a(param("a")), b(param("b"));
     BigDec h = (a - b) * (a - b) / ((a + b) * (a + b));
     BigDec perim = PI * (a + b) * (1 + BD(3) * h / (10 + SQ(4 - BD(3) * h)));
     BigDec bigA = (a >= b) ? a : b, bigB = (a >= b) ? b : a;
@@ -69,14 +68,18 @@ void EllipseCard::recompute() {
 
 // -- Triangle (SSS) ------------------------------------------------------------
 TriangleCard::TriangleCard(double a, double b, double c, QWidget* p) : GeoCard(p) {
-
     m_layout->addWidget(geoTitle("Triangle (SSS)", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max({ a,b,c }) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("a", a, 0.1, mx, step);
-    addSlider("b", b, 0.1, mx, step);
-    addSlider("c", c, 0.1, mx, step);
+    double mx = std::max({ a,b,c }) * 5, step = mx > 50 ? 1.0 : 0;
+
+    addSlider("a", a, 0, mx, geoAutoStep(step));
+    addSlider("b", b, 0, mx, geoAutoStep(step));
+    addSlider("c", c, 0, mx, geoAutoStep(step));
+    qDebug() << "a =" << a;
+    qDebug() << "mx =" << mx;
+    qDebug() << "step =" << step;
+
     m_layout->addWidget(geoDiv());
     addResult("Perimeter   :", "a + b + c");
     addResult("Semi-perim  :", "s = (a+b+c)/2");
@@ -89,8 +92,10 @@ TriangleCard::TriangleCard(double a, double b, double c, QWidget* p) : GeoCard(p
     DEFER
 }
 void TriangleCard::recompute() {
-
-    BigDec a(m_sliders["a"]->value()), b(m_sliders["b"]->value()), c(m_sliders["c"]->value());
+    qDebug()
+        << "slider a =" << m_sliders["a"]->value()
+        << "param a =" << param("a");
+    BigDec a(param("a")), b(param("b")), c(param("c"));
     if (a + b <= c || a + c <= b || b + c <= a) {
         for (auto& k : m_rows.keys()) m_rows[k]->setValue("\xe2\x9a\xa0 invalid triangle");
         return;
@@ -113,9 +118,9 @@ RightTriCard::RightTriCard(double a, double b, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Right Triangle", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max(a, b) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("a", a, 0.1, mx, step);
-    addSlider("b", b, 0.1, mx, step);
+    double mx = std::max(a, b) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("a", a, 0, mx, geoAutoStep(step));
+    addSlider("b", b, 0, mx, geoAutoStep(step));
     m_layout->addWidget(geoDiv());
     addResult("Hypotenuse  :", "\xe2\x88\x9a(a\xc2\xb2+b\xc2\xb2)");
     addResult("Perimeter   :", "a + b + c");
@@ -127,7 +132,7 @@ RightTriCard::RightTriCard(double a, double b, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void RightTriCard::recompute() {
-    BigDec a(m_sliders["a"]->value()), b(m_sliders["b"]->value());
+    BigDec a(param("a")), b(param("b"));
     BigDec c = SQ(a * a + b * b);
     BigDec A = AC(b / c) * 180 / PI;
     BigDec B = AC(a / c) * 180 / PI;
@@ -145,9 +150,9 @@ RectCard::RectCard(double w, double h, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Rectangle", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max(w, h) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("w", w, 0.1, mx, step);
-    addSlider("h", h, 0.1, mx, step);
+    double mx = std::max(w, h) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("w", w, 0, mx, step);
+    addSlider("h", h, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Perimeter :", "2(w+h)");
     addResult("Area      :", "w \xc3\x97 h");
@@ -155,7 +160,7 @@ RectCard::RectCard(double w, double h, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void RectCard::recompute() {
-    BigDec w(m_sliders["w"]->value()), h(m_sliders["h"]->value());
+    BigDec w(param("w")), h(param("h"));
     m_rows["Perimeter :"]->setValue(FMT(2 * (w + h)));
     m_rows["Area      :"]->setValue(FMT(w * h));
     m_rows["Diagonal  :"]->setValue(FMT(SQ(w * w + h * h)));
@@ -166,7 +171,7 @@ SquareCard::SquareCard(double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Square", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
+    addSlider("s", s, 0, geoAutoMax(s), geoAutoStep(s));
     m_layout->addWidget(geoDiv());
     addResult("Perimeter :", "4s");
     addResult("Area      :", "s\xc2\xb2");
@@ -174,7 +179,7 @@ SquareCard::SquareCard(double s, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void SquareCard::recompute() {
-    BigDec s(m_sliders["s"]->value());
+    BigDec s(param("s"));
     m_rows["Perimeter :"]->setValue(FMT(4 * s));
     m_rows["Area      :"]->setValue(FMT(s * s));
     m_rows["Diagonal  :"]->setValue(FMT(s * SQ(BD(2))));
@@ -185,17 +190,17 @@ ParallelCard::ParallelCard(double b, double h, double s, QWidget* p) : GeoCard(p
     m_layout->addWidget(geoTitle("Parallelogram", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max({ b,h,s }) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("b", b, 0.1, mx, step);
-    addSlider("h", h, 0.1, mx, step);
-    addSlider("s", s, 0.1, mx, step);
+    double mx = std::max({ b,h,s }) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("b", b, 0, mx, step);
+    addSlider("h", h, 0, mx, step);
+    addSlider("s", s, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Perimeter :", "2(b+s)");
     addResult("Area      :", "b \xc3\x97 h");
     DEFER
 }
 void ParallelCard::recompute() {
-    BigDec b(m_sliders["b"]->value()), h(m_sliders["h"]->value()), s(m_sliders["s"]->value());
+    BigDec b(param("b")), h(param("h")), s(param("s"));
     m_rows["Perimeter :"]->setValue(FMT(2 * (b + s)));
     m_rows["Area      :"]->setValue(FMT(b * h));
 }
@@ -205,17 +210,17 @@ TrapezoidCard::TrapezoidCard(double a, double b, double h, QWidget* p) : GeoCard
     m_layout->addWidget(geoTitle("Trapezoid", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max({ a,b,h }) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("a", a, 0.1, mx, step);
-    addSlider("b", b, 0.1, mx, step);
-    addSlider("h", h, 0.1, mx, step);
+    double mx = std::max({ a,b,h }) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("a", a, 0, mx, step);
+    addSlider("b", b, 0, mx, step);
+    addSlider("h", h, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Area     :", "(a+b)/2 \xc3\x97 h");
     addResult("Mid-line :", "(a+b)/2");
     DEFER
 }
 void TrapezoidCard::recompute() {
-    BigDec a(m_sliders["a"]->value()), b(m_sliders["b"]->value()), h(m_sliders["h"]->value());
+    BigDec a(param("a")), b(param("b")), h(param("h"));
     m_rows["Area     :"]->setValue(FMT((a + b) / 2 * h));
     m_rows["Mid-line :"]->setValue(FMT((a + b) / 2));
 }
@@ -225,9 +230,9 @@ RhombusCard::RhombusCard(double d1, double d2, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Rhombus", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max(d1, d2) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("d1", d1, 0.1, mx, step);
-    addSlider("d2", d2, 0.1, mx, step);
+    double mx = std::max(d1, d2) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("d1", d1, 0, mx, step);
+    addSlider("d2", d2, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Side      :", "\xe2\x88\x9a((d1\xc2\xb2+d2\xc2\xb2)/4)");
     addResult("Perimeter :", "4 \xc3\x97 side");
@@ -235,7 +240,7 @@ RhombusCard::RhombusCard(double d1, double d2, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void RhombusCard::recompute() {
-    BigDec d1(m_sliders["d1"]->value()), d2(m_sliders["d2"]->value());
+    BigDec d1(param("d1")), d2(param("d2"));
     BigDec side = SQ((d1 * d1 + d2 * d2) / 4);
     m_rows["Side      :"]->setValue(FMT(side));
     m_rows["Perimeter :"]->setValue(FMT(4 * side));
@@ -247,7 +252,7 @@ RegPolyCard::RegPolyCard(int n, double s, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle(QString("Regular %1-gon").arg(n)));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    addSlider("s", s, 0.1, geoAutoMax(s), geoAutoStep(s));
+    addSlider("s", s, 0, geoAutoMax(s), geoAutoStep(s));
     m_layout->addWidget(geoDiv());
     addResult("Perimeter   :", "n \xc3\x97 s");
     addResult("Area        :", "(ns\xc2\xb2)/(4tan(\xcf\x80/n))");
@@ -259,7 +264,7 @@ RegPolyCard::RegPolyCard(int n, double s, QWidget* p) : GeoCard(p) {
 }
 void RegPolyCard::recompute() {
     int n = property("poly_n").toInt();
-    BigDec s(m_sliders["s"]->value());
+    BigDec s(param("s"));
     BigDec piN = PI / BD(n);
     BigDec tanPN = TAN(piN), sinPN = SIN(piN);
     m_rows["Perimeter   :"]->setValue(FMT(BD(n) * s));
@@ -274,7 +279,7 @@ SectorCard::SectorCard(double r, double deg, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Circle Sector", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    addSlider("r", r, 0.1, geoAutoMax(r), geoAutoStep(r));
+    addSlider("r", r, 0, geoAutoMax(r), geoAutoStep(r));
     addSlider("deg", deg, 1.0, 360.0, 1.0);
     m_layout->addWidget(geoDiv());
     addResult("Arc Length  :", "r\xce\xb8  (\xce\xb8 in radians)");
@@ -284,8 +289,8 @@ SectorCard::SectorCard(double r, double deg, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void SectorCard::recompute() {
-    BigDec r(m_sliders["r"]->value());
-    BigDec theta = BD(m_sliders["deg"]->value()) * PI / 180;
+    BigDec r(param("r"));
+    BigDec theta = BD(param("deg")) * PI / 180;
     BigDec arc = r * theta;
     m_rows["Arc Length  :"]->setValue(FMT(arc));
     m_rows["Area        :"]->setValue(FMT(r * r * theta / 2));
@@ -298,9 +303,9 @@ AnnulusCard::AnnulusCard(double R, double r, QWidget* p) : GeoCard(p) {
     m_layout->addWidget(geoTitle("Annulus (Ring)", this));
     m_layout->addWidget(geoHint());
     m_layout->addWidget(geoDiv());
-    double mx = std::max(R, r) * 5, step = mx > 50 ? 1.0 : 0.1;
-    addSlider("R", R, 0.1, mx, step);
-    addSlider("r", r, 0.1, mx, step);
+    double mx = std::max(R, r) * 5, step = mx > 50 ? 1.0 : 0;
+    addSlider("R", R, 0, mx, step);
+    addSlider("r", r, 0, mx, step);
     m_layout->addWidget(geoDiv());
     addResult("Area         :", "\xcf\x80(R\xc2\xb2-r\xc2\xb2)");
     addResult("Outer Circum :", "2\xcf\x80R");
@@ -309,7 +314,7 @@ AnnulusCard::AnnulusCard(double R, double r, QWidget* p) : GeoCard(p) {
     DEFER
 }
 void AnnulusCard::recompute() {
-    BigDec R(m_sliders["R"]->value()), r(m_sliders["r"]->value());
+    BigDec R(param("R")), r(param("r"));
     if (R <= r) { m_rows["Area         :"]->setValue("\xe2\x9a\xa0 R must be > r"); return; }
     m_rows["Area         :"]->setValue(FMT(PI * (R * R - r * r)));
     m_rows["Outer Circum :"]->setValue(FMT(2 * PI * R));

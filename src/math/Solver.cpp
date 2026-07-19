@@ -1,11 +1,12 @@
 #include "Solver.h"
-#include "Expr.h"      // for evalWith
+#include "Expr.h"
+#include "MathEngine.h"
+#include "../math/BigNum.h"
 #include <cmath>
 #include <stdexcept>
-#include "MathEngine.h"
 
-
-static double solveFor(const QString& lhs, const QString& rhs,
+// ── Linear solver using BigDec (fast, exact for linear) ─────────────────────
+double Solver::solveLinear(const QString& lhs, const QString& rhs,
     const QString& varName, bool& ok) {
     ok = false;
 
@@ -18,66 +19,68 @@ static double solveFor(const QString& lhs, const QString& rhs,
         return v;
         };
 
-    auto f = [&](double x) { return evalSide(lhs, x) - evalSide(rhs, x); };
-
-    auto df = [&](double x) {
-        // Use a relative h to prevent precision loss for large x
-        double h = std::max(1.0, std::abs(x)) * 1e-7;
-        return (f(x + h) - f(x - h)) / (2.0 * h);
-        };
-
-    for (double start : {0.0, 1.0, -1.0, 10.0, -10.0, 0.5, 100.0}) {
-        try {
-            double x = start;
-            for (int i = 0; i < 500; ++i) {
-                double fx = f(x);
-                double dfx = df(x);
-
-                if (std::abs(dfx) < 1e-15) break; // Avoid division by zero
-
-                double xn = x - fx / dfx;
-
-                if (std::abs(xn - x) < 1e-10 && std::abs(f(xn)) < 1e-8) {
-                    ok = true;
-                    return xn;
-                }
-                x = xn;
-                if (!std::isfinite(x)) break;
-            }
-        }
-        catch (...) {}
+    // Evaluate f(x) = lhs - rhs at x=0 and x=1
+    double f0_double, f1_double;
+    try {
+        f0_double = evalSide(lhs, 0.0) - evalSide(rhs, 0.0);
+        f1_double = evalSide(lhs, 1.0) - evalSide(rhs, 1.0);
     }
-    return 0.0;
+    catch (...) {
+        return 0.0;
+    }
+
+    BigDec f0(f0_double);
+    BigDec f1(f1_double);
+
+    // Linear coefficients: a = f1 - f0, b = f0
+    BigDec a = f1 - f0;
+    BigDec b = f0;
+
+    // Check for near-zero a
+    if (BigNum::abs(a) < BigDec("1e-12")) {
+        // If b is also near zero, infinite solutions; otherwise no solution.
+        if (BigNum::abs(b) < BigDec("1e-12")) {
+            ok = true;  // Infinite solutions (we'll treat as any value)
+            return 0.0; // Caller handles this
+        }
+        return 0.0; // No solution
+    }
+
+    BigDec x = -b / a;
+    ok = true;
+    // Convert result back to double (safe as it's within double range)
+    double result = static_cast<double>(x);
+    // Round to nearest integer if close
+    double rounded = std::round(result);
+    if (std::abs(result - rounded) < 1e-9)
+        result = rounded;
+    return result;
 }
 
-double Solver::solveLinear(const QString& lhs, const QString& rhs,
-    const QString& varName, bool& ok) {
-    return solveFor(lhs, rhs, varName, ok);
-}
+// ── Quadratic solver using BigDec ────────────────────────────────────────────
 QStringList Solver::solveQuadratic(double a, double b, double c) {
-    auto fmt = [](double v) -> QString {
-        if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
-        if (std::isnan(v)) return "Undefined";
-        return QString::number(v, 'g', 10);
-        };
+    BigDec A(a), B(b), C(c);
+    BigDec disc = B * B - 4 * A * C;
 
-    double disc = b * b - 4 * a * c;
+    auto fmt = [](const BigDec& v) -> QString {
+        return BigNum::fmt(v);
+        };
 
     if (disc > 0) {
-        // Stable calculation of roots
-        double q = -0.5 * (b + (b > 0 ? 1.0 : -1.0) * std::sqrt(disc));
-        double x1 = q / a;
-        double x2 = c / q;
-        return { QString("x₁ = %1").arg(fmt(x1)),
-                 QString("x₂ = %1").arg(fmt(x2)) };
+        BigDec q = -0.5 * (B + (B > 0 ? BigDec(1) : BigDec(-1)) * BigNum::sqrt(disc));
+        BigDec x1 = q / A;
+        BigDec x2 = C / q;
+        return { QString("x₁ = %1").arg(BigNum::fmt(x1)),
+                 QString("x₂ = %1").arg(BigNum::fmt(x2)) };
     }
-    else if (std::abs(disc) < 1e-12) {
-        return { QString("x = %1 (double root)").arg(fmt(-b / (2 * a))) };
+    else if (disc == 0) {
+        BigDec x = -B / (2 * A);
+        return { QString("x = %1 (double root)").arg(BigNum::fmt(x)) };
     }
     else {
-        double re = -b / (2 * a);
-        double im = std::sqrt(-disc) / (2 * a);
-        return { QString("x₁ = %1 + %2i").arg(fmt(re)).arg(fmt(im)),
-                 QString("x₂ = %1 - %2i").arg(fmt(re)).arg(fmt(im)) };
+        BigDec re = -B / (2 * A);
+        BigDec im = BigNum::sqrt(-disc) / (2 * A);
+        return { QString("x₁ = %1 + %2i").arg(BigNum::fmt(re)).arg(BigNum::fmt(im)),
+                         QString("x₂ = %1 - %2i").arg(BigNum::fmt(re)).arg(BigNum::fmt(im)) };
     }
 }

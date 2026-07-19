@@ -37,6 +37,15 @@ public:
     bool isActive()      const { return m_prompt.isActive(); }
     QString currentParam() const { return m_prompt.nextParam(); }
 
+    // Parameters collected so far, as numeric values, so later prompts
+    // (e.g. "b = a") can resolve earlier ones by name.
+    QMap<QString, double> collectedVars() const {
+        QMap<QString, double> vars;
+        for (auto it = m_prompt.collected.constBegin(); it != m_prompt.collected.constEnd(); ++it)
+            vars[it.key()] = it.value().toDouble();
+        return vars;
+    }
+
     // -- Start -----------------------------------------------------------------
     // Begin collecting parameters for the given prompt.
     // Emits nothing — caller should call advanceUI() after to show first param.
