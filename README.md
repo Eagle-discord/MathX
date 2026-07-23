@@ -2,7 +2,7 @@
 
 **MathX** is a native desktop mathematics application written in C++ and built with Qt6.
 
-It is a passion project developed by a single developer (me) with no budget, created as both a tool to help with my mathematics and a way to challenge and improve my programming skills.
+It is a passion project developed by a single developer (me) along with AI (claude) with no budget, created as both a tool to help with my mathematics and a way to challenge and improve my programming skills.
 
 ## Goals
 
