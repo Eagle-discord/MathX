@@ -7,7 +7,7 @@
 //   - the current navigation index (0 = not navigating)
 //   - the text the user was typing before they started navigating
 //
-// Reads the history list by const reference — never mutates it.
+// Reads the history list by const reference - never mutates it.
 // The QLineEdit is NOT touched here; callers read currentText() and
 // set it themselves. This keeps Qt UI concerns out of this class entirely.
 //
@@ -66,7 +66,7 @@ public:
         return m_savedText;
     }
 
-    // Reset navigation — call when the user types, submits, or clears.
+    // Reset navigation - call when the user types, submits, or clears.
     void reset() {
         m_index     = 0;
         m_savedText.clear();
@@ -79,7 +79,7 @@ public:
     int index() const { return m_index; }
 
 private:
-    const QStringList& m_history;   // read-only reference — never mutated here
+    const QStringList& m_history;   // read-only reference - never mutated here
     int     m_index     = 0;
     QString m_savedText;
 };

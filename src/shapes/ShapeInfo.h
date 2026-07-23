@@ -5,7 +5,7 @@
 #include <QStringList>
 #include "ShapeDefs.h"
 
-// DO NOT EDIT — derived from ALL_SHAPE_DEFS() in ShapeDefs.h
+// DO NOT EDIT - derived from ALL_SHAPE_DEFS() in ShapeDefs.h
 // Add or modify shapes there; this updates automatically.
 
 struct ShapeInfo {
@@ -31,7 +31,7 @@ inline QVector<ShapeInfo> buildViewerShapeList() {
     return result;
 }
 
-// Cached — built once on first call
+// Cached - built once on first call
 inline const QVector<ShapeInfo>& ALL_SHAPES_INFO() {
     static const QVector<ShapeInfo> list = buildViewerShapeList();
     return list;

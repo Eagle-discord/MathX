@@ -13,7 +13,7 @@ class QLabel;
 //
 // Reached by clicking any MasterLabel while the widget inspector setting
 // (behavior/developer/widgetInspector) is enabled. Reusable for any QWidget
-// subclass with Q_PROPERTY entries — not limited to labels, though terminal
+// subclass with Q_PROPERTY entries - not limited to labels, though terminal
 // text is the only scope wired up for now.
 class WidgetEditorPage : public QWidget {
     Q_OBJECT
@@ -21,7 +21,7 @@ public:
     explicit WidgetEditorPage(QWidget* parent = nullptr);
 
     // Points the editor at a new target and rebuilds the property list.
-    // Safe to call repeatedly — each call fully replaces the previous view.
+    // Safe to call repeatedly - each call fully replaces the previous view.
     void inspect(QWidget* target);
 
 signals:

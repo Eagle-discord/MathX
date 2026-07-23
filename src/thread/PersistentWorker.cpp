@@ -75,6 +75,10 @@ void PersistentWorker::process() {
                 // result. For 100000! the second is not a rounding error -- it's
                 // converting a 456574-digit number, and it used to present as a
                 // freeze at 100%.
+                //
+                // The magnitude preview for large n is not shown here: it only
+                // needs n, so MainWindow computes it up front and OutputArea
+                // renders it as its own animated card under the progress bar.
                 auto callback = [this, jobId = job.id](int percent) {
                     emit progress(jobId, percent, "Calculating");
                     };

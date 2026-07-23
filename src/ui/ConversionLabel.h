@@ -22,7 +22,7 @@ public:
 
         // Original toggled the formula inline on a plain left click (not a
         // double click, and no right-click conflict since right click is
-        // reserved for copy) — LeftClickToggle preserves that exactly.
+        // reserved for copy) - LeftClickToggle preserves that exactly.
         setupCopyable(m_plainText, color, formulaStr,
             DetailTrigger::LeftClickToggle, HoverHint::Never);
     }
@@ -36,7 +36,7 @@ public:
     }
 
     // Live-update hook (see CopyableLabel::setNormalText). We already have a
-    // setter with exactly these semantics — reuse it rather than duplicate.
+    // setter with exactly these semantics - reuse it rather than duplicate.
     void setNormalText(const QString& html) override { setResultProp(html); }
     
 
@@ -49,14 +49,14 @@ protected:
     }
     void applyCopiedStyle() override {
         // Original ConversionLabel didn't recolor on copy, just swapped text
-        // to "Copied!" and left the stylesheet as-is — preserve that.
+        // to "Copied!" and left the stylesheet as-is - preserve that.
         // (No style change here; text swap is handled by CopyableLabel.)
     }
     void applyDetailStyle() override {
         setStyleSheet(QString("background:transparent; color:%1; %2; padding-left:22px;")
             .arg(color(), m_extraStyle));
         // Detail color previously came from the inline <span style='color:MUTED'>
-        // wrapping the formula text, not a stylesheet change — CopyableLabel's
+        // wrapping the formula text, not a stylesheet change - CopyableLabel's
         // refreshDisplay() already wraps the detail in a MUTED span, so the
         // base label style stays the same as normal here.
     }

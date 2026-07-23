@@ -21,7 +21,7 @@ const QSet<QString>& constants() {
 }
 
 // A minimal char cursor. The input is assumed already normalised (brackets to
-// parens, implicit-mul inserted) by the caller when needed — but the parser
+// parens, implicit-mul inserted) by the caller when needed - but the parser
 // also tolerates spaces itself.
 struct Cursor {
     QString s;

@@ -1,4 +1,4 @@
-#include "SessionPanel.h"
+﻿#include "SessionPanel.h"
 #include "../constants/Theme.h"
 #include "../subSystems/WidgetRegistry.h"
 #include <QVBoxLayout>
@@ -7,11 +7,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QApplication>
-
-#ifdef Q_OS_WIN
-  #include <windows.h>
-  #include <Psapi.h>
-#endif
+#include "MemoryUsage.h"
 
 static QFont MF(int pt, int w = QFont::Normal) {
     return Theme::monoFont(pt, w);
@@ -147,16 +143,15 @@ void SessionPanel::updateUptime() {
 }
 
 void SessionPanel::updateMemory() {
-#ifdef Q_OS_WIN
-    PROCESS_MEMORY_COUNTERS_EX pmc{};
-    if (GetProcessMemoryInfo(GetCurrentProcess(),
-            reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc))) {
+    // getMemoryUsage() is portable (Win: PROCESS_MEMORY_COUNTERS, Linux:
+    // /proc/self/status); it returns 0 on platforms without an implementation.
+    const std::size_t rss = getMemoryUsage().workingSet;
+    if (rss > 0) {
         m_memUsageLbl->setText(QString("%1 MB")
-            .arg(pmc.WorkingSetSize / (1024.0 * 1024.0), 0, 'f', 1));
-        return;
+            .arg(rss / (1024.0 * 1024.0), 0, 'f', 1));
+    } else {
+        m_memUsageLbl->setText(QStringLiteral("\u2014"));
     }
-#endif
-    m_memUsageLbl->setText(QStringLiteral("\u2014"));
 }
 
 void SessionPanel::updateWidgetCount() {

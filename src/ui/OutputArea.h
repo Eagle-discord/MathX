@@ -5,9 +5,9 @@
 #include <QLabel>
 #include <QVariantMap>
 #include <shapes/GeoCard.h>
-#include "..\constants\RunState.h"   
+#include "../constants/RunState.h"
 #include <boost/multiprecision/cpp_int.hpp>
-#include "..\constants\Theme.h"
+#include "../constants/Theme.h"
 #include <QProgressBar>
 #include "MasterLabel.h"
 #include "../subSystems/WidgetRegistry.h"
@@ -16,6 +16,7 @@
 #include "CopyableLabel.h"
 #include <QPointer>
 #include "../constants/ResultTypes.h"
+#include "ApproxCard.h"
 
 
 using boost::multiprecision::cpp_int;
@@ -35,6 +36,11 @@ public:
     ScrubbableExpression* addInputLine(const QString& expr);
     void showProgress(int percent, const QString& label);   // 0..100
     void hideProgress();
+    // Magnitude preview for a slow factorial. Appears directly below the
+    // progress bar, then addResultLine() moves it below the finished result so
+    // the estimate and the exact value sit together. Previous cards are kept
+    // (they belong to their own result further up) but collapsed.
+    void showApproximation(const BigNum::FactorialEstimate& est);
     void addResultLine(const QString& text, ResultType type,
         const QString& copyText = QString(),
         const QString& formula = QString(),
@@ -63,6 +69,11 @@ public:
     void updateResultLine(CopyableLabel* target, const QString& text,
         ResultType type, double calcTime);
     void setAnimationsEnabled(bool on) { m_animate = on; }
+
+    // Re-render every result already on screen. Used when a display-only
+    // preference changes (digit grouping), since result HTML is built at insert
+    // time and would otherwise keep the old formatting until replaced.
+    void reformatResults();
 public slots:
     void addSimplified(const QString& before, const QStringList& after);
     void captureWidget(QWidget* widget);
@@ -101,6 +112,26 @@ private:
         const ResultType& type, const QString& color);
 
     QProgressBar* m_progressBar = nullptr;
+
+    // Cards persist in the history beside their result, so two distinct roles:
+    //   m_pendingApprox - the one still awaiting its result, to be moved below
+    //                     it when it lands (cleared immediately after, or a
+    //                     later non-factorial result would drag it along).
+    //   m_lastApprox    - the newest card, collapsed when another appears.
+    // Both survive hideProgress() on purpose: the estimate outlives the bar.
+    // Result labels, so a display preference change can reach them. Only the
+    // label plus what updateResultLine() needs; the raw value is read back from
+    // the label's own copy text.
+    struct ResultEntry {
+        QPointer<CopyableLabel> label;
+        ResultType type = ResultType::none;
+        double calcTime = 0;
+    };
+    QList<ResultEntry> m_results;
+    void rememberResult(CopyableLabel* label, ResultType type, double calcTime);
+
+    QPointer<ApproxCard> m_pendingApprox;
+    QPointer<ApproxCard> m_lastApprox;
 
     QLabel* m_progressLabel = nullptr;
     QWidget* m_container = nullptr;

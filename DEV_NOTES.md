@@ -415,11 +415,11 @@ starting point -- the *theory* is preserved above; whether the theory matched
 the actual fix was not recorded at the time, which is exactly the gap this
 section exists to close.
 
-- BUG-001 — Draggable result labels: multi-drag replacement. FIXED (date unrecorded).
-- BUG-002 — Inverted mouse rotation with auto-rotate off. FIXED (date unrecorded).
-- BUG-003 — Prompt `b = a` not evaluating previous params. FIXED (date unrecorded).
-- BUG-003b — Settings page apply pipeline. FIXED (date unrecorded).
-- BUG-004 — RegistryWatcher startup freeze (parent + moveToThread). FIXED (date unrecorded).
+- BUG-001 - Draggable result labels: multi-drag replacement. FIXED (date unrecorded).
+- BUG-002 - Inverted mouse rotation with auto-rotate off. FIXED (date unrecorded).
+- BUG-003 - Prompt `b = a` not evaluating previous params. FIXED (date unrecorded).
+- BUG-003b - Settings page apply pipeline. FIXED (date unrecorded).
+- BUG-004 - RegistryWatcher startup freeze (parent + moveToThread). FIXED (date unrecorded).
 
 **Process note:** the reason five fixes went unrecorded is that nothing forces
 a write on the way out. The footer already says to tag commits `--bug BUG-XXX`;

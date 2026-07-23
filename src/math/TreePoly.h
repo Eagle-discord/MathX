@@ -1,5 +1,5 @@
 #pragma once
-//  TreePoly — extract an exact univariate polynomial from an AST.
+//  TreePoly - extract an exact univariate polynomial from an AST.
 //
 //  This replaces numeric sampling for the polynomial cases. Instead of
 //  evaluating f at x=0,1,2,... and back-solving coefficients (which forces you
@@ -12,7 +12,7 @@
 //
 //  A "polynomial" here is a dense BigDec coefficient vector, low-order first,
 //  tagged with the single variable it is in. Extraction fails (ok=false) if the
-//  expression isn't a polynomial in one variable — e.g. it divides by the
+//  expression isn't a polynomial in one variable - e.g. it divides by the
 //  variable, raises to a non-integer/negative power, or contains a transcend-
 //  ental function of the variable. Constant subexpressions (including things
 //  like sqrt(2) or pi) are fine and fold into coefficients.

@@ -6,6 +6,7 @@
 #include "Algebra.h"
 #include "PolyEngine.h"
 #include "TreeSolver.h"
+#include "WordProblem.h"
 #include <QRegularExpression>
 #include <QStringList>
 #include <cmath>
@@ -69,7 +70,7 @@ static QString fmt(double v) {
 }
 
 // ----------------------------------------------------------------------
-//  Names reserved by the engine itself — a user function can't be defined
+//  Names reserved by the engine itself - a user function can't be defined
 //  with one of these, so "sin(x) = ..." etc. never shadows a builtin.
 // ----------------------------------------------------------------------
 static const QSet<QString>& builtinConstantNames() {
@@ -130,7 +131,7 @@ long long MathEngine::nCr(int n, int r) {
         // bail out to a big-int path rather than silently overflowing.
         const long long mul = n - i + 1;
         if (res > std::numeric_limits<long long>::max() / mul)
-            throw std::overflow_error("nCr too large — result exceeds 64-bit range");
+            throw std::overflow_error("nCr too large - result exceeds 64-bit range");
         res = res * mul / i;
     }
     return res;
@@ -141,7 +142,7 @@ long long MathEngine::nPr(int n, int r) {
     for (int i = 0; i < r; ++i) {
         const long long mul = n - i;
         if (mul != 0 && res > std::numeric_limits<long long>::max() / mul)
-            throw std::overflow_error("nPr too large — result exceeds 64-bit range");
+            throw std::overflow_error("nPr too large - result exceeds 64-bit range");
         res *= mul;
     }
     return res;
@@ -158,7 +159,7 @@ static QString normaliseBrackets(QString s) {
 }
 
 // ----------------------------------------------------------------------
-//  tryGeometry – basic geometric calculations (static, not interactive)
+//  tryGeometry - basic geometric calculations (static, not interactive)
 // ----------------------------------------------------------------------
 static QMap<QString, double> parseParams(const QString& s) {
     QMap<QString, double> p;
@@ -179,14 +180,14 @@ CalcResult MathEngine::tryGeometry(const QString& expr) {
 
     for (const Shape& shape : ALL_SHAPES) {
         if (base == shape.canonical || shape.aliases.contains(base)) {
-            // This is a known shape – delegate to the interactive card system
+            // This is a known shape - delegate to the interactive card system
             return { "", ResultType::geo };
         }
     }
     return {};
 }
 // ----------------------------------------------------------------------
-//  tryTrig – trigonometric evaluation (delegates to Expr)
+//  tryTrig - trigonometric evaluation (delegates to Expr)
 // ----------------------------------------------------------------------
 CalcResult MathEngine::tryTrig(const QString& expr) {
     static QStringList fns = { "sin","cos","tan","asin","acos","atan","atan2",
@@ -427,10 +428,10 @@ static QString tryConstantFold(const QString& e) {
 static QString expandBrackets(const QString& input) {
     QString e = input;
 
-    // Safety limit — prevent infinite loops on malformed input
+    // Safety limit - prevent infinite loops on malformed input
     for (int pass = 0; pass < 64 && e.contains('('); ++pass) {
 
-        // Find the innermost ( ... ) — the first ')' and scan left for its '('
+        // Find the innermost ( ... ) - the first ')' and scan left for its '('
         int close = e.indexOf(')');
         if (close < 0) break;
         int open = e.lastIndexOf('(', close);
@@ -477,7 +478,7 @@ static QString expandBrackets(const QString& input) {
 
     return e;
 }
-// -- trySimplify — main entry point --------------------------------------------
+// -- trySimplify - main entry point --------------------------------------------
 static QString trySimplify(const QString& expr) {
     QString e = expr.trimmed();
     // Normalize all bracket types to ()
@@ -619,7 +620,7 @@ static bool bigEvalSubstitution(const QString& expr, const QString& varName, con
 }
 
 // ----------------------------------------------------------------------
-//  tryAlgebra – equation solving using Solver
+//  tryAlgebra - equation solving using Solver
 // ----------------------------------------------------------------------
 
 CalcResult MathEngine::tryAlgebra(const QString& expr) {
@@ -638,7 +639,7 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
     QSet<QString> vars = Expr::detectVariables(lhs + " " + rhs);
 
     // A multi-letter "variable" here is almost always a stray word ("then",
-    // "find", "if") rather than a solvable unknown — real stored variables were
+    // "find", "if") rather than a solvable unknown - real stored variables were
     // already substituted to numbers upstream. Decline so we never confidently
     // "solve" garbage like "x = 45 then ..." into "then = 8.68e-05".
     for (const QString& v : vars) if (v.size() > 1) return {};
@@ -712,12 +713,12 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
         return { result, ResultType::ok };
     }
 
-    // ── Algebraic equation — try high‑precision linear solver ──────────────
+    // ── Algebraic equation - try high‑precision linear solver ──────────────
     if (vars.size() == 1) {
         QString varName = *vars.begin();
 
         // ── AST-based solver: handles the richer equation forms that the
-        // sampling paths can't — brackets like (x-1)(x-2)(x-3)=0, both-sides
+        // sampling paths can't - brackets like (x-1)(x-2)(x-3)=0, both-sides
         // polynomials, rational equations x/(x-2)=3 (with excluded values),
         // and radical/abs equations sqrt(x+1)=4, |x-3|=5 (with extraneous-root
         // checks). If it declines (empty result), we fall through to the
@@ -766,7 +767,7 @@ CalcResult MathEngine::tryAlgebra(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  tryFactor — "factor(x^2 - 5x + 6)" or "factorise x^2-9"
+//  tryFactor - "factor(x^2 - 5x + 6)" or "factorise x^2-9"
 //  Recognises an explicit factor/factorise/factorize keyword and hands the
 //  inner polynomial to Algebra::factor.
 // ----------------------------------------------------------------------
@@ -804,7 +805,7 @@ CalcResult MathEngine::tryFactor(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  trySystem — a system of linear equations.
+//  trySystem - a system of linear equations.
 //  Accepts multiple equations separated by ';', ',', or newlines, e.g.
 //    "x + y = 5; x - y = 1"      "2a+b=5, a-b=1"
 //  Requires at least two '=' signs so single equations still go to tryAlgebra.
@@ -813,7 +814,7 @@ CalcResult MathEngine::trySystem(const QString& expr) {
     QString e = expr.trimmed();
     if (e.count('=') < 2) return {};   // not a system
 
-    // Split on ';', newline, or ',' — but only treat as separators between
+    // Split on ';', newline, or ',' - but only treat as separators between
     // complete equations. Simple split works because each piece must contain '='.
     static QRegularExpression sep(R"([;\n,])");
     QStringList rawParts = e.split(sep, Qt::SkipEmptyParts);
@@ -925,7 +926,7 @@ static QString expandUserCalls(const QString& expr, int depth) {
             if (expr[p] == '(') ++dep;
             else if (expr[p] == ')') { if (--dep == 0) { close = p; break; } }
         }
-        if (close < 0) break;         // unbalanced — let evaluator report it
+        if (close < 0) break;         // unbalanced - let evaluator report it
 
         QString inside = expr.mid(openParen + 1, close - openParen - 1);
 
@@ -981,7 +982,7 @@ CalcResult MathEngine::tryFunctionDefinition(const QString& expr) {
     }
     if (params.isEmpty()) return {};
 
-    // Make sure the body actually evaluates with all parameters bound — this
+    // Make sure the body actually evaluates with all parameters bound - this
     // rejects garbage like "f(x) = )(" while accepting "x^2 + y" etc. We also
     // expand any user-function calls inside the body first, so a definition
     // like "h(x) = f(x) + 1" (referring to an already-defined f) validates.
@@ -1019,7 +1020,7 @@ CalcResult MathEngine::tryFunctionCall(const QString& expr) {
             }
         }
     }
-    if (!referencesUserFn) return {};  // no user calls — let other handlers run
+    if (!referencesUserFn) return {};  // no user calls - let other handlers run
 
     // Expand every user-function call (handles embedding like 2*f(3)+1,
     // multiple calls like f(3)+g(2), and composition like f(g(x))).
@@ -1029,7 +1030,7 @@ CalcResult MathEngine::tryFunctionCall(const QString& expr) {
     // evaluation below will fail and we fall through cleanly.
 
     // Resolve any stored variables that appear in the arguments (e.g. f(y) with
-    // y = 3), then evaluate at full BigDec precision like the arithmetic path —
+    // y = 3), then evaluate at full BigDec precision like the arithmetic path -
     // no more double rounding or 1e308 ceiling for function results.
     const QString resolved = substituteVariables(expanded);
     bool argOk = false;
@@ -1098,6 +1099,52 @@ static QString substituteVariables(const QString& expr) {
     return substituteMap(expr, variableRegistry());
 }
 
+// -- Multi-word named quantities ---------------------------------------------
+// "no. of apples with timmy = 5" stores a variable whose name is a whole phrase.
+// The registry is shared with single-identifier variables; a phrase is simply a
+// key containing spaces. Keys are normalised (lowercased, whitespace collapsed)
+// so the user's spacing and capitalisation don't have to match between the
+// definition and the use.
+static QString phraseKey(const QString& name) {
+    return name.simplified().toLower();
+}
+
+// Replace every known MULTI-WORD name with its value, longest first so a longer
+// phrase beats a shorter one nested inside it ("apples" vs "no. of apples with
+// timmy").
+//
+// This runs on the RAW input, BEFORE NaturalLanguage::preprocess, and that
+// ordering is the whole trick: preprocess rewrites "X of Y" into multiplication
+// and treats "with" as part of its power forms, so a phrase like "no. of apples
+// with timmy" is destroyed if it reaches preprocess intact. Substituting first
+// turns it into a plain number and the rewrites never see it.
+static QString substitutePhrases(const QString& expr) {
+    const QMap<QString, QString>& reg = variableRegistry();
+    QStringList phrases;
+    for (auto it = reg.constBegin(); it != reg.constEnd(); ++it)
+        if (it.key().contains(' ')) phrases << it.key();
+    if (phrases.isEmpty()) return expr;
+
+    std::sort(phrases.begin(), phrases.end(),
+        [](const QString& a, const QString& b) { return a.size() > b.size(); });
+
+    QString out = expr;
+    for (const QString& p : phrases) {
+        // Allow any run of whitespace between the words of the phrase.
+        const QStringList words = p.split(' ', Qt::SkipEmptyParts);
+        QString pattern;
+        for (int i = 0; i < words.size(); ++i) {
+            if (i) pattern += QStringLiteral(R"(\s+)");
+            pattern += QRegularExpression::escape(words.at(i));
+        }
+        const QRegularExpression re(
+            QStringLiteral(R"((?<![A-Za-z0-9_]))") + pattern + QStringLiteral(R"((?![A-Za-z0-9_]))"),
+            QRegularExpression::CaseInsensitiveOption);
+        out.replace(re, "(" + reg.value(p) + ")");
+    }
+    return out;
+}
+
 QStringList MathEngine::definedVariableNames() { return variableRegistry().keys(); }
 bool MathEngine::isVariableDefined(const QString& name) {
     return variableRegistry().contains(name.toLower());
@@ -1109,8 +1156,12 @@ void MathEngine::clearVariables() {
     variableRegistry().clear();
     variableRegistry()[QStringLiteral("ans")] = QStringLiteral("0");
 }
+void MathEngine::setVariable(const QString& name, const QString& value) {
+    const QString key = phraseKey(name);
+    if (!key.isEmpty()) variableRegistry()[key] = value;
+}
 
-// name = value   — stores a scalar variable. Only fires when the left side is a
+// name = value   - stores a scalar variable. Only fires when the left side is a
 // bare identifier that doesn't shadow a constant/function/shape, and the right
 // side evaluates to a number (using variables/functions defined so far). Anything
 // else (x^2 = 5, 2x = 10, x = y with y undefined) is declined so the algebra
@@ -1141,6 +1192,57 @@ CalcResult MathEngine::tryAssignment(const QString& expr) {
 
     variableRegistry()[lname] = BigNum::fmtFull(v);      // store full precision
     variableRegistry()[QStringLiteral("ans")] = BigNum::fmtFull(v);  // last value
+    const QString disp = QString("%1 = %2").arg(name, BigNum::fmt(v));
+    const QString full = QString("%1 = %2").arg(name, BigNum::fmtFull(v));
+    return { disp, ResultType::ok, (full != disp ? full : QString()) };
+}
+
+// "no. of apples with timmy = 5" - stores a multi-word named quantity.
+//
+// Deliberately conservative, because the left of an '=' is contested ground: it
+// could be an equation to solve (2x + 3 = 7), a function definition (f(x) = ...),
+// or a statement. We only claim it when the left side is unmistakably a *phrase*:
+// starts with a letter, contains a space, and holds nothing but words, digits and
+// light punctuation - no operators, no parentheses. That leaves every existing
+// form to the handler that already owns it.
+CalcResult MathEngine::tryPhraseAssignment(const QString& expr) {
+    static const QRegularExpression re(
+        R"(^\s*([A-Za-z][A-Za-z0-9_.' ]*?)\s*=\s*(.+?)\s*$)");
+    const auto m = re.match(expr);
+    if (!m.hasMatch()) return {};
+
+    const QString name = m.captured(1).simplified();
+    const QString rhs = m.captured(2).trimmed();
+
+    if (!name.contains(' ')) return {};                 // bare id -> tryAssignment
+    if (rhs.isEmpty() || rhs.contains('=')) return {};  // chained '=' / equation
+
+    const QStringList words = name.toLower().split(' ', Qt::SkipEmptyParts);
+
+    // Structural keywords belong to tryStatements / tryWhere / tryConditional.
+    static const QStringList reserved{
+        QStringLiteral("then"), QStringLiteral("where"),
+        QStringLiteral("if"),   QStringLiteral("else") };
+    for (const QString& w : words)
+        if (reserved.contains(w)) return {};
+
+    // Don't hijack "sin x = 0.5" and friends - if the phrase opens with a builtin
+    // function or constant, it's far more likely maths than a name.
+    if (builtinFunctionNames().contains(words.first())
+        || builtinConstantNames().contains(words.first())) return {};
+
+    const QString key = phraseKey(name);
+    if (key.isEmpty()) return {};
+
+    // Resolve the RHS against everything defined so far, phrases included.
+    const QString rhsResolved =
+        expandUserCalls(substituteVariables(substitutePhrases(rhs)));
+    bool ok = false;
+    const BigDec v = BigNum::bigEvalValue(rhsResolved, ok);
+    if (!ok) return {};                                  // RHS isn't a plain value
+
+    variableRegistry()[key] = BigNum::fmtFull(v);
+    variableRegistry()[QStringLiteral("ans")] = BigNum::fmtFull(v);
     const QString disp = QString("%1 = %2").arg(name, BigNum::fmt(v));
     const QString full = QString("%1 = %2").arg(name, BigNum::fmtFull(v));
     return { disp, ResultType::ok, (full != disp ? full : QString()) };
@@ -1252,7 +1354,7 @@ static bool evalCondition(const QString& cond, bool& ok) {
 //   "x = 5; y = 10; x + y"   or   "x = 5 then x^2"   -> runs each in order and
 // shows the last. Assignments persist between statements. A pure system of
 // equations ("x+y=5; x-y=1") is left to trySystem. "then" is only a separator
-// for statements that DON'T start with "if" — an "if ... then ..." conditional
+// for statements that DON'T start with "if" - an "if ... then ..." conditional
 // owns its "then".
 CalcResult MathEngine::tryStatements(const QString& expr) {
     QStringList parts;
@@ -1285,7 +1387,7 @@ CalcResult MathEngine::tryStatements(const QString& expr) {
     return last;
 }
 
-// if <condition> then <result> [else <result>]  — a natural-language conditional.
+// if <condition> then <result> [else <result>]  - a natural-language conditional.
 // The condition is a comparison (=, ==, !=, <, >, <=, >=) or a truthy value.
 CalcResult MathEngine::tryConditional(const QString& expr) {
     const QString e = expr.trimmed();
@@ -1306,7 +1408,7 @@ CalcResult MathEngine::tryConditional(const QString& expr) {
         elseBranch = after.mid(elsePos + 4).trimmed();       // "else" is 4 chars
     }
     if (cond.isEmpty() || thenBranch.isEmpty())
-        return { "Malformed if — need 'if <condition> then <result>'", ResultType::err };
+        return { "Malformed if - need 'if <condition> then <result>'", ResultType::err };
 
     bool ok = false;
     const bool truth = evalCondition(cond, ok);
@@ -1317,7 +1419,7 @@ CalcResult MathEngine::tryConditional(const QString& expr) {
     return { "Condition not met", ResultType::ok };
 }
 
-// EXPR where <bindings>  — evaluate EXPR with LOCAL variable bindings that do NOT
+// EXPR where <bindings>  - evaluate EXPR with LOCAL variable bindings that do NOT
 // persist, e.g. "find x^x where x = 5" -> 3125. Bindings are separated by ',' or
 // "and": "a^2 + b^2 where a = 3, b = 4" -> 25. ("find" is already stripped by the
 // natural-language preprocessor.)
@@ -1348,7 +1450,7 @@ CalcResult MathEngine::tryWhere(const QString& expr) {
     }
     if (local.isEmpty()) return {};
 
-    // Substitute the locals into the body and evaluate — locals win over any
+    // Substitute the locals into the body and evaluate - locals win over any
     // persistent variable of the same name, and never leak into the registry.
     return evaluate(substituteMap(body, local));
 }
@@ -1360,7 +1462,7 @@ static QString preprocessNaturalLanguage(const QString& expr) {
 
     // ------------------------------------------------------------------
     // TABLE OF SIMPLE WORD REPLACEMENTS (fractions, numbers, etc.)
-    // Add/remove lines here as needed – no other code changes.
+    // Add/remove lines here as needed - no other code changes.
     // Format: { "phrase", "replacement" }
     // ------------------------------------------------------------------
     static const struct { const char* phrase; const char* replacement; } wordMap[] = {
@@ -1420,17 +1522,17 @@ static bool isDomainError(const QString& msg) {
 }
 
 // ----------------------------------------------------------------------
-//  tryArithmetic – fallback for numeric expressions
+//  tryArithmetic - fallback for numeric expressions
 // ----------------------------------------------------------------------
 CalcResult MathEngine::tryArithmetic(const QString& expr) {
     // expr has already been through NaturalLanguage::preprocess() in
-    // evaluate() (its only caller) — re-running the full regex pipeline here
+    // evaluate() (its only caller) - re-running the full regex pipeline here
     // on an already-normalised string was pure wasted work on every keystroke.
     const QString& processed = expr;
 
     // -- Common measurement conversions (natural language) --------------------
 // Handles: "1 furlong", "3 furlongs in meters", "2 nautical miles"
-// These are fixed-unit lookups — no "to" keyword needed
+// These are fixed-unit lookups - no "to" keyword needed
 
 
 
@@ -1506,7 +1608,7 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
             }
         }
     }
-    // General arithmetic via BigDec — arbitrary precision, so results are no
+    // General arithmetic via BigDec - arbitrary precision, so results are no
     // longer capped at the double overflow point (~1.8e308). The collapsed form
     // (~15 sig figs, auto-scientific) is shown; the full-digit form rides along
     // in the formula field so the UI can expand/collapse it. bigEvalValue sets
@@ -1519,7 +1621,17 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
         if (bok) {
             const QString collapsed = BigNum::fmt(bv);
             const QString full = BigNum::fmtFull(bv);
-            const QString expandForm = (full != collapsed) ? full : QString();
+            // Only offer an expand toggle when the collapsed form actually HIDES
+            // digits, i.e. it is in scientific notation. Otherwise the "full"
+            // form is just floating-point noise the display already rounded away
+            // (sqrt(144)+cbrt(27) collapses to 15 but expands to
+            // 15.0000...02), and treating that as expandable steals the
+            // left-click for a no-op toggle -- which is exactly what stopped the
+            // number-name reading from appearing on plain integer results.
+            const bool scientific = collapsed.contains(QLatin1Char('e'))
+                || collapsed.contains(QLatin1Char('E'));
+            const QString expandForm =
+                (scientific && full != collapsed) ? full : QString();
             return { collapsed, ResultType::ok, expandForm };
         }
     }
@@ -1531,7 +1643,7 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
 
     // Both failed. If BigDec hit a genuine math/domain error (sqrt of negative,
     // division by zero, log of a non-positive, ...) rather than a plain parse
-    // failure, surface it — far clearer than a blanket "cannot parse".
+    // failure, surface it - far clearer than a blanket "cannot parse".
     if (isDomainError(berr)) return { berr, ResultType::err };
     return {};
 }
@@ -1575,7 +1687,7 @@ static bool isValidIdentifier(const QString& name, const VarMap& vars) {
 // ----------------------------------------------------------------------
 CalcResult MathEngine::evaluate(const QString& expr) {
     CalcResult r = dispatchEvaluate(expr);
-    // Record the last numeric answer as `ans` — only when the result is a bare
+    // Record the last numeric answer as `ans` - only when the result is a bare
     // number we can reuse (skips assignment confirmations, equality proofs,
     // errors, and geometry cards).
     if (r.type == ResultType::ok || r.type == ResultType::big || r.type == ResultType::trig) {
@@ -1590,24 +1702,44 @@ CalcResult MathEngine::evaluate(const QString& expr) {
 CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
     if (expr.trimmed().isEmpty()) throw std::runtime_error("Empty expression");
 
+    // Word problems are read from the RAW text for exactly the same reason the
+    // phrases below are: "times as many", "more ... than" and friends are the
+    // very forms NaturalLanguage rewrites into arithmetic. Gated by a strict
+    // sniff so ordinary expressions never reach the solver, and a failed solve
+    // reports which sentence defeated it rather than guessing.
+    if (WordProblem::looksLikeWordProblem(expr)) {
+        const WordProblem::Solution s = WordProblem::solve(expr);
+        return { WordProblem::format(s), s.solved ? ResultType::ok : ResultType::err };
+    }
+
+    // Multi-word named quantities are handled on the RAW text, before anything
+    // else touches it. Their names contain ordinary English words that
+    // NaturalLanguage::preprocess rewrites into arithmetic ("of" becomes a
+    // multiplication, "with" feeds the power forms), so both defining one and
+    // using one has to happen up front or the name is destroyed before we ever
+    // see it. Substituting first turns the phrase into a plain number, after
+    // which preprocess has nothing left to mangle.
+    { CalcResult r = tryPhraseAssignment(expr); if (r.type != ResultType::none) return r; }
+    const QString phrasesResolved = substitutePhrases(expr);
+
     // Preprocess FIRST, so statement splitting and every downstream classifier
     // work on the same normalised text. Otherwise a natural-language system like
     // "x plus y equals 5 then x minus y equals 1" would be split before its
     // "equals" became "=", and mis-handled as a sequence instead of a system.
-    QString processed = NaturalLanguage::preprocess(expr);
+    QString processed = NaturalLanguage::preprocess(phrasesResolved);
 
-    // Conditional ("if x = 5 then ... else ...") — checked before statements so
+    // Conditional ("if x = 5 then ... else ...") - checked before statements so
     // its "then" is the conditional keyword, not a statement separator.
     { CalcResult r = tryConditional(processed); if (r.type != ResultType::none) return r; }
 
-    // Multi-statement sequence ("x = 5; y = 10; x + y" or "... then ...") — run
+    // Multi-statement sequence ("x = 5; y = 10; x + y" or "... then ...") - run
     // each statement in order (a pure system of equations is left to trySystem).
     { CalcResult r = tryStatements(processed); if (r.type != ResultType::none) return r; }
 
-    // "EXPR where x = 5" — evaluate EXPR with local (non-persistent) bindings.
+    // "EXPR where x = 5" - evaluate EXPR with local (non-persistent) bindings.
     { CalcResult r = tryWhere(processed); if (r.type != ResultType::none) return r; }
 
-    // "vars" / "variables" — list what's currently stored.
+    // "vars" / "variables" - list what's currently stored.
     if (processed == "vars" || processed == "variables") {
         const QStringList names = variableRegistry().keys();
         if (names.isEmpty()) return { "No variables defined", ResultType::ok };
@@ -1621,7 +1753,7 @@ CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
         return { lines.join("\n"), ResultType::ok };
     }
 
-    // "clear vars" / "reset vars" — wipe all stored variables.
+    // "clear vars" / "reset vars" - wipe all stored variables.
     if (processed == "clear vars" || processed == "reset vars" || processed == "clearvars") {
         variableRegistry().clear();
         return { "Variables cleared", ResultType::ok };
@@ -1652,13 +1784,13 @@ CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
     r = tryFunctionDefinition(processed); if (r.type != ResultType::none) return r;
     r = tryFunctionCall(processed);       if (r.type != ResultType::none) return r;
 
-    // Variable assignment ("x = 5") — before algebra, so it stores instead of
+    // Variable assignment ("x = 5") - before algebra, so it stores instead of
     // being "solved". Then substitute every stored variable into the rest of the
     // expression so the remaining handlers see plain numbers.
     r = tryAssignment(processed);         if (r.type != ResultType::none) return r;
     processed = substituteVariables(processed);
 
-    // Explicit "factor(...)" keyword — checked before conversion/geometry so
+    // Explicit "factor(...)" keyword - checked before conversion/geometry so
     // "factor" is never mistaken for a unit or shape.
     r = tryFactor(processed);      if (r.type != ResultType::none) return r;
 
@@ -1668,7 +1800,7 @@ CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
 
     if (!processed.contains('=') && !Expr::detectVariables(processed).isEmpty()) {
         const QString simplified = Simplifier::simplify(processed);
-        // Only treat it as a simplification if terms actually combined — compare
+        // Only treat it as a simplification if terms actually combined - compare
         // ignoring whitespace, so "y + 3" -> "y+3" isn't reported as a "result"
         // (that expression is really an undefined variable, handled below).
         if (!simplified.isEmpty()
@@ -1680,7 +1812,7 @@ CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
     // with f defined earlier), expand those calls first, then let the algebra
     // path solve the resulting plain equation. We only do this when the input
     // wasn't already consumed as a definition/call above, and when it actually
-    // contains a user-function reference — otherwise nothing changes.
+    // contains a user-function reference - otherwise nothing changes.
     if (processed.contains('=')) {
         static const QRegularExpression idParen(R"(([A-Za-z][A-Za-z0-9_]*)\s*\()");
         bool refsUserFn = false;
@@ -1707,13 +1839,13 @@ CalcResult MathEngine::dispatchEvaluate(const QString& expr) {
 
     // Nothing handled it. If the leftover expression still references an
     // identifier we don't know (stored variables were already substituted
-    // above), name it — much friendlier than a blanket "cannot parse".
+    // above), name it - much friendlier than a blanket "cannot parse".
     const QSet<QString> unknown = Expr::detectVariables(processed);
     if (!unknown.isEmpty()) {
         QStringList names(unknown.begin(), unknown.end());
         names.sort();
         throw std::runtime_error(
-            (names.size() == 1 ? "'" + names.first() + "' is not defined — assign it first, e.g. "
+            (names.size() == 1 ? "'" + names.first() + "' is not defined - assign it first, e.g. "
                 + names.first() + " = 5"
                 : "Undefined: " + names.join(", ")).toStdString());
     }

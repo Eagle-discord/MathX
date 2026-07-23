@@ -16,6 +16,7 @@ public:
     void setRotationEnabled(bool enabled);
     void setHorizontalOffset(int offsetPixels);
     void setShapeColor(float r, float g, float b);
+    void setPropertyLabelsVisible(bool on);
     void setBackgroundColor(float r, float g, float b);
     void setMouseCtrl(bool enabled);
     void clearMeshes();

@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <QWidget>
+#include <functional>
 #include <QStackedWidget>
 #include <QLabel>
 #include <QLineEdit>
@@ -13,12 +14,12 @@
 // -- SettingsPage --------------------------------------------------------------
 // Full-window settings UI. Placed inside MainWindow's page 2.
 // Manages its own navigation stack:
-//   Level 0 — category overview (four cards)
-//   Level 1 — subcategory overview (cards for one category)
-//   Level 2 — setting list (all settings for one subcategory)
+//   Level 0 - category overview (four cards)
+//   Level 1 - subcategory overview (cards for one category)
+//   Level 2 - setting list (all settings for one subcategory)
 //
 // The address bar, search bar, visibility control, and pending queue footer
-// are persistent chrome — always visible regardless of navigation level.
+// are persistent chrome - always visible regardless of navigation level.
 // Only the content area transitions between levels.
 
 class CategoryCard;
@@ -33,13 +34,13 @@ class SettingsPage : public QWidget {
 public:
     explicit SettingsPage(QWidget* parent = nullptr);
 
-    // Called by MainWindow before navigating away — triggers apply animation
+    // Called by MainWindow before navigating away - triggers apply animation
     // then calls onComplete when done. If no pending changes, calls immediately.
     void prepareToLeave(std::function<void()> onComplete);
 
 signals:
     void navigateAway(); // emitted after apply animation completes
-    void copyHistoryRequested(); // user triggered "Copy history" — MainWindow has the actual data
+    void copyHistoryRequested(); // user triggered "Copy history" - MainWindow has the actual data
 
 private slots:
     void onCategoryClicked(CategoryId cat);
@@ -53,10 +54,10 @@ private slots:
 private:
     // -- Layout builders -------------------------------------------------------
     void buildChrome();         // address bar + search + visibility + footer
-    void buildCategoryView();   // level 0 — four category cards
+    void buildCategoryView();   // level 0 - four category cards
     void buildSubcategoryView(CategoryId cat);   // level 1
     void buildSettingView(SubcategoryId sub);     // level 2
-    void buildSearchView(const QString& query);  // search results — overlays current level
+    void buildSearchView(const QString& query);  // search results - overlays current level
 
     // -- Navigation ------------------------------------------------------------
     void navigateTo(int level);  // animates content transition

@@ -362,7 +362,7 @@ private:
         if (m_vars.contains(id))
             return { TokenType::Variable, id };
 
-        // Unknown identifier – treat as variable (or error, but variable is safer)
+        // Unknown identifier - treat as variable (or error, but variable is safer)
         return { TokenType::Variable, id };
     }
 };

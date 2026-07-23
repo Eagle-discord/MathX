@@ -159,9 +159,9 @@ const QList<SubcategoryDef>& allSubcategories() {
 //
 // Key path convention: "category/subcategory/settingName"
 // ApplyMode guide:
-//   Immediate — safe at any time (visual, display)
-//   Staged    — structural changes, apply on next Idle (threading, thresholds)
-//   Deferred  — math-affecting changes, apply after current op (angle unit, precision)
+//   Immediate - safe at any time (visual, display)
+//   Staged    - structural changes, apply on next Idle (threading, thresholds)
+//   Deferred  - math-affecting changes, apply after current op (angle unit, precision)
 //
 // NOTE on `affects`: this feeds the pending-queue and apply-animation labels
 // ("{labelBasic} - {affects}"). Every setting that can enter the pending
@@ -501,20 +501,6 @@ const QList<SettingDef>& allSettings() {
         // DISPLAY / GEOMETRY VIEWER
         // --------------------------------------------------------------------
         {
-            "display/geometry/autoRotate",
-            CategoryId::Display, SubcategoryId::GeometryViewer,
-            true, ControlType::Toggle, {}, {},
-            "Spin shapes automatically", "Auto-rotate shapes",
-            "Shapes slowly spin when first opened in the 3D viewer",
-            "Enables automatic rotation animation on shape load",
-            ApplyMode::Immediate,
-            "Updating auto-rotate setting",
-            "Auto-rotate updated",
-            VisibilityLevel::Basic,
-            {},
-            "3D shape viewer"
-        },
-        {
             "display/geometry/defaultShapeColor",
             CategoryId::Display, SubcategoryId::GeometryViewer,
             "#ffffff", ControlType::ColorPicker, {}, {},
@@ -579,6 +565,23 @@ const QList<SettingDef>& allSettings() {
         // --------------------------------------------------------------------
         // BEHAVIOR / COMPUTATION
         // --------------------------------------------------------------------
+        {
+            "behavior/results/numberNames",
+            CategoryId::Behavior, SubcategoryId::Computation,
+            "Number name", ControlType::Dropdown,
+            {"Number name", "Full number", "Off"}, {},
+            "Left-click a result", "Result click",
+            "What left-clicking a numeric result does: name its magnitude in "
+            "words (fifty, 1.35 quintillion), expand a collapsed value to all its "
+            "digits, or nothing",
+            "Chooses the left-click action wired onto numeric result labels",
+            ApplyMode::Immediate,
+            "Updating result click action",
+            "Result click action updated",
+            VisibilityLevel::Basic,
+            {},
+            "Result lines"
+        },
         {
             "behavior/computation/angleUnit",
             CategoryId::Behavior, SubcategoryId::Computation,
@@ -655,6 +658,20 @@ const QList<SettingDef>& allSettings() {
             "Session history"
         },
         {
+            "appearance/results/groupDigits",
+            CategoryId::Appearance, SubcategoryId::Typography,
+            false, ControlType::Toggle, {}, {},
+            "Group digits in results", "Digit grouping",
+            "Adds thousands separators to numbers in results (1,234,567)",
+            "NumberFormat::groupNumbers() is bypassed when off",
+            ApplyMode::Immediate,
+            "Updating digit grouping",
+            "Digit grouping updated",
+            VisibilityLevel::Basic,
+            {},
+            "Result lines"
+        },
+        {
             "behavior/memory/confirmClear",
             CategoryId::Behavior, SubcategoryId::Memory,
             true, ControlType::Toggle, {}, {},
@@ -694,7 +711,7 @@ const QList<SettingDef>& allSettings() {
             "History copied",
             VisibilityLevel::Basic,
             {"Copy terminal", "Export history", "Copy calculations"}
-            // Action — never enters the pending queue, no `affects` needed
+            // Action - never enters the pending queue, no `affects` needed
         },
 
         // --------------------------------------------------------------------
@@ -749,7 +766,7 @@ const QList<SettingDef>& allSettings() {
             "Exporting settings",
             "Settings exported",
             VisibilityLevel::Basic
-            // Action — no `affects` needed
+            // Action - no `affects` needed
         },
         {
             "system/data/importSettings",
@@ -762,7 +779,7 @@ const QList<SettingDef>& allSettings() {
             "Importing settings",
             "Settings imported",
             VisibilityLevel::Basic
-            // Action — no `affects` needed
+            // Action - no `affects` needed
         },
         {
             "system/data/resetAll",
@@ -770,12 +787,12 @@ const QList<SettingDef>& allSettings() {
             false, ControlType::Action, {}, {},
             "Reset everything to defaults", "Reset all settings",
             "Wipes all your settings and starts fresh",
-            "Calls Settings::instance().resetAll() — irreversible without export",
+            "Calls Settings::instance().resetAll() - irreversible without export",
             ApplyMode::Immediate,
             "Resetting all settings to defaults",
             "Settings reset",
             VisibilityLevel::Basic
-            // Action — no `affects` needed
+            // Action - no `affects` needed
         },
     };
     return list;

@@ -241,7 +241,7 @@ void CRTTextLabel::stripTargetColors(QImage& img) {
 // -- Slots ------------------------------------------------------------------
 
 void CRTTextLabel::onFlickerTick() {
-    // Gentle organic flicker — mostly steady with occasional dips
+    // Gentle organic flicker - mostly steady with occasional dips
     int roll = rand() % 100;
     if (roll < 5)        m_flickerAlpha = 180 + rand() % 40; // rare dim
     else if (roll < 15)  m_flickerAlpha = 220 + rand() % 35; // occasional

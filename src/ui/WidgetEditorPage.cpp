@@ -26,12 +26,12 @@ static QFont MF(int pt, int w = QFont::Normal) { return Theme::monoFont(pt, w); 
 
 // -- BigNum-backed numeric expression evaluation --------------------------
 // Int/Double properties are edited as plain text rather than a bounded
-// QSpinBox/QDoubleSpinBox, so the field can accept full expressions —
-// "2^100", "sqrt(2)", "5!"-style factorials via bigFactorial, pi, e, etc. —
+// QSpinBox/QDoubleSpinBox, so the field can accept full expressions -
+// "2^100", "sqrt(2)", "5!"-style factorials via bigFactorial, pi, e, etc. -
 // evaluated at arbitrary precision via BigNum::bigEval. The *result* still
 // has to be squeezed into whatever native type the underlying Qt property
 // actually is (a plain int or double member), so precision beyond that is
-// necessarily lost on assignment — the win is that the expression itself
+// necessarily lost on assignment - the win is that the expression itself
 // can involve numbers far larger than int/double could hold mid-calculation.
 static double evaluateBigExpr(const QString& text, bool& ok) {
     ok = false;
@@ -44,8 +44,8 @@ static double evaluateBigExpr(const QString& text, bool& ok) {
     return val;
 }
 
-// Small "ƒx" hint placed next to expression-capable fields so it's clear at
-// a glance they take formulas, not just a literal number — same spirit as
+// Small "Æ’x" hint placed next to expression-capable fields so it's clear at
+// a glance they take formulas, not just a literal number - same spirit as
 // the dropdown chevron hint used elsewhere in this file.
 static QLabel* buildExprHintLabel() {
     auto* hint = new QLabel("\u0192x");
@@ -73,7 +73,7 @@ static const QVector<QString> SECTION_ORDER = {
 
 // -- Display-name aliasing ------------------------------------------------
 // Qt's raw property names are sometimes ambiguous or misleading once shown
-// next to their siblings — e.g. QLabel/QTextEdit's "text" property actually
+// next to their siblings - e.g. QLabel/QTextEdit's "text" property actually
 // holds rich/HTML content, which is easy to confuse with "plainText" (the
 // stripped-down sibling some widgets also expose). This table gives the
 // confusing ones an explicit, clearer label. Anything not listed here falls
@@ -120,7 +120,7 @@ static QString displayNameForProperty(const QString& name) {
 
 // -- Importance ranking ---------------------------------------------------
 // Within a section, properties are shown in the order Qt's meta-object
-// happens to enumerate them, which is essentially arbitrary — so a widget's
+// happens to enumerate them, which is essentially arbitrary - so a widget's
 // actual headline property (its text, its value, whether it's checked...)
 // can end up buried under things like "cursor" or "whatsThis". This table
 // gives commonly load-bearing properties an explicit rank; anything not
@@ -148,7 +148,7 @@ static QString sectionForProperty(const QString& name) {
         };
 
     // Checked before "Text" on purpose: a name like "textColor" contains
-    // both "text" and "color", and it's fundamentally a color, not prose —
+    // both "text" and "color", and it's fundamentally a color, not prose -
     // whichever list runs first wins ties like that, so Appearance goes first.
     if (has({ "color", "colour", "font", "style", "icon", "pixmap",
               "opacity", "background", "border" }))
@@ -199,7 +199,7 @@ WidgetEditorPage::WidgetEditorPage(QWidget* parent) : QWidget(parent) {
     backRow->addStretch(1);
     root->addLayout(backRow);
 
-    // -- Widget name — centered heading -------------------------------------
+    // -- Widget name - centered heading -------------------------------------
     m_nameLabel = new QLabel;
     m_nameLabel->setAlignment(Qt::AlignCenter);
     m_nameLabel->setFont(MF(18, QFont::Bold));
@@ -260,7 +260,7 @@ void WidgetEditorPage::inspect(QWidget* target) {
 // dynamic property (display name + raw name, lowercased) when it was built,
 // and each section header got an "isSectionHeader" marker. Walking the
 // layout in order and remembering the most recent header lets a single pass
-// decide, retroactively, whether that header should stay visible — a header
+// decide, retroactively, whether that header should stay visible - a header
 // only makes sense to show if at least one of the rows under it survived
 // the filter.
 void WidgetEditorPage::applyFilter(const QString& query) {
@@ -327,7 +327,7 @@ QWidget* WidgetEditorPage::buildSectionHeader(const QString& title) {
 }
 
 void WidgetEditorPage::rebuild() {
-    // Clear existing rows — keep the trailing stretch + empty-state label,
+    // Clear existing rows - keep the trailing stretch + empty-state label,
     // which live at fixed positions (index 0 and the last item).
     while (m_propsLayout->count() > 2) {
         QLayoutItem* item = m_propsLayout->takeAt(1);
@@ -362,7 +362,7 @@ void WidgetEditorPage::rebuild() {
         // QApplication::notify, ahead of both object-level event filters and
         // virtual overrides like mousePressEvent). Flipping either one off
         // through this editor would permanently remove the only way to
-        // reopen it — there is no click that can reach a disabled or
+        // reopen it - there is no click that can reach a disabled or
         // invisible widget. See WidgetRegistry::forceReenableAll() for the
         // recovery path if a widget ever ends up stuck this way regardless.
         if (name == "enabled" || name == "visible")
@@ -380,7 +380,7 @@ void WidgetEditorPage::rebuild() {
             });
 
         // Only offer the styleSheet-based "Text Color" workaround if this
-        // widget has no genuine color-named property already — otherwise
+        // widget has no genuine color-named property already - otherwise
         // you'd see two rows claiming to control the same thing.
         const bool needsSyntheticTextColor = (section == "Appearance") && !hasRealColorProperty(props);
         if (props.isEmpty() && !needsSyntheticTextColor) continue;
@@ -417,7 +417,7 @@ static QString comboStyleSheet() {
 
 // -- "Text Color" via styleSheet --------------------------------------------
 // Plenty of widgets (MasterLabel included) have no real color-typed
-// property at all — their text color, if set, only exists as a "color: ...;"
+// property at all - their text color, if set, only exists as a "color: ...;"
 // declaration buried in their styleSheet string. Rather than leave that
 // invisible to the editor, we synthesize a "Text Color" row: it parses the
 // current styleSheet for a standalone "color:" declaration (deliberately not
@@ -446,7 +446,7 @@ static QString withStyleTextColor(const QString& styleSheet, const QColor& color
         out.replace(match.capturedStart(0), match.capturedLength(0), decl);
         return out;
     }
-    // No existing "color:" declaration — append one. Most styleSheets in
+    // No existing "color:" declaration - append one. Most styleSheets in
     // this codebase are flat instance-level declarations with no selector
     // braces (e.g. "background:%1;border:1px solid %2;"), so just append;
     // if a brace block is present instead, insert just after the opening
@@ -476,7 +476,7 @@ QWidget* WidgetEditorPage::buildStyleSheetTextColorRow(QWidget* target) {
     auto* nameLbl = new QLabel("Text Color");
     nameLbl->setFont(MF(9));
     nameLbl->setStyleSheet(QString("color:%1;background:transparent;").arg(Theme::MUTED));
-    nameLbl->setToolTip("No real color property here — this edits \"color: ...\" "
+    nameLbl->setToolTip("No real color property here - this edits \"color: ...\" "
         "inside the widget's styleSheet directly.");
     rl->addWidget(nameLbl, 1);
 
@@ -536,7 +536,7 @@ QWidget* WidgetEditorPage::buildRowForProperty(const QMetaProperty& prop, QWidge
     // under the hood, which would otherwise land in the plain int spinbox
     // or, worse, the freeform QLineEdit below. Catch them first and present
     // their named values as a dropdown instead. Flag types (multiple bits
-    // OR'd together) are simplified to single-select here for now — good
+    // OR'd together) are simplified to single-select here for now - good
     // enough for the common single-value case, but combined flag values
     // will just show as whichever named value happens to match the bits.
     if (prop.isEnumType()) {
@@ -564,7 +564,7 @@ QWidget* WidgetEditorPage::buildRowForProperty(const QMetaProperty& prop, QWidge
 
     // Some widgets store a color as a plain QString (e.g. "colorText"
     // holding a hex string like "#ff6b5b") rather than an actual QColor
-    // property — probably for serialization convenience. Type-wise these
+    // property - probably for serialization convenience. Type-wise these
     // would otherwise fall through to the generic QLineEdit below, showing
     // raw hex text instead of something you can actually pick a color with.
     // Catch anything string-typed whose name says "color"/"colour" and give
@@ -627,7 +627,7 @@ QWidget* WidgetEditorPage::buildRowForProperty(const QMetaProperty& prop, QWidge
                 edit->setText(QString::number(rounded));
             }
             else {
-                // Invalid expression — revert to the property's last known value.
+                // Invalid expression - revert to the property's last known value.
                 edit->setText(QString::number(
                     target->property(propName.toUtf8().constData()).toInt()));
             }
@@ -653,7 +653,7 @@ QWidget* WidgetEditorPage::buildRowForProperty(const QMetaProperty& prop, QWidge
                 edit->setText(QString::number(val, 'g', 12));
             }
             else {
-                // Invalid expression — revert to the property's last known value.
+                // Invalid expression - revert to the property's last known value.
                 edit->setText(QString::number(
                     target->property(propName.toUtf8().constData()).toDouble(), 'g', 12));
             }
@@ -682,7 +682,7 @@ QWidget* WidgetEditorPage::buildRowForProperty(const QMetaProperty& prop, QWidge
         break;
     }
     case QMetaType::QFont: {
-        // Only the family is exposed as a dropdown — point size, weight,
+        // Only the family is exposed as a dropdown - point size, weight,
         // italics etc. stay whatever they were, we just swap the family in.
         auto* combo = new QFontComboBox;
         combo->setFixedWidth(180);

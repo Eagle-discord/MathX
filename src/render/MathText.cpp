@@ -8,7 +8,7 @@
 namespace MathText {
 
 // ---------------------------------------------------------------------------
-// GlyphLib — harvests true vector outlines from the source font
+// GlyphLib - harvests true vector outlines from the source font
 // ---------------------------------------------------------------------------
 
 GlyphLib& GlyphLib::instance() {
@@ -30,16 +30,16 @@ const Glyph& GlyphLib::glyph(QChar ch) {
     font.setPixelSize(int(kBaseEm));
 
     Glyph g;
-    // addText() resolves the character through the font's outline data — the
+    // addText() resolves the character through the font's outline data - the
     // same Béziers the reference posters were set with.
     g.path.addText(QPointF(0, 0), font, QString(ch));
     g.advance = QFontMetricsF(font).horizontalAdvance(ch);
-    g.length = g.path.length();   // once, here — never per frame
+    g.length = g.path.length();   // once, here - never per frame
     return *m_cache.insert(ch, g);
 }
 
 // ---------------------------------------------------------------------------
-// Line — minimal math layout (runs + superscripts)
+// Line - minimal math layout (runs + superscripts)
 // ---------------------------------------------------------------------------
 
 namespace {
@@ -98,7 +98,7 @@ qreal Line::width(qreal em) const {
 }
 
 // ---------------------------------------------------------------------------
-// draw — staggered per-glyph outline trace + fill fade (the animation layer)
+// draw - staggered per-glyph outline trace + fill fade (the animation layer)
 // ---------------------------------------------------------------------------
 
 void draw(QPainter& p, const QVector<Placed>& glyphs, const QPointF& pos,
@@ -151,7 +151,7 @@ void draw(QPainter& p, const QVector<Placed>& glyphs, const QPointF& pos,
         if (trace < 1.0) {
             // Reveal the outline progressively: the SVG dash-offset trick.
             // Dash lengths are in pen-width units. Length was cached at
-            // harvest — QPainterPath::length() is too slow to call per frame.
+            // harvest - QPainterPath::length() is too slow to call per frame.
             const qreal len = pg.len;
             const qreal w   = style.outlineWidth;
             if (len > 0.0 && w > 0.0) {

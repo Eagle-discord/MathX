@@ -160,10 +160,47 @@ namespace BigNum {
 
         return s;
     }
-    // Bignum factorial — exact integer string
+    // Bignum factorial - exact integer string
     QString bigFactorial(BigInt n,
         std::function<void(int)> progressCallback = nullptr,
         std::function<void(const QString&)> phaseCallback = nullptr);
+
+    // -- Factorial size estimate ----------------------------------------------
+    // Instant estimate of how big n! is, for showing the magnitude while the
+    // exact value (whose base-10 formatting is the real wait for large n) is
+    // still being computed. Split into parts because the UI superscripts the
+    // exponent rather than printing it inline.
+    // One method's answer, so the two can be shown side by side.
+    struct MethodEstimate {
+        QString   mantissa;      // "8.2639"
+        long long exponent = 0;  // 5565708
+    };
+
+    struct FactorialEstimate {
+        bool      valid = false;
+        QString   nDisplay;      // "1000000"
+        QString   mantissa;      // headline (log-gamma, the more exact of the two)
+        long long exponent = 0;
+        QString   digits;        // "5,565,709" (grouped for reading)
+
+        // Both methods, kept so the card can compare them rather than silently
+        // picking one. Stirling is an APPROXIMATION OF log-gamma, so showing the
+        // pair is the actual lesson.
+        MethodEstimate stirling; // Stirling's series, with the 1/(12n) term
+        MethodEstimate gamma;    // log-gamma: ln(n!) = lgamma(n+1), essentially exact
+        QString   agreement;     // human-readable verdict on how close they are
+    };
+
+    // Stirling's series:  ln(n!) = n·ln n − n + ½·ln(2πn) + 1/(12n)
+    // The 1/(12n) term drops the error to ~1/(360n³), which keeps the digit
+    // count trustworthy — without it the count can be off by one when
+    // log10(n!) happens to land just under an integer.
+    FactorialEstimate factorialEstimate(const BigInt& n);
+
+    // Estimate for `expr` when it is a bare factorial big enough to be worth
+    // previewing; otherwise {valid=false}. Small factorials finish long before a
+    // preview would help, so they don't get one.
+    FactorialEstimate estimateForExpression(const QString& expr);
 
     // High-precision expression evaluator (no variables). bigEvalValue returns
     // the raw BigDec (so callers can format it as collapsed or full); bigEval is

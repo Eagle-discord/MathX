@@ -10,7 +10,7 @@ void Circle::setParameters(const QMap<QString, double>& params) {
     float newRadius = params.value("r", 1.0f);
     if (newRadius <= 0.0f) newRadius = 1.0f;
 
-    // FIX: the original read `static_cast<int>(m_segments)` — i.e. it read
+    // FIX: the original read `static_cast<int>(m_segments)` - i.e. it read
     // the shape's *own current* segment count instead of looking it up in
     // `params`. That made `newSegs != m_segments` always false, so segment
     // resolution could never actually change at runtime. Now reads from

@@ -45,7 +45,7 @@ public:
             QSlider::sub-page:horizontal{background:%2;border-radius:2px;}
         )").arg(Theme::DIM, Theme::ACCENT(), Theme::TEXT));
 
-        // FIX / FEATURE: was a read-only QLabel — value could only ever be
+        // FIX / FEATURE: was a read-only QLabel - value could only ever be
         // set to whatever the slider's tick resolution (m_step) allowed.
         // Now an editable QLineEdit so users can type an exact value at
         // full precision, independent of the slider's step size.
@@ -56,7 +56,7 @@ public:
         m_valEdit->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         m_valEdit->setFrame(false);
         m_valEdit->setCursor(Qt::IBeamCursor);
-        // FIX / FEATURE: no longer bounded to [minV, maxV] — the slider's
+        // FIX / FEATURE: no longer bounded to [minV, maxV] - the slider's
         // own drag range still stops at its ends (that's inherent to
         // dragging a handle), but typed input can go beyond it. Only
         // restrict to "looks like a real number", not a specific range.
@@ -95,7 +95,7 @@ public:
         // FEATURE: "dynamic" edge growth. While the handle is held pinned
         // at its maximum tick, this timer periodically expands both m_max
         // and m_step by the same factor. Because they scale together, the
-        // slider's own tick COUNT — (max-min)/step — never changes, so
+        // slider's own tick COUNT - (max-min)/step - never changes, so
         // the handle stays visually put at the right edge; only what that
         // edge *means* keeps growing. That's what gives the "held at the
         // wall but the value keeps climbing" feel instead of the drag
@@ -118,7 +118,7 @@ public:
         // outside the slider's own [0, toTick(maxV)] range, but
         // QAbstractSlider::setValue() clamps internally to the widget's
         // own min/max, so the handle just pins to whichever end is
-        // closer — it can't crash or go out of bounds visually.
+        // closer - it can't crash or go out of bounds visually.
         m_value = v;
 
         m_slider->blockSignals(true);
@@ -194,7 +194,7 @@ protected:
     }
 
 private slots:
-    // Fires only for direct user drags of the slider now — programmatic
+    // Fires only for direct user drags of the slider now - programmatic
     // moves via setValue() blockSignals() around this.
     void onSliderMoved(int tick) {
         double val = fromTick(tick);
@@ -210,7 +210,7 @@ private slots:
         double v = m_valEdit->text().toDouble(&ok);
         if (!ok) {
             // Malformed input somehow got past the validator (e.g. empty
-            // field on focus-out) — revert to the last good value.
+            // field on focus-out) - revert to the last good value.
             m_valEdit->setText(formatValue(m_value));
             return;
         }
@@ -268,7 +268,7 @@ private slots:
             m_value = m_max; // the pinned handle now represents this larger value
 
             // Tick count is unchanged by design, so the slider's own
-            // maximum() doesn't need updating — just keep the handle pinned
+            // maximum() doesn't need updating - just keep the handle pinned
             // at that same top tick after the rescale.
             m_slider->blockSignals(true);
             m_slider->setValue(m_slider->maximum());

@@ -3,9 +3,9 @@
 #include <QString>
 #include <QStringList>
 #include <QMap>
-#include "..\shapes\ShapeDef.h"
+#include "../shapes/ShapeDef.h"
 #include "BigNum.h"
-#include "..\constants\ResultTypes.h"
+#include "../constants/ResultTypes.h"
 
 struct CalcResult {
     QString result;
@@ -80,6 +80,9 @@ public:
     static bool          isVariableDefined(const QString& name);
     static QString       variableValue(const QString& name); // display value, "" if none
     static void          clearVariables();
+    // Bind a variable directly. The name may be a multi-word phrase ("apples
+    // with timmy"); it is normalised the same way an assignment would.
+    static void          setVariable(const QString& name, const QString& value);
 
 signals:
     // Emitted by tryAlgebra when a simplifiable form is detected.
@@ -87,7 +90,7 @@ signals:
     void simplification(const QString& before, const QStringList& after);
     void factorial(QString expr);
 private:
-    // Private constructor — only instance() can create it
+    // Private constructor - only instance() can create it
     explicit MathEngine(QObject* parent = nullptr) : QObject(parent) {}
 
     static CalcResult tryConversion(const QString& expr);
@@ -101,6 +104,9 @@ private:
     static CalcResult tryFactor(const QString& expr);
     static CalcResult trySystem(const QString& expr);
     static CalcResult tryAssignment(const QString& expr);
+    // Multi-word named quantities ("no. of apples with timmy = 5"). Runs on the
+    // raw input before natural-language preprocessing - see the .cpp for why.
+    static CalcResult tryPhraseAssignment(const QString& expr);
     static CalcResult tryStatements(const QString& expr);
     static CalcResult tryConditional(const QString& expr);
     static CalcResult tryWhere(const QString& expr);

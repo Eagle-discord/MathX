@@ -6,3 +6,6 @@ CMakeSettings.json
 /FeatureList.xlsx
 /~$FeatureList.xlsx
 /changes_new.txt
+/build
+/.idea
+.idea/

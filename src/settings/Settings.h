@@ -7,7 +7,7 @@
 #include <QTimer>
 #include "RegistryWatcher.h"
 
-// Forward declare — SettingsDef.h defines these fully
+// Forward declare - SettingsDef.h defines these fully
 struct SettingDef;
 
 // -- PendingChange -------------------------------------------------------------
@@ -27,23 +27,23 @@ struct PendingChange {
 };
 
 // -- ApplyMode -----------------------------------------------------------------
-// Immediate — applies the instant the control changes, never enters the queue
-// Staged    — queued, applies when RunState transitions to Idle
-// Deferred  — queued, applies when current operation completes
+// Immediate - applies the instant the control changes, never enters the queue
+// Staged    - queued, applies when RunState transitions to Idle
+// Deferred  - queued, applies when current operation completes
 enum class ApplyMode { Immediate, Staged, Deferred };
 
 // -- AnimationMode -------------------------------------------------------------
-// Once    — plays the full theatrical apply animation the first time only,
+// Once    - plays the full theatrical apply animation the first time only,
 //           then auto-downgrades to Never and shows the info message.
-// Always  — full animation every time the user navigates away with pending changes.
-// Never   — silent background apply, no animation, no delay.
+// Always  - full animation every time the user navigates away with pending changes.
+// Never   - silent background apply, no animation, no delay.
 enum class AnimationMode { Once, Always, Never };
 
 // -- HintState -----------------------------------------------------------------
 // Tracks the lifecycle of the visibility level hint
-// Active   — first open, hint visible, control glowing
-// Passive  — hint on demand via ? icon
-// Dormant  — bare label only, no visual noise
+// Active   - first open, hint visible, control glowing
+// Passive  - hint on demand via ? icon
+// Dormant  - bare label only, no visual noise
 enum class HintState { Active, Passive, Dormant };
 
 // -- VisibilityLevel -----------------------------------------------------------
@@ -63,7 +63,7 @@ enum class VisibilityLevel { Basic, Advanced, Developer };
 //   Settings::instance().setFontSize(12)
 //
 // Adding a new setting:
-//   1. Add its SettingDef entry in SettingsDef.cpp — nothing else needed
+//   1. Add its SettingDef entry in SettingsDef.cpp - nothing else needed
 //   2. Optionally add a typed getter/setter here for clean consumer code
 //
 // Apply pipeline:
@@ -97,7 +97,7 @@ public:
 
     // Flushes all Staged changes if idle, and all Deferred changes regardless.
     // Called by MainWindow on RunState::Idle transition and on navigation.
-    // isIdle — pass true when RunState is Idle, false otherwise.
+    // isIdle - pass true when RunState is Idle, false otherwise.
     void applyPending(bool isIdle);
 
     // Starts the 800ms debounce timer used in Background animation mode.
@@ -150,8 +150,10 @@ public:
     int     streamChunkSize()   const;
     QString angleUnit()         const;
     int     historySize()       const;
+    bool    groupDigits()       const;
+    QString numberNames()       const;
     bool    confirmClear()      const;
-    bool    autoRotate()        const;
+    bool    showPropertyLabels() const;
     QString defaultShapeColor() const;
     int  decimalPlaces() const;
     int fontSizeUI()         const;
@@ -175,7 +177,6 @@ public:
     void setAngleUnit(const QString& v);
     void setHistorySize(int v);
     void setConfirmClear(bool v);
-    void setAutoRotate(bool v);
     void setDefaultShapeColor(const QString& v);
     void setDecimalPlaces(int v);
     void setFontSizeUI(int v);
@@ -185,7 +186,7 @@ public:
     void setFontSizeSidebar(int v);
     void setFontSizeSplash(int v);
 signals:
-    // -- Immediate signals — fire the moment the setting changes ---------------
+    // -- Immediate signals - fire the moment the setting changes ---------------
     void fontSizeChanged(int newSize);
     void fontFamilyChanged(const QString& newFamily);
     void accentColorChanged(const QString& newColor);
@@ -195,8 +196,10 @@ signals:
     void truncationLimitChanged(int newLimit);
     void angleUnitChanged(const QString& newUnit);
     void historySizeChanged(int newSize);
+    void groupDigitsChanged(bool enabled);
+    void numberNamesChanged(const QString& mode);
     void confirmClearChanged(bool enabled);
-    void autoRotateChanged(bool enabled);
+    void showPropertyLabelsChanged(bool enabled);
     void defaultShapeColorChanged(const QString& newColor);
     void decimalPlacesChanged(int places);
     void fontSizeUIChanged(int pt);
@@ -208,7 +211,7 @@ signals:
     void fontSizeSplashChanged(int pt);
 
 
-    // -- Staged signals — fire when applyPending() commits them ----------------
+    // -- Staged signals - fire when applyPending() commits them ----------------
     void splitThreadsChanged(bool enabled);
     void bigNumThresholdChanged(int newThreshold);
     void streamChunkSizeChanged(int newSize);
@@ -219,9 +222,9 @@ signals:
     void animationModeChanged(AnimationMode newMode);
 
     // -- Queue signals ---------------------------------------------------------
-    void pendingChanged();          // queue was modified — UI should refresh
+    void pendingChanged();          // queue was modified - UI should refresh
     void pendingApplied(const QList<PendingChange>& applied); // apply complete
-    void pendingHintNeeded();       // first-ever pending change — show the hint once
+    void pendingHintNeeded();       // first-ever pending change - show the hint once
 
     // -- Reset -----------------------------------------------------------------
     void settingsReset();
@@ -230,7 +233,7 @@ signals:
     // Emitted when HKCU\Software\MathX is modified externally (regedit, script).
     // changedKeys lists every key whose value differs from our in-memory copy.
     // All relevant typed signals are also emitted, so most consumers don't need
-    // to connect to this directly — it's mainly for debug/diagnostics.
+    // to connect to this directly - it's mainly for debug/diagnostics.
     void externalChangeApplied(QStringList changedKeys);
 
 private:

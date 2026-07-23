@@ -47,7 +47,7 @@ public:
         if (m_toggleBtn) m_toggleBtn->hide();
         // hide sliders
         for (auto* s : m_sliders) s->hide();
-        // hide dividers and title — they're direct children of m_body
+        // hide dividers and title - they're direct children of m_body
         // walk m_layout and hide non-ResultRow widgets
         for (int i = 0; i < m_layout->count(); ++i) {
             QWidget* w = m_layout->itemAt(i)->widget();

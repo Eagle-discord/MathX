@@ -37,7 +37,7 @@ ScrubbableExpression::ScrubbableExpression(const QString& expression, QWidget* p
     applyPrefixMargin();
 
     // Fail loudly rather than silently. A ScrubbableExpression with nothing
-    // connected to expressionEdited drags beautifully and recomputes nothing —
+    // connected to expressionEdited drags beautifully and recomputes nothing -
     // which is indistinguishable from a broken evaluator. Check on the next
     // event-loop turn, by which point the caller has had its chance to connect.
     QTimer::singleShot(0, this, [this] {
@@ -445,7 +445,7 @@ void ScrubbableExpression::beginEdit(int caretChar) {
     ed->setFrame(false);
     ed->setGeometry(contentsRect());        // sits exactly over the expression
     // Opaque background (matching the output area) so the editor fully covers
-    // the label's text underneath — a transparent editor would let the label
+    // the label's text underneath - a transparent editor would let the label
     // text show through and read as a doubled line. paintEvent also suppresses
     // the label text while editing; the two together make it robust.
     ed->setStyleSheet(QString(

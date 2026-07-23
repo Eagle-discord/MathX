@@ -60,7 +60,7 @@ BatchRunner::BatchRunner(QWidget* parent) : QDialog(parent) {
     m_timeoutTimer = new QTimer(this);
     m_timeoutTimer->setSingleShot(true);
     connect(m_timeoutTimer, &QTimer::timeout, this, [this]() {
-        appendLog(QString("  ⏱ Timeout after %1 s — skipping").arg(TIMEOUT_MS / 1000), Theme::WARN);
+        appendLog(QString("  ⏱ Timeout after %1 s - skipping").arg(TIMEOUT_MS / 1000), Theme::WARN);
         m_results.append("[timeout]");
         onJobDone();   // treat as finished and move on
         });
@@ -106,7 +106,7 @@ void BatchRunner::buildUi() {
         "QSplitter::handle { background:%1; }"
     ).arg(Theme::BORDER));
 
-    // Left panel — expression editor
+    // Left panel - expression editor
     auto* leftWidget = new QWidget;
     auto* leftL = new QVBoxLayout(leftWidget);
     leftL->setContentsMargins(0, 0, 4, 0);
@@ -148,7 +148,7 @@ void BatchRunner::buildUi() {
     leftL->addWidget(m_editor, 1);
     leftL->addLayout(editorBtnRow);
 
-    // Right panel — live log
+    // Right panel - live log
     auto* rightWidget = new QWidget;
     auto* rightL = new QVBoxLayout(rightWidget);
     rightL->setContentsMargins(4, 0, 0, 0);
@@ -309,7 +309,7 @@ void BatchRunner::onStartClicked() {
         return;
     }
 
-    // Fresh run — parse the editor
+    // Fresh run - parse the editor
     m_expressions.clear();
     m_results.clear();
     m_current = -1;
@@ -382,14 +382,14 @@ void BatchRunner::runNext() {
 
     m_timeoutTimer->start(TIMEOUT_MS);
 
-    // Fire the expression into MainWindow — result comes back via onJobDone()
+    // Fire the expression into MainWindow - result comes back via onJobDone()
     emit runExpression(expr);
 }
 
 void BatchRunner::onJobDone() {
     // Guard: only process if we're actively running
     if (m_state != State::Running) return;
-    // Guard: called once per job — double-calls are silently ignored
+    // Guard: called once per job - double-calls are silently ignored
     if (m_current < 0 || m_current >= m_expressions.size()) return;
 
     m_timeoutTimer->stop();
@@ -422,7 +422,7 @@ void BatchRunner::finishBatch() {
         .arg(m_doneCount)
         .arg(m_errorCount));
 
-    m_statusLbl->setText(QString("Done — %1 / %2").arg(m_doneCount).arg(m_expressions.size()));
+    m_statusLbl->setText(QString("Done - %1 / %2").arg(m_doneCount).arg(m_expressions.size()));
     m_statusLbl->setStyleSheet(QString("color:%1;").arg(Theme::ACCENT()));
 }
 

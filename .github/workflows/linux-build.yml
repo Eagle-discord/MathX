@@ -1,0 +1,42 @@
+name: Linux Build
+
+# Compiles MathX on a real Ubuntu runner with GCC + Qt6 from the distro
+# packages — the headless counterpart to the Windows/MSVC build. Proves the
+# cross-platform port keeps building on Linux on every push, and runs a quick
+# headless --run-batch smoke test so we know the binary actually executes.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:   # lets you trigger it by hand from the Actions tab
+
+jobs:
+  build:
+    name: Ubuntu (GCC + Qt6 via apt)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build \
+            qt6-base-dev libqt6opengl6-dev qt6-base-dev-tools \
+            libboost-dev libgl1-mesa-dev
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Smoke test (headless --run-batch)
+        run: |
+          printf '# CI smoke suite\n2+2 = 4\ngcd(12,18) = 6\n5!\n1 km to m\n' > suite.txt
+          # MathX constructs a QApplication even in batch mode, so give it the
+          # offscreen platform plugin (no display on a CI runner).
+          QT_QPA_PLATFORM=offscreen ./build/MathX --run-batch suite.txt

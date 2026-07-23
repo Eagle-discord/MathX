@@ -4,6 +4,8 @@
 #include <functional>
 #include <cmath>
 #include <QDebug>
+#include <QLocale>
+#include <QRegularExpression>
 
 // -- bigPow --------------------------------------------------------------------
 QString BigNum::bigPow(BigInt base, BigInt exp,
@@ -93,6 +95,87 @@ QString BigNum::bigFactorial(BigInt n,
     return QString::fromStdString(result.str());
 }
 
+// -- factorialEstimate ---------------------------------------------------------
+// Stirling's series in logarithms. Working in logs is the whole point: it turns
+// the product 1*2*...*n into a sum we have a closed form for, so the size of n!
+// comes out in a handful of double ops regardless of how astronomically large
+// the actual number is.
+//
+//   ln(n!) = n*ln(n) - n + (1/2)*ln(2*pi*n) + 1/(12n)
+//
+// Dividing by ln(10) gives log10(n!); its integer part is the exponent (digit
+// count = exponent + 1) and 10^(fractional part) is the leading mantissa. The
+// mantissa is good to ~4-5 significant figures, which is all a preview needs.
+// Split a natural log of n! into the mantissa/exponent pair we display.
+static BigNum::MethodEstimate splitLog(double lnFact)
+{
+    BigNum::MethodEstimate m;
+    const double log10fact = lnFact / std::log(10.0);
+    m.exponent = static_cast<long long>(std::floor(log10fact));
+    const double mant = std::pow(10.0, log10fact - static_cast<double>(m.exponent));
+    m.mantissa = QString::number(mant, 'f', 4);
+    return m;
+}
+
+BigNum::FactorialEstimate BigNum::factorialEstimate(const BigInt& n)
+{
+    FactorialEstimate e;
+    if (n < 2) return e;                       // 0! and 1! need no preview
+
+    const double nd = static_cast<double>(n);
+
+    // Stirling's series. The 1/(12n) term is the first correction; without it
+    // the error is ~1/(12n), with it ~1/(360n^3).
+    const double lnStirling = nd * std::log(nd) - nd
+        + 0.5 * std::log(2.0 * 3.14159265358979323846 * nd)
+        + 1.0 / (12.0 * nd);
+
+    // log-gamma. ln(n!) = lgamma(n+1) exactly (to double precision), which is
+    // the value Stirling is approximating - so this is the reference, not a
+    // rival method.
+    const double lnGamma = std::lgamma(nd + 1.0);
+
+    e.stirling = splitLog(lnStirling);
+    e.gamma = splitLog(lnGamma);
+
+    // Headline uses the reference value.
+    e.valid = true;
+    e.nDisplay = QString::fromStdString(n.str());
+    e.mantissa = e.gamma.mantissa;
+    e.exponent = e.gamma.exponent;
+    e.digits = QLocale::system().toString(static_cast<qlonglong>(e.gamma.exponent + 1));
+
+    // How close did Stirling get? Compare in the logarithm, where the whole
+    // calculation lives; a relative gap there is what actually bounds the digits.
+    if (e.stirling.mantissa == e.gamma.mantissa && e.stirling.exponent == e.gamma.exponent) {
+        e.agreement = QStringLiteral("identical to 5 significant figures");
+    }
+    else {
+        const double rel = std::abs(lnStirling - lnGamma) / std::abs(lnGamma);
+        e.agreement = QStringLiteral("differ by %1% in the logarithm")
+            .arg(rel * 100.0, 0, 'g', 2);
+    }
+    return e;
+}
+
+BigNum::FactorialEstimate BigNum::estimateForExpression(const QString& expr)
+{
+    // Same shape the worker matches, so a preview appears for exactly the inputs
+    // that take the slow exact path.
+    static const QRegularExpression factRe(
+        R"(^\s*(?:fact\s*\(\s*(\d+)\s*\)|(\d+)\s*!)\s*$)");
+    const auto m = factRe.match(expr);
+    if (!m.hasMatch()) return {};
+
+    const QString nStr = m.captured(1).isEmpty() ? m.captured(2) : m.captured(1);
+    // Below this the exact answer lands faster than the preview is useful.
+    if (nStr.size() > 9) return {};                       // absurd n, don't try
+    const BigInt n(nStr.toStdString());
+    if (n < 10000) return {};
+
+    return factorialEstimate(n);
+}
+
 // -- Expression parser ---------------------------------------------------------
 struct BTok {
     const QString& s;
@@ -107,7 +190,7 @@ struct BTok {
     QChar get() { skip(); return pos < s.size() ? s[pos++] : QChar(0); }
     bool atEnd() { skip(); return pos >= s.size(); }
 
-    // Returns a QStringView slice — zero allocation
+    // Returns a QStringView slice - zero allocation
     QStringView readDigits() {
         skip();
         int start = pos;
@@ -189,7 +272,7 @@ static BigDec bCallFn(const QString& name, BTok& t)
     const BigDec DEG = BigNum::PI / 180;         // degrees -> radians
     const BigDec RAD = BigDec(180) / BigNum::PI; // radians -> degrees
 
-    // Trigonometry — degree-based by default, radian variants suffixed 'r'
+    // Trigonometry - degree-based by default, radian variants suffixed 'r'
     // (matches the double evaluator in Expr.cpp).
     if (fn == "sin") { need(1); return bmp::sin(args[0] * DEG); }
     if (fn == "cos") { need(1); return bmp::cos(args[0] * DEG); }
@@ -214,7 +297,7 @@ static BigDec bCallFn(const QString& name, BTok& t)
     if (fn == "atanh") { need(1); return bmp::atanh(args[0]) * RAD; }
 
     // Powers, roots, logarithms
-    if (fn == "sqrt") { need(1); if (args[0] < 0) throw std::runtime_error("sqrt of negative"); return bmp::sqrt(args[0]); }
+    if (fn == "sqrt") { need(1); if (args[0] < 0) throw std::runtime_error("Unable to calculate sqrt of a negative number"); return bmp::sqrt(args[0]); }
     if (fn == "cbrt") { need(1); return bmp::cbrt(args[0]); }
     if (fn == "abs") { need(1); return bmp::abs(args[0]); }
     if (fn == "exp") { need(1); return bmp::exp(args[0]); }
@@ -305,7 +388,7 @@ static BigDec bPrim(BTok& t)
         return v;
     }
     if (t.peek().isDigit() || t.peek() == '.') {
-        // Build number string using index slicing — no char-by-char append
+        // Build number string using index slicing - no char-by-char append
         t.skip();
         int start = t.pos;
         while (t.pos < t.s.size() && t.s[t.pos].isDigit()) ++t.pos;
@@ -382,7 +465,7 @@ static BigDec bTerm(BTok& t)
         if (op != '*' && op != '/') break;
         t.get();
         BigDec r = bUnary(t);
-        // No BigDec(...) wrapping — let expression templates evaluate lazily
+        // No BigDec(...) wrapping - let expression templates evaluate lazily
         if (op == '*') v *= r;
         else {
             if (r == 0) throw std::runtime_error("Division by zero");

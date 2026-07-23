@@ -38,7 +38,7 @@ private:
     int  m_propsPanelWidth = 260;
     void updatePropsPanelWidth();
     // Single builder for the properties card. BOTH card-rebuild paths
-    // (onShapeChanged and setShape) must use this — a card built without the
+    // (onShapeChanged and setShape) must use this - a card built without the
     // formula connections silently breaks the walkthrough trigger.
     void rebuildPropsCard();
     QCheckBox* m_rotateCheckbox = nullptr;
@@ -53,6 +53,10 @@ private:
     QCheckBox* m_mouseCtrlEnabled = nullptr;
     QPushButton* m_backButton = nullptr;
     RenderWidget* m_renderWidget = nullptr;
+    // Geometry settings that had no consumer until now: applied on init and
+    // kept in step with the settings page afterwards.
+    void applyGeometrySettings();
+    void wireGeometrySettings();
     QMap<QString, QSlider*> m_sliders;
     QMap<QString, QLabel*>  m_labels;
     QMap<QString, double>   m_params;

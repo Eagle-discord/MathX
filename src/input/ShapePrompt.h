@@ -2,7 +2,7 @@
 #include <QString>
 #include <QStringList>
 #include <QMap>
-#include "..\shapes\ShapeDef.h"
+#include "../shapes/ShapeDef.h"
 struct ShapePrompt {
     QString command;
     QStringList params;

@@ -1,19 +1,19 @@
 #pragma once
 //
-// MathText — our own character-by-character text system, built from the source
+// MathText - our own character-by-character text system, built from the source
 // font's actual vector outlines.
 //
 // The reference posters use Noto Sans (Medium/SemiBold) for annotation text
 // like "cos(π)+isin(π)", and a Computer-Modern-style serif for the math
 // (πr²). Instead of tracing pixels, GlyphLib harvests each character's TRUE
-// Bézier outline from the font file into a QPainterPath — so every glyph
+// Bézier outline from the font file into a QPainterPath - so every glyph
 // becomes vector data WE own. The same harvester works on any font family:
 // that is the "pattern that goes to other fonts".
 //
 // On top of the glyph library sit two orthogonal layers:
-//   MATH      — Line: a tiny typesetting engine (runs, superscripts, colour
+//   MATH      - Line: a tiny typesetting engine (runs, superscripts, colour
 //               groups; fractions/radicals can be added the same way).
-//   ANIMATION — draw(): renders placed glyphs at a progress t, with each glyph
+//   ANIMATION - draw(): renders placed glyphs at a progress t, with each glyph
 //               tracing its own outline stroke-by-stroke and then filling in
 //               (the classic hand-drawn math-animation look). Only possible
 //               because glyphs are paths, not drawText() calls.
@@ -30,13 +30,20 @@
 namespace MathText {
 
 // One harvested character: outline path (baseline at y=0, sized to kBaseEm)
-// plus its horizontal advance and outline length (computed ONCE at harvest —
+// plus its horizontal advance and outline length (computed ONCE at harvest -
 // QPainterPath::length() walks every element and is far too slow per frame).
 struct Glyph {
     QPainterPath path;
     qreal        advance = 0;
     qreal        length = 0;
 };
+
+// How long a line of formula text takes to write itself on, in seconds. ONE
+// value app-wide: the geometry walkthrough and the factorial estimate card both
+// read it, so formula text draws at a single pace and tuning here tunes both.
+// Drive progress from a wall clock against this, never a fixed step per timer
+// tick - stepping per tick makes the speed depend on how often the timer fires.
+constexpr qreal kDrawOnSeconds = 1.4;
 
 // Em size the outlines are harvested at; layout scales from this. Large so
 // downscaled curves stay crisp.
@@ -54,7 +61,7 @@ public:
 
 private:
     GlyphLib() = default;
-    // Noto Sans Regular — the reference posters' annotation face, embedded via
+    // Noto Sans Regular - the reference posters' annotation face, embedded via
     // resources/fonts/NotoSans-Regular.ttf. (CMU Serif, also bundled, is the
     // TeX/manim alternative for formula text; switch via setFamily.)
     QString m_family = QStringLiteral("Noto Sans");
@@ -64,7 +71,7 @@ private:
 // A glyph positioned by layout: its path is already translated/scaled into
 // line-local coordinates (baseline at y=0, line starts at x=0).
 //
-// PERF: layout() transforms QPainterPaths, which allocates — cache the
+// PERF: layout() transforms QPainterPaths, which allocates - cache the
 // returned vector wherever the text is drawn every frame (the walkthrough
 // caches per indicator/term) instead of re-laying-out per frame.
 struct Placed {
@@ -106,7 +113,7 @@ void draw(QPainter& p, const QVector<Placed>& glyphs, const QPointF& pos,
           const Style& style, qreal t = 1.0);
 
 // Pre-harvests the characters the walkthroughs use. Harvesting (outline +
-// length) costs real time per character — call this once at startup (next to
+// length) costs real time per character - call this once at startup (next to
 // NaturalLanguage::warmUp) so the first formula click doesn't hitch.
 void warmUp();
 

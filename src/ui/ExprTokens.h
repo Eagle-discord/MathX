@@ -1,5 +1,5 @@
 #pragma once
-//  ExprTokens — a reusable model of the *numeric literals* inside an expression
+//  ExprTokens - a reusable model of the *numeric literals* inside an expression
 //  string, with the geometry needed to hit-test them against a mouse position.
 //
 //  This is the data type that makes "drag a number to change it" possible:
@@ -11,7 +11,7 @@
 //
 //  Given a click at pixel x, `hitTest` returns the index of the token whose
 //  rendered span contains (or is nearest to) that x. Dragging then rewrites
-//  only that token's substring, preserving the rest of the expression exactly —
+//  only that token's substring, preserving the rest of the expression exactly -
 //  including spacing, parentheses, and any non-numeric text.
 //
 //  Decimal preservation matters: scrubbing "3.50" must yield "3.60", not "3.6".
@@ -36,7 +36,7 @@ struct NumberToken {
 };
 
 // ---------------------------------------------------------------------------
-//  ExprTokens — tokenise once, then hit-test and rewrite many times.
+//  ExprTokens - tokenise once, then hit-test and rewrite many times.
 // ---------------------------------------------------------------------------
 class ExprTokens {
 public:

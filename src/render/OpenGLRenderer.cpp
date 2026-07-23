@@ -21,7 +21,7 @@
 #include "../constants/Theme.h"
 #include "MathText.h"
 
-// Helper to avoid GLU dependency – custom perspective
+// Helper to avoid GLU dependency - custom perspective
 static void setPerspective(float fovY, float aspect, float zNear, float zFar) {
     float fH = tan(fovY / 360.0f * M_PI) * zNear;
     float fW = fH * aspect;
@@ -34,13 +34,16 @@ static void setPerspective(float fovY, float aspect, float zNear, float zFar) {
 // opposite side of the cuboid, completing the surface.
 static constexpr float kTermStart = 1.5f;   // first term begins
 static constexpr float kTermGap = 1.8f;   // start-to-start spacing
-static constexpr float kTermDur = 1.4f;   // build duration per term
+static constexpr float kTermDur =
+    static_cast<float>(MathText::kDrawOnSeconds);   // build duration per term
+static_assert(kTermDur <= 1.8f,
+    "kTermDur must stay <= kTermGap or consecutive terms overlap");
 static constexpr float kDupStart = kTermStart + 3 * kTermGap + 0.2f;  // 7.1
 static constexpr float kDupDur = 1.8f;   // block rotation duration
 
 // -- Ending sequence: hold the completed surface, then a pure white glow
 // engulfs the screen and fades back out to reveal the plain cuboid. The
-// walkthrough state is cleared BEHIND the white — the reveal shows the shape
+// walkthrough state is cleared BEHIND the white - the reveal shows the shape
 // exactly as it was before the animation.
 static constexpr float kEndHold = 5.0f;   // hold after the block lands
 static constexpr float kWhiteIn = 0.9f;   // white swells over the screen
@@ -53,7 +56,7 @@ static constexpr float kAnimEnd = kWhiteFull + kWhiteHold + kWhiteOut;
 // The duplicated half-shell moves as ONE rigid block: a 180-degree yaw about
 // the box centre combined with a vertical flip. At t=1 this composes to the
 // exact point reflection (-x,-y,-z), landing the block on the opposite three
-// faces — which no single proper rotation can do for a general cuboid.
+// faces - which no single proper rotation can do for a general cuboid.
 static QVector3D dupTransform(const QVector3D& v, float t) {
     const float a = float(M_PI) * t;
     const float c = std::cos(a);
@@ -93,7 +96,7 @@ OpenGLRenderer::OpenGLRenderer(QWidget* parent)
     // Request 4x multisampling for smoother edges, and UNCAP the frame rate:
     // swap interval 0 disables vsync blocking, so the frameSwapped loop spins
     // as fast as the GPU can render (motion is dt-based, so speed is
-    // unaffected — only smoothness improves).
+    // unaffected - only smoothness improves).
     QSurfaceFormat fmt;
     fmt.setSamples(4);
     fmt.setSwapInterval(0);
@@ -144,7 +147,7 @@ void OpenGLRenderer::setShape(const QString& type, const QMap<QString, double>& 
 
     if (m_currentShape && m_shapeType == type) {
         // Same shape type (e.g. a slider drag firing many valueChanged
-        // events per second) — just update parameters. Recreating the
+        // events per second) - just update parameters. Recreating the
         // RenderShape here previously destroyed the old one's GPU mesh
         // (VAO/VBO/EBO) without a current GL context, leaking the buffers,
         // and forced a full mesh rebuild + re-upload on every tick.
@@ -380,7 +383,7 @@ void OpenGLRenderer::initGlow() {
         load(m_compositeShader, ":/shaders/fullscreen.vert", ":/shaders/composite.frag");
 
     if (!ok) {
-        qWarning() << "Glow shaders failed to compile — using direct render."
+        qWarning() << "Glow shaders failed to compile - using direct render."
             << m_prefilterShader.log() << m_blurShader.log() << m_compositeShader.log();
         m_glowReady = false;
         return;
@@ -414,7 +417,7 @@ void OpenGLRenderer::allocateGlowTargets(int w, int h) {
     if (m_shapeType == "Circle") return;
 
     // Scene renders into an 8x multisampled FBO (smooth wireframe + highlight
-    // edges), which cannot be texture-sampled directly — it resolves into
+    // edges), which cannot be texture-sampled directly - it resolves into
     // m_sceneResolveFbo, and THAT texture feeds the prefilter/composite.
     QOpenGLFramebufferObjectFormat sceneFmt;
     sceneFmt.setAttachment(QOpenGLFramebufferObject::Depth);
@@ -431,7 +434,7 @@ void OpenGLRenderer::allocateGlowTargets(int w, int h) {
     m_bloomFbo[1] = std::make_unique<QOpenGLFramebufferObject>(bw, bh, bloomFmt);
 
     // Linear filtering + edge clamp so blur taps interpolate smoothly.
-    // (The MSAA scene FBO has no sampleable texture — params go on the
+    // (The MSAA scene FBO has no sampleable texture - params go on the
     // resolve target instead.)
     auto setTexParams = [this](GLuint tex) {
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -581,7 +584,7 @@ void OpenGLRenderer::rebuildIndicatorGeometry() {
         return QString("= %1").arg(QString::number(v, 'g', 4));
         };
 
-    // Three edges meeting at the front-bottom-right corner — the classic
+    // Three edges meeting at the front-bottom-right corner - the classic
     // "box dimensions" diagram. All three draw on AT ONCE.
     constexpr float kIntro = 0.15f;
     m_indicators.clear();
@@ -665,7 +668,7 @@ float OpenGLRenderer::dupFlashIntensity() const {
         const float p = animPhaseT(ft.dupStart, kDupDur);
         if (p <= 0.0f || p >= 1.0f) continue;
         // Bright the instant the duplicate departs, faded out by ~55% of the
-        // slide — the fast-fading burst.
+        // slide - the fast-fading burst.
         const float k = 1.0f - std::clamp(p / 0.55f, 0.0f, 1.0f);
         f = std::max(f, k * k);
     }
@@ -732,7 +735,7 @@ void OpenGLRenderer::stopFormulaAnimation() {
 void OpenGLRenderer::drawAnimHighlights() {
     if (!m_animActive || m_indicators.empty()) return;
     // Once the ending white-out fully covers the screen, the walkthrough
-    // visuals are gone — the fade-out must reveal the plain cuboid.
+    // visuals are gone - the fade-out must reveal the plain cuboid.
     if (animPhaseT(kWhiteFull, 0.001f) >= 1.0f) return;
 
     // Rebuild the fixed-function matrices explicitly: the glass path leaves
@@ -752,8 +755,8 @@ void OpenGLRenderer::drawAnimHighlights() {
     glDisable(GL_DEPTH_TEST);
 
     // -- Explanation faces (behind the edge highlights) -----------------
-    // Each term builds ONE face — border traces itself, then the fill wipes
-    // across — and PERSISTS. In the finale each built face is duplicated and
+    // Each term builds ONE face - border traces itself, then the fill wipes
+    // across - and PERSISTS. In the finale each built face is duplicated and
     // slides along its normal to the opposite side of the cuboid: the tinted
     // half-shell doubles into the complete surface (the "2").
     for (const FaceTerm& ft : m_faceTerms) {
@@ -788,7 +791,7 @@ void OpenGLRenderer::drawAnimHighlights() {
         }
         glEnd();
 
-        // Fill wipe: the tint sweeps across from the q0-q1 edge — the visual
+        // Fill wipe: the tint sweeps across from the q0-q1 edge - the visual
         // of the multiplication (one dimension swept along the other).
         const float fw = easeSmooth(
             std::clamp((p - kFillFrom) / kFillSpan, 0.0f, 1.0f));
@@ -808,7 +811,7 @@ void OpenGLRenderer::drawAnimHighlights() {
         // Finale: the whole duplicated shell swings around the box as ONE
         // rigid block (yaw + flip, see dupTransform) and settles onto the
         // opposite three faces. While its flash is live the block renders
-        // WHITE-HOT — the bloom bright-pass wraps it in a fast-fading halo.
+        // WHITE-HOT - the bloom bright-pass wraps it in a fast-fading halo.
         const float dpRaw = animPhaseT(ft.dupStart, kDupDur);
         const float dp = easeSmooth(dpRaw);
         if (dp > 0.0f) {
@@ -836,7 +839,7 @@ void OpenGLRenderer::drawAnimHighlights() {
         }
     }
 
-    for (const DimIndicator& d : m_indicators) {
+    if (m_showPropertyLabels) for (const DimIndicator& d : m_indicators) {
         const float p = animPhaseT(d.tStart, d.tDur);
         if (p <= 0.0f) continue;
 
@@ -867,14 +870,14 @@ void OpenGLRenderer::drawAnimHighlights() {
 
 // Dimension annotations + the colored formula readout, rendered through
 // MathText: every character is the source font's true vector outline, so
-// glyphs write themselves on (outline trace -> fill), poster style — no
+// glyphs write themselves on (outline trace -> fill), poster style - no
 // chip/pill backgrounds. QPainter over the finished GL frame.
 void OpenGLRenderer::drawAnimOverlay() {
     if (!m_animActive) return;
 
     // Paint the whole annotation layer with Qt's RASTER engine into an image,
     // then blit it over the GL frame. QPainter-on-GL antialiases paths far
-    // worse than the raster engine — this is what makes the glyphs crisp.
+    // worse than the raster engine - this is what makes the glyphs crisp.
     const qreal dpr = devicePixelRatioF();
     const QSize physical = size() * dpr;
     if (m_overlayImage.size() != physical) {
@@ -886,11 +889,11 @@ void OpenGLRenderer::drawAnimOverlay() {
     QPainter painter(&m_overlayImage);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Past full white-out, the annotations no longer exist — the fade-out
+    // Past full white-out, the annotations no longer exist - the fade-out
     // reveals the plain cuboid.
     const bool hidden = animPhaseT(kWhiteFull, 0.001f) >= 1.0f;
 
-    if (!hidden) for (const DimIndicator& d : m_indicators) {
+    if (!hidden && m_showPropertyLabels) for (const DimIndicator& d : m_indicators) {
         const float p = animPhaseT(d.tStart, d.tDur);
         if (p <= 0.0f) continue;
 
@@ -908,7 +911,7 @@ void OpenGLRenderer::drawAnimOverlay() {
             painter.drawLine(pos + QPointF(2, 4), anchor);
         }
 
-        // Big letter writes itself on in place — pure white, poster style.
+        // Big letter writes itself on in place - pure white, poster style.
         // The colour link to its edge is carried by the highlighted edge +
         // leader line instead. (Layouts are cached; per-frame layout() was a
         // top CPU cost.)
@@ -999,7 +1002,7 @@ void OpenGLRenderer::drawAnimOverlay() {
     // while everything else steps back.
     const float ft = animPhaseT(0.0f, 1.1f);
     if (!hidden && ft > 0.0f && !m_readoutGlyphs.isEmpty()) {
-        // Per-group tint progress (holds at 1 — nothing fades back).
+        // Per-group tint progress (holds at 1 - nothing fades back).
         float termTint[4] = { 0, 0, 0, 0 };   // index = group 1..3
         QColor termColor[4];
         for (const FaceTerm& ftm : m_faceTerms) {
@@ -1067,7 +1070,7 @@ void OpenGLRenderer::drawAnimOverlay() {
 
 void OpenGLRenderer::drawGlass() {
     // -- Build matrices ---------------------------------------------
-    QMatrix4x4 model;   // identity — shape is at origin
+    QMatrix4x4 model;   // identity - shape is at origin
     QMatrix4x4 view;
     view.translate(0.0f, 0.0f, -m_camDistance);
     view.rotate(m_xRot, 1.0f, 0.0f, 0.0f);
@@ -1089,7 +1092,7 @@ void OpenGLRenderer::drawGlass() {
 
     glEnable(GL_CULL_FACE);
 
-    // Back faces first — gives interior depth to the glass
+    // Back faces first - gives interior depth to the glass
     glCullFace(GL_FRONT);
     m_currentShape->drawShader(m_glassShader);
 
@@ -1100,14 +1103,14 @@ void OpenGLRenderer::drawGlass() {
     glDisable(GL_CULL_FACE);
     m_glassShader.release();
 
-    // -- Wireframe overlay — legacy path, no shader -----------------
+    // -- Wireframe overlay - legacy path, no shader -----------------
     // Must reset OpenGL matrix state since shader bypassed it
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixf(proj.constData());
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(mv.constData());
 
-    // Curved shapes (sphere/cylinder/circle) skip the overlay — their
+    // Curved shapes (sphere/cylinder/circle) skip the overlay - their
     // tessellation grid reads as ugly criss-cross lines, not real edges.
     if (!m_currentShape->isCurved()) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1141,11 +1144,11 @@ void OpenGLRenderer::drawLegacy() {
         break;
 
     case RenderMode::SolidWireframe:
-        // Pass 1 — fill
+        // Pass 1 - fill
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glColor3f(m_colorR * 0.3f, m_colorG * 0.3f, m_colorB * 0.3f);
         m_currentShape->draw();
-        // Pass 2 — wireframe overlay (skipped for curved shapes, whose grid
+        // Pass 2 - wireframe overlay (skipped for curved shapes, whose grid
         // lines are tessellation artefacts rather than real edges).
         if (!m_currentShape->isCurved()) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

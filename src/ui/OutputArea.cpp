@@ -17,6 +17,9 @@
 #include "../subSystems/WidgetRegistry.h"
 #include "MainWindow.h"
 #include "ScrubbableExpression.h"
+#include "NumberFormat.h"
+#include <QRegularExpression>
+#include "../settings/Settings.h"
 #include "../math/MathEngine.h"     // MathEngine::evalSimple
 #include <cmath>
 #include <QElapsedTimer>
@@ -64,7 +67,29 @@ OutputArea::OutputArea(QWidget* parent) : QScrollArea(parent) {
     // it cannot be re-broken by adding a new result widget later.
     m_container->setMaximumWidth(viewport()->width());
 
+    // Digit grouping is a display choice, so flipping it must reach results that
+    // are already on screen - not just the next one. Their HTML is baked at
+    // insert time, hence the explicit re-render.
+    connect(&Settings::instance(), &Settings::groupDigitsChanged,
+        this, [this](bool) { reformatResults(); });
+    // Number names are wired per result; a toggle must reach existing ones.
+    connect(&Settings::instance(), &Settings::numberNamesChanged,
+        this, [this](const QString&) { reformatResults(); });
+
     addSplash();
+}
+
+void OutputArea::rememberResult(CopyableLabel* label, ResultType type, double calcTime) {
+    if (label) m_results.append({ label, type, calcTime });
+}
+
+void OutputArea::reformatResults() {
+    // The raw value is read back from the label's copy text rather than kept in
+    // a second copy: it is already stored there unformatted, and duplicating it
+    // would double the memory a million-digit result costs.
+    for (const ResultEntry& e : m_results)
+        if (e.label) updateResultLine(e.label, e.label->copyText(), e.type, e.calcTime);
+    m_results.removeIf([](const ResultEntry& e) { return e.label.isNull(); });
 }
 
 void OutputArea::resizeEvent(QResizeEvent* e) {
@@ -92,7 +117,7 @@ static MasterLabel* makeLbl(const QString& html, QFont font, const QString& extr
 // -- ClickableLabel ------------------------------------------------------------
 // Result label that shows "Copy" on hover and copies plain text on right
 // click. Left double-click shows the conversion formula (if any) in a popup.
-// A thin CopyableLabel subclass — all copy/hover/timer logic lives there,
+// A thin CopyableLabel subclass - all copy/hover/timer logic lives there,
 // and the widget-inspector hook lives further up in MasterLabel.
 class ClickableLabel : public CopyableLabel {
 public:
@@ -172,7 +197,7 @@ void OutputArea::addSplash() {
             "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80"
             "\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80"
             "</span>").arg(C_DIM), MF(9)));
-    // (dividers are decorative box-drawing rules, not registered — nothing
+    // (dividers are decorative box-drawing rules, not registered - nothing
     // meaningful to inspect or resize independently)
 
     for (const QString& t : { "Type any math expression below.",
@@ -252,6 +277,23 @@ ScrubbableExpression* OutputArea::addInputLine(const QString& expr) {
 
 bool OutputArea::progressState() {
     return (m_progressBar);
+}
+
+void OutputArea::showApproximation(const BigNum::FactorialEstimate& est) {
+    if (!est.valid) return;
+    // Fold the previous estimate rather than deleting it: it belongs to a result
+    // further up the log and should stay readable there. Collapsing keeps a
+    // session full of factorials from turning into a wall of cards.
+    if (m_lastApprox) m_lastApprox->setExpanded(false);
+
+    auto* card = new ApproxCard(est, m_container);
+    m_pendingApprox = card;
+    m_lastApprox = card;
+    // Directly below the progress bar. The bar was inserted just before the
+    // trailing stretch, so appending before the stretch again lands underneath
+    // it. hideProgress() deliberately doesn't touch this widget.
+    m_layout->insertWidget(m_layout->count() - 1, card);
+    scrollToBottom();
 }
 
 void OutputArea::showProgress(int percent, const QString& label) {
@@ -481,8 +523,10 @@ void OutputArea::bindLivePair(ScrubbableExpression* expr, CopyableLabel* result,
             // normalText() returns, and refreshDisplay() rebuilds the label
             // from it on every hover and copy-flash reset -- a bare setText()
             // is silently reverted the next time the mouse crosses the widget.
+            safeResult->updateClickDetail(NumberFormat::scaleWord(shown));
             safeResult->setNormalText(
-                buildResultHtml(displayTextFor(shown), color, maxWidth, MF(9),
+                buildResultHtml(NumberFormat::groupNumbers(displayTextFor(shown)),
+                    color, maxWidth, MF(9),
                     liveMs, /*withTiming=*/true));
             safeResult->setCopyText(shown);      // FULL value, untruncated
         });
@@ -495,7 +539,7 @@ QString OutputArea::colorForType(ResultType type) {
     if (type == ResultType::trig) return C_PURPLE;
     if (type == ResultType::conv) return C_WARN;
     if (type == ResultType::alg)  return C_ALG;
-    if (type == ResultType::func) return "#4fd6c0";   // teal — user-function result
+    if (type == ResultType::func) return "#4fd6c0";   // teal - user-function result
     return C_TEXT;
 }
 
@@ -510,21 +554,36 @@ void OutputArea::updateResultLine(CopyableLabel* target, const QString& text,
     int maxWidth = viewport()->width() - 80;
     if (maxWidth <= 0) maxWidth = 800;
 
+    // Same treatment addResultLine gives a fresh result: truncate FIRST, then
+    // group. Without displayTextFor a scrubbed big result rendered every digit -
+    // the cap lived only on the insert path, so the rebuild silently escaped it.
+    // setCopyText below still receives the RAW, untruncated text.
+    const QString shown = NumberFormat::groupNumbers(displayTextFor(text));
+
     QString html;
     if (type == ResultType::func) {
         // The func branch prefixes a glyph; keep it on a rewrite.
         html = QString("<span style='color:%1;font-weight:600;'>\xC6\x92 </span>")
             .arg(color);
-        html += buildResultHtml(text, color, maxWidth, MF(9), calcTime, true);
+        html += buildResultHtml(shown, color, maxWidth, MF(9), calcTime, true);
     }
     else {
-        html = buildResultHtml(text, color, maxWidth, MF(9), calcTime, true);
+        html = buildResultHtml(shown, color, maxWidth, MF(9), calcTime, true);
 
     }
 
     target->setColor(color);        // type may have changed (e.g. big -> err)
     target->setNormalText(html);
     target->setCopyText(text);      // clean value, not the html
+    // Re-apply the left-click action from the current setting. Names/Off reach
+    // existing results immediately; the expand action is only set at creation, so
+    // switching AWAY from it here clears it and restores the name reading.
+    const QString clickMode = Settings::instance().numberNames();
+    if (clickMode != QLatin1String("Full number"))
+        if (auto* ow = qobject_cast<OutputWidget*>(target)) ow->clearExpandable();
+    target->setClickDetail(
+        clickMode == QLatin1String("Number name") ? NumberFormat::scaleWord(text) : QString(),
+        QStringLiteral("= %1"));
 
     if (auto* ow = qobject_cast<OutputWidget*>(target))
         ow->setType(type);          // OutputWidget-only Q_PROPERTY
@@ -536,7 +595,35 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
     const QString& originalExpr,
     double calcTime) {
 
-    const QString& fullCopy = copyText.isEmpty() ? text : copyText;
+    // The full-precision value, for both copy and the number-name reading. When
+    // the display is a collapsed (scientific) form, the full digits live in
+    // `formula`; when it is a plain number, the display text already is the full
+    // value. Anything non-numeric in `formula` (a conversion formula, an
+    // equality proof) is left out by the digit check.
+    QString fullCopy = copyText.isEmpty() ? text : copyText;
+    {
+        static const QRegularExpression numRe(
+            R"(^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$)");
+        if (!formula.isEmpty() && numRe.match(formula).hasMatch())
+            fullCopy = formula;
+    }
+
+    // Attach the human-scale reading ("= 1.35 quintillion") as a left-click
+    // detail. This is the ONLY left-click action on a numeric result now - the
+    // old full-digits expand/collapse is gone. Reads the setting so it can be
+    // turned off, and clears the detail (empty scaleWord) when the value is too
+    // small or not a whole number.
+    const QString clickMode = Settings::instance().numberNames();
+    // Sets the number-name reveal, or clears it when the mode is not "Number
+    // name" (an empty reading removes any existing detail). Safe to call from
+    // every numeric branch unconditionally.
+    auto wireScaleWord = [&](CopyableLabel* lbl) {
+        if (!lbl) return;
+        lbl->setClickDetail(
+            clickMode == QLatin1String("Number name") ? NumberFormat::scaleWord(fullCopy) : QString(),
+            QStringLiteral("= %1"));
+        };
+
     const QString color = colorForType(type);
 
     QFont font = MF(9);
@@ -556,9 +643,12 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
         };
 
     if (type == ResultType::big) {
-        const QString html = buildResultHtml(displayTextFor(text), color,
+        const QString html = buildResultHtml(
+            NumberFormat::groupNumbers(displayTextFor(text)), color,
             maxWidth, font, calcTime, true);
         auto* l = makeResultLbl(html, fullCopy, color, font, "padding-left:22px;");
+        wireScaleWord(l);
+        rememberResult(l, type, calcTime);
         trackLabel(l, WidgetRole::FontResults);
         bindLivePair(m_pendingInput, l, type, color);
 
@@ -566,7 +656,7 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
         Animations::fadeIn(l);
     }
     else if (type == ResultType::conv) {
-        const QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+        const QStringList lines = NumberFormat::groupNumbers(text).split('\n', Qt::SkipEmptyParts);
         QString html;
         for (const QString& line : lines) {
             html.append(QString("<span style='color:%1;'>%2</span>")
@@ -576,10 +666,12 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
         html.append(QString("<span style='color:%1;'>%2</span>").arg(Theme::MUTED, Duration::calculatedIn(calcTime)));
         QString plain = html;
         plain.replace("<br>", "\n");
-        // NOTE: no toHtmlEscaped() — this string goes to the clipboard.
+        // NOTE: no toHtmlEscaped() - this string goes to the clipboard.
         // Escaping it there produced "&amp;" in pasted output.
         auto* lbl = new ConversionLabel(html, plain, formula, font, color,
             "padding-left:22px;");
+        wireScaleWord(lbl);
+        rememberResult(lbl, type, calcTime);
         trackLabel(lbl, WidgetRole::FontResults);
         bindLivePair(m_pendingInput, lbl, type, color);
         m_layout->insertWidget(m_layout->count() - 1, lbl);
@@ -594,15 +686,16 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
                 + buildResultHtml(valueText, color, maxWidth, font, calcTime, true);
             };
 
-        const QString collapsedHtml = buildFuncHtml(text);
+        const QString collapsedHtml = buildFuncHtml(NumberFormat::groupNumbers(text));
         auto* widget = new OutputWidget(collapsedHtml, fullCopy, originalExpr,
             formula, type, color);
+        if (clickMode == QLatin1String("Full number") && !formula.isEmpty())
+            widget->setExpandable(collapsedHtml, buildFuncHtml(displayTextFor(formula)),
+                fullCopy, formula);
+        else
+            wireScaleWord(widget);
+        rememberResult(widget, type, calcTime);
         widget->setContentsMargins(0, 0, 0, 0);
-
-        if (!formula.isEmpty()) {
-            const QString expandedHtml = buildFuncHtml(displayTextFor(formula));
-            widget->setExpandable(collapsedHtml, expandedHtml, fullCopy, formula);
-        }
 
         trackLabel(widget, WidgetRole::FontResults);
         bindLivePair(m_pendingInput, widget, type, color);
@@ -610,7 +703,7 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
         Animations::fadeIn(widget);
     }
     else {
-        const QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+        const QStringList lines = NumberFormat::groupNumbers(text).split('\n', Qt::SkipEmptyParts);
         QString combined;
         for (int i = 0; i < lines.size(); ++i) {
             combined += wrapToHtml(lines[i]);
@@ -624,15 +717,13 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
             formula, type, color);
         widget->setContentsMargins(0, 0, 0, 0);
 
-        // Numeric results carry their full-digit form in `formula` when it
-        // differs from the collapsed (scientific) value. Wire left-click
-        // expand/collapse: collapsed shows the ~15-sig-fig value, expanded shows
-        // every digit (capped for display; the full value still goes to copy).
-        if (type == ResultType::ok && !formula.isEmpty()) {
-            const QString expandedHtml = buildResultHtml(
-                displayTextFor(formula), color, maxWidth, font, calcTime, true);
-            widget->setExpandable(fullHtml, expandedHtml, fullCopy, formula);
-        }
+        if (clickMode == QLatin1String("Full number") && !formula.isEmpty())
+            widget->setExpandable(fullHtml,
+                buildResultHtml(displayTextFor(formula), color, maxWidth, font, calcTime, true),
+                fullCopy, formula);
+        else
+            wireScaleWord(widget);
+        rememberResult(widget, type, calcTime);
 
         trackLabel(widget, WidgetRole::FontResults);
         bindLivePair(m_pendingInput, widget, type, color);
@@ -644,6 +735,17 @@ void OutputArea::addResultLine(const QString& text, ResultType type,
     // MUST be cleared on EVERY path, or the next result binds to a stale
     // input line and you get a cross-wired pair.
     m_pendingInput = nullptr;
+
+    // The estimate has been sitting under the progress bar; now that the exact
+    // value has landed, move it below the result so the two read together.
+    // Re-inserting before the trailing stretch puts it after the result that was
+    // just appended there.
+    if (m_pendingApprox) {
+        m_layout->removeWidget(m_pendingApprox);
+        m_layout->insertWidget(m_layout->count() - 1, m_pendingApprox);
+        // Consumed: only the factorial that spawned it gets this treatment.
+        m_pendingApprox = nullptr;
+    }
 
     scrollToBottom();
 
@@ -693,7 +795,7 @@ void OutputArea::addGeoCard(GeoCard* card, const double calcTime) {
 }
 
 void OutputArea::scrollToBottom() {
-    if (m_scrollPending) return;          // already queued — coalesce
+    if (m_scrollPending) return;          // already queued - coalesce
     m_scrollPending = true;
     QTimer::singleShot(10, this, [this]() {
         m_scrollPending = false;

@@ -11,7 +11,7 @@
 #include <functional>
 
 // ----------------------------------------------------------------------
-//  Lookup tables — built once, on first use
+//  Lookup tables - built once, on first use
 // ----------------------------------------------------------------------
 
 // alias (and canonical) -> canonical. Replaces the O(shapes x aliases) linear
@@ -233,7 +233,7 @@ QString InputHandler::commandOf(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  Parsing — one regex, one entry point
+//  Parsing - one regex, one entry point
 // ----------------------------------------------------------------------
 ParamMap InputHandler::parseParams(const QString& expr) {
     ParamMap params;
@@ -301,7 +301,7 @@ QStringList InputHandler::missingRequiredParams(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  detectPrompt — a bare shape word, no parameters
+//  detectPrompt - a bare shape word, no parameters
 // ----------------------------------------------------------------------
 ShapePrompt InputHandler::detectPrompt(const QString& expr) {
     static const QRegularExpression re(
@@ -325,7 +325,7 @@ ShapePrompt InputHandler::detectPrompt(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  promptForMissingParams — a shape expression that stopped short
+//  promptForMissingParams - a shape expression that stopped short
 // ----------------------------------------------------------------------
 // Previously inlined in MainWindow::onWorkerFinish, and a second copy lived in
 // the old run(). Both parsed with a regex that disagreed with makeGeoCard's.
@@ -369,7 +369,7 @@ ShapePrompt InputHandler::promptForMissingParams(const QString& expr) {
 }
 
 // ----------------------------------------------------------------------
-//  buildExpr — reassemble a completed prompt
+//  buildExpr - reassemble a completed prompt
 // ----------------------------------------------------------------------
 QString InputHandler::buildExpr(const ShapePrompt& prompt) {
     QStringList parts;
@@ -387,7 +387,7 @@ QString InputHandler::buildExpr(const ShapePrompt& prompt) {
 }
 
 // ----------------------------------------------------------------------
-//  makeGeoCard — build the card from a fully-specified expression
+//  makeGeoCard - build the card from a fully-specified expression
 // ----------------------------------------------------------------------
 GeoCard* InputHandler::makeGeoCard(const QString& expr) {
     const QString canonical = commandOf(expr);

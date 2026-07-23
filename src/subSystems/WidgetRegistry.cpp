@@ -85,7 +85,7 @@ WidgetRegistry::WidgetRegistry(QObject* parent) : QObject(parent) {
         });
 }
 
-// Refreshes every widget carrying ANY font role — used when family/weight
+// Refreshes every widget carrying ANY font role - used when family/weight
 // changes, since those apply across all five buckets at once.
 void WidgetRegistry::refreshFontRoles() {
     static constexpr WidgetRole anyFont =
@@ -107,7 +107,7 @@ int WidgetRegistry::add(QWidget* widget, WidgetRole roles, bool applyNow) {
     e.widget = widget;
     e.roles = roles;
 
-    // Auto-deregister on destroy — no dangling entries, no dangling pointers
+    // Auto-deregister on destroy - no dangling entries, no dangling pointers
     connect(widget, &QObject::destroyed, this, [this, id]() {
         m_entries.remove(id);
         });
@@ -126,7 +126,7 @@ void WidgetRegistry::setStyle(int id, const WidgetStyle& style) {
     auto it = m_entries.find(id);
     if (it == m_entries.end()) return;
     Entry& e = it.value();
-    // Merge — only fields that are set in the incoming style overwrite existing ones
+    // Merge - only fields that are set in the incoming style overwrite existing ones
     if (style.accentColor) e.override.accentColor = style.accentColor;
     if (style.stylesheet)  e.override.stylesheet = style.stylesheet;
     if (style.fontSize)    e.override.fontSize = style.fontSize;
@@ -192,7 +192,7 @@ void WidgetRegistry::applyVisibilityLevel(VisibilityLevel level) {
     }
 }
 
-// -- applyEntry — core dispatch ------------------------------------------------
+// -- applyEntry - core dispatch ------------------------------------------------
 
 void WidgetRegistry::applyEntry(Entry& e) {
     if (!e.widget) return;

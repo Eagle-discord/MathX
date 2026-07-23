@@ -5,7 +5,7 @@
 MeshShape::~MeshShape() {
     // FIX: previously each subclass destructor just did qDebug() and
     // relied on Qt to "automatically" clean up the VAO/VBO/EBO. That's
-    // fragile — it only works if a valid, current GL context still
+    // fragile - it only works if a valid, current GL context still
     // exists at destruction time. Explicitly destroy() while a context
     // is current; skip it (rather than crash) if one isn't, since that
     // means the GPU objects are already gone with their context anyway.
@@ -49,7 +49,7 @@ void MeshShape::ensureUploaded(QOpenGLShaderProgram& shader) {
         m_normalLoc = shader.attributeLocation("normal");
 
     // FIX: warn (once, not every frame) if a shape's shader doesn't
-    // expose the attributes it needs — this used to fail silently,
+    // expose the attributes it needs - this used to fail silently,
     // leaving you to guess why nothing rendered.
     if (m_posLoc < 0)
         qWarning("MeshShape: shader has no 'position' attribute");

@@ -1,5 +1,5 @@
 #pragma once
-//  ExprTree — a real expression AST for the algebra system.
+//  ExprTree - a real expression AST for the algebra system.
 //
 //  This is the structural representation the engine previously lacked. The old
 //  Expr evaluator folds an expression directly into a double as it parses;
@@ -12,7 +12,7 @@
 //      subtrees can be shared/rebuilt without ownership headaches.
 //    * Values are kept as BigDec to match the precision of the rest of the
 //      engine (BigNum.h). Numeric evaluation is available but is NOT how we
-//      extract polynomials — that's done structurally.
+//      extract polynomials - that's done structurally.
 //    * The tree is deliberately small and closed: five node kinds cover every
 //      expression the parser accepts.
 

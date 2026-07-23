@@ -184,7 +184,7 @@ static QString expandNumberWords(const QString& input)
             const QString& w = tokens[k];
             const QString  wl = w.toLower();
 
-            // If it's a numeric literal (e.g., "0.25"), break – we don't consume it.
+            // If it's a numeric literal (e.g., "0.25"), break - we don't consume it.
             if (isNumericToken(w))
                 break;
 
@@ -304,7 +304,7 @@ QString stripQuestionPrefix(const QString& input)
 
     } while (matched);
 
-    // Remove trailing punctuation — but keep a factorial "!" (one that follows a
+    // Remove trailing punctuation - but keep a factorial "!" (one that follows a
     // number or ')'), so "5!" isn't mistaken for an exclamation and gutted to "5".
     while (!trimmed.isEmpty()) {
         const QChar last = trimmed.back();
@@ -659,7 +659,7 @@ QString NaturalLanguage::preprocess(const QString& input)
     result.replace(cubedRe, "(\\1^3)");
 
     // ------------------------------------------------------------------
-    // "X into itself"  (division — handled before generic "into")
+    // "X into itself"  (division - handled before generic "into")
     // ------------------------------------------------------------------
     static QRegularExpression intoItselfRe(
         R"((\([^()]+\)|[^\s]+)\s+into\s+itself\b)",
@@ -716,10 +716,10 @@ QString NaturalLanguage::preprocess(const QString& input)
         QRegularExpression::CaseInsensitiveOption);
     result.replace(byItselfRe, "(\\1^2)");
 
-    // FIX 1: expandItself runs HERE — after all "itself N times" patterns.
+    // FIX 1: expandItself runs HERE - after all "itself N times" patterns.
     result = expandItself(result);
     // ------------------------------------------------------------------
-    // Exponent phrasing – raised patterns MUST come first
+    // Exponent phrasing - raised patterns MUST come first
     // ------------------------------------------------------------------
     static QRegularExpression raiseRe(
         R"(\braise\s+(\([^()]+\)|[^\s]+)\s+to\b)",
@@ -776,7 +776,7 @@ QString NaturalLanguage::preprocess(const QString& input)
     // and "multiplied" don't leave orphaned words behind when "by" fires.
     // ------------------------------------------------------------------
 
-    // FIX 4: "minus" operator word — was completely missing.
+    // FIX 4: "minus" operator word - was completely missing.
     static QRegularExpression minusRe(
         R"((\([^()]+\)|[^\s]+)\s+minus\s+(\([^()]+\)|[^\s]+))",
         QRegularExpression::CaseInsensitiveOption);
@@ -796,7 +796,7 @@ QString NaturalLanguage::preprocess(const QString& input)
 
     // ------------------------------------------------------------------
     // Root phrasing
-    // FIX 5: one canonical set of root patterns — removed the duplicate
+    // FIX 5: one canonical set of root patterns - removed the duplicate
     // sqrtRe/cbrtRe that appeared earlier in the original file.
     // ------------------------------------------------------------------
     static const std::vector<std::pair<QRegularExpression, QString>> rootPatterns = {

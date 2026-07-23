@@ -6,7 +6,7 @@
 #include <QFrame>
 #include <QTimer>
 #include <cmath>
-#include "..\ui\MainWindow.h"
+#include "../ui/MainWindow.h"
 #include "SliderRow.h"
 #include "ResultRow.h"
 
@@ -15,7 +15,7 @@ static QFont MF(int pt, int w = QFont::Normal) { return Theme::monoFont(pt, w); 
 
 
 GeoCard::GeoCard(QWidget* parent, Mode mode) : QWidget(parent), m_mode(mode) {
-    // FIX: constructor previously never assigned `mode` to `m_mode` — it
+    // FIX: constructor previously never assigned `mode` to `m_mode` - it
     // only used the local parameter to pick which frame to build, so the
     // member (default-initialized to Mode::Full in the header) stayed
     // Full forever. That silently broke param()/applyParams()/addSlider()
@@ -47,7 +47,7 @@ void GeoCard::buildFrame() {
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(14, 12, 14, 14); outer->setSpacing(6);
 
-    // Copy card button — sits in the top-right corner of the card
+    // Copy card button - sits in the top-right corner of the card
     auto* topRow = new QWidget(this); topRow->setStyleSheet("background:transparent;");
     auto* topL = new QHBoxLayout(topRow);
     topL->setContentsMargins(0, 0, 0, 0); topL->setSpacing(0);

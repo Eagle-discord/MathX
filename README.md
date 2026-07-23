@@ -45,9 +45,9 @@ While other languages such as Python are excellent tools and are widely used thr
 * CMake
 
 
-## Build Instructions (Visual Studio 2022)
+## Building on Windows (Visual Studio 2022)
 
-### Option A — CMake GUI / VS Developer Command Prompt
+### Option A - CMake GUI / VS Developer Command Prompt
 
 ```bat
 :: Open "x64 Native Tools Command Prompt for VS 2022"
@@ -65,7 +65,7 @@ cmake --build build --config Release
 build\\Release\\MathX.exe
 ```
 
-### Option B — Open in Visual Studio directly
+### Option B - Open in Visual Studio directly
 
 1. Open Visual Studio 2022
 2. **File → Open → CMake...** → select `CMakeLists.txt`
@@ -78,12 +78,134 @@ build\\Release\\MathX.exe
 4. **Build → Build All**
 5. Run `MathX.exe` from the output folder
 
-### Option C — Qt Creator
+### Option C - Qt Creator
 
 1. Open Qt Creator
 2. Open `CMakeLists.txt` as a project
 3. Select the `MSVC 2022 64-bit` kit
 4. Configure \& Build
+
+\---
+
+## Building on Linux
+
+MathX builds on any Linux distribution - it depends only on a C++20 compiler,
+CMake, Qt 6, Boost (header-only), and OpenGL. There is no Windows-specific code
+in the build; the few platform bits (registry watching, process-memory readout)
+are `#ifdef`-guarded and degrade gracefully.
+
+### 1. Install the dependencies
+
+You need: **a C++20 compiler** (GCC ≥ 10 or Clang ≥ 12), **CMake ≥ 3.20**,
+**Ninja** (or Make), **Qt 6** (Core, Gui, Widgets, OpenGL, OpenGLWidgets),
+**Boost** headers (Multiprecision), and **OpenGL** dev libraries.
+
+**Debian / Ubuntu / Mint / Pop!\_OS**
+```bash
+sudo apt update
+sudo apt install build-essential cmake ninja-build \
+     qt6-base-dev libqt6opengl6-dev qt6-base-dev-tools \
+     libboost-dev libgl1-mesa-dev
+```
+
+**Fedora / RHEL**
+```bash
+sudo dnf install gcc-c++ cmake ninja-build \
+     qt6-qtbase-devel boost-devel mesa-libGL-devel
+```
+
+**Arch / Manjaro / EndeavourOS**
+```bash
+sudo pacman -S base-devel cmake ninja qt6-base boost mesa
+```
+
+**openSUSE**
+```bash
+sudo zypper install gcc-c++ cmake ninja \
+     qt6-base-devel libboost_headers-devel Mesa-libGL-devel
+```
+
+> Distro not listed? Any package set providing the six dependencies above works -
+> the package names differ but the CMake build is identical. For a fully
+> distro-independent Qt, see the aqtinstall fallback below.
+
+### 2. Configure and build
+
+With Qt installed from your distro, CMake finds it automatically:
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/MathX
+```
+
+If Qt lives somewhere non-standard (e.g. the official Qt installer, or the
+aqtinstall fallback), point CMake at it:
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH="$HOME/Qt/6.11.0/gcc_64"
+```
+
+If Boost isn't in a standard location, add `-DBOOST_ROOT=/path/to/boost`.
+
+### Distro-independent Qt (aqtinstall)
+
+To avoid relying on distro Qt packages entirely, install Qt binaries anywhere:
+
+```bash
+pip install aqtinstall
+aqt install-qt linux desktop 6.11.0 gcc_64 -O "$HOME/Qt"
+cmake -B build -G Ninja -DCMAKE_PREFIX_PATH="$HOME/Qt/6.11.0/gcc_64"
+cmake --build build
+```
+
+### Notes
+
+* **Running** requires a graphical session (X11 or Wayland); the Qt platform
+  plugin comes from your Qt install.
+* **Settings** are stored via `QSettings` - on Linux that's an INI file at
+  `~/.config/MathX.conf` (the Windows build uses the registry instead). Live
+  external-edit detection is Windows-only; in-app settings changes work
+  everywhere.
+
+\---
+
+### Command-line batch mode (`--run-batch`)
+
+Run a file of expressions straight through the math engine - no window - and
+exit with a pass/fail code. This is the headless counterpart to the in-app
+batch panel, meant for the regression suite and CI.
+
+```bat
+MathX.exe --run-batch tests\mathx_regression.txt
+:: or:  MathX.exe --run-batch=tests\mathx_regression.txt
+```
+
+On Linux/macOS the binary is a normal console app, so output goes straight to
+the terminal - no redirection needed:
+
+```bash
+./MathX --run-batch tests/mathx_regression.txt
+```
+
+* **File format** (same as the in-app batch panel): one expression per line;
+  blank lines and lines starting with `#` are skipped; an inline `#` and
+  everything after it is stripped.
+* **Assertions** use the existing equality feature - write `2+2 = 4` and the
+  engine reports `LHS = RHS  ✓` (pass) or `LHS ≠ RHS  ✗` (fail).
+* Passing lines print one quiet `✓` line; failures and errors print the full
+  result so the reason is visible.
+* **Exit codes:** `0` = every line passed · `1` = at least one error or failed
+  assertion · `2` = usage / file error.
+
+The executable is a GUI-subsystem app, so it attaches to the parent terminal's
+console for output. To capture it from PowerShell, redirect stdout:
+
+```powershell
+Start-Process .\MathX.exe -ArgumentList '--run-batch','suite.txt' `
+    -Wait -NoNewWindow -RedirectStandardOutput out.txt
+```
 
 \---
 
@@ -128,13 +250,13 @@ To embed the font:
 * Arithmetic (`+`, `-`, `*`, `/`, `%`, `^`)
 * Implicit multiplication (`2x`, `3(x+1)`)
 * Trigonometry (`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh` and radian variants)
-* Algebra — linear and quadratic equation solving (`88x = 704`, `x^2 + 5x + 6 = 0`)
+* Algebra - linear and quadratic equation solving (`88x = 704`, `x^2 + 5x + 6 = 0`)
 * Polynomial simplification (`2x + 3x + (4x - x)` → `8x`)
-* Arbitrary precision arithmetic — big integers and big decimals via Boost.Multiprecision
+* Arbitrary precision arithmetic - big integers and big decimals via Boost.Multiprecision
 * Exact big factorials (`fact(1000)`, `1000!`) with progress reporting
 * Exact big exponentiation (`2^1000`) with cancellation support
 * Built-in functions: `sqrt`, `cbrt`, `abs`, `log`, `ln`, `log2`, `logbase`, `floor`, `ceil`, `round`, `exp`, `sign`, `min`, `max`, `pow`, `mod`, `hypot`, `gcd`, `lcm`, `ncr`, `npr`
-* Unit conversion [WIP] — over 200 units across 30+ categories including:
+* Unit conversion [WIP] - over 200 units across 30+ categories including:
   * Length, mass, time, area, volume, speed, pressure, energy, power, force, angle, temperature, frequency, data storage, fuel economy, torque, and more
   * Full SI prefix support (auto-generated: `km`, `mm`, `nm`, `GHz`, `kPa`, etc.)
   * Non-linear conversions (Celsius, Fahrenheit, Kelvin, Rankine, Delisle, and more)
@@ -144,9 +266,9 @@ To embed the font:
 * Interactive geometry cards for 30+ shapes with full calculations:
   * 2D: circle, ellipse, triangle, right triangle, rectangle, square, parallelogram, trapezoid, rhombus, regular polygon, sector, annulus
   * 3D: sphere, hemisphere, cylinder, hollow cylinder, cone, frustum, cube, cuboid, tetrahedron, octahedron, icosahedron, dodecahedron, prism, pyramid, torus, ellipsoid, capsule
-* Interactive parameter prompts — type a shape name and the app guides you through each value
+* Interactive parameter prompts - type a shape name and the app guides you through each value
 * 3D OpenGL shape viewer with interactive rendering [WIP]
-* Async computation — heavy calculations run on a background thread and can be cancelled
+* Async computation - heavy calculations run on a background thread and can be cancelled
 * History navigation (↑/↓ arrow keys)
 * Right-click to copy any result
 * Double-click result for conversion formula details

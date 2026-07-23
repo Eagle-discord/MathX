@@ -1,5 +1,5 @@
 #pragma once
-//  TreeParser — recursive-descent parser that builds an ExprTree (AST).
+//  TreeParser - recursive-descent parser that builds an ExprTree (AST).
 //
 //  Grammar (same precedence/associativity as the engine's existing Expr
 //  evaluator, so behaviour is consistent):

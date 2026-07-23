@@ -1,5 +1,5 @@
 #pragma once
-//  ScrubbableExpression — the ">> 2 + 3" input line, made interactive.
+//  ScrubbableExpression - the ">> 2 + 3" input line, made interactive.
 //
 //  Drag any number to change it; Ctrl+click to edit the whole expression
 //  inline. Either action re-evaluates and updates the paired result widget.
@@ -9,14 +9,14 @@
 //  An earlier draft inherited OutputWidget (-> CopyableLabel -> MasterLabel).
 //  That was wrong. CopyableLabel exists to provide copy-on-right-click, a
 //  double-click formula popout, and an HTML hover hint. The input line wants
-//  none of the three — and all three work by injecting markup into text(),
+//  none of the three - and all three work by injecting markup into text(),
 //  which flips the label to rich text.
 //
 //  That matters because scrubbing needs a 1:1 character->pixel mapping, and
 //  that only holds in plain-text layout. Once QLabel renders rich text,
 //  QTextDocument collapses whitespace runs ("2 *  3" -> "2 * 3"), strips
 //  leading/trailing space, and applies its own block margin that moves the text
-//  origin — so offsets computed with QFontMetrics go stale, even for glyphs
+//  origin - so offsets computed with QFontMetrics go stale, even for glyphs
 //  sitting before the injected markup.
 //
 //  Deriving from MasterLabel sidesteps all of it: no CopyableLabel, no HTML,
@@ -40,7 +40,7 @@
 //  A press becomes a scrub only after QApplication::startDragDistance(), and a
 //  recognised drag swallows its release, so plain clicks pass through cleanly.
 //  When the widget inspector is enabled, MasterLabel claims the click and both
-//  scrubbing and editing stand down — per MasterLabel's documented contract.
+//  scrubbing and editing stand down - per MasterLabel's documented contract.
 
 #include "MasterLabel.h"
 #include "ExprTokens.h"

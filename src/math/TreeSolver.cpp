@@ -76,7 +76,7 @@ bool numericRootOf(const QString& line, BigDec& out) {
 }
 
 // ---------------------------------------------------------------------------
-//  Case A: polynomial equation (both-sides, brackets) — exact via extraction.
+//  Case A: polynomial equation (both-sides, brackets) - exact via extraction.
 // ---------------------------------------------------------------------------
 QStringList solvePolynomial(const NodePtr& lhs, const NodePtr& rhs, bool& handled) {
     handled = false;
@@ -98,7 +98,7 @@ QStringList solvePolynomial(const NodePtr& lhs, const NodePtr& rhs, bool& handle
 }
 
 // ---------------------------------------------------------------------------
-//  Case B: rational equation — cross-multiply, solve, drop excluded values.
+//  Case B: rational equation - cross-multiply, solve, drop excluded values.
 // ---------------------------------------------------------------------------
 QStringList solveRational(const NodePtr& lhs, const NodePtr& rhs,
                           bool& handled, QString* note) {

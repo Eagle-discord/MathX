@@ -29,6 +29,9 @@ public:
     ~OpenGLRenderer() override;
 
     void setShapeColor(float r, float g, float b);
+    // Dimension labels (l/w/h and their values) on the shape. Off hides them
+    // everywhere they are drawn, including mid-walkthrough.
+    void setPropertyLabelsVisible(bool on) { m_showPropertyLabels = on; update(); }
     void setBackgroundColor(float r, float g, float b);
     // Renderer interface
     bool initialize(QWidget* parent) override;
@@ -149,6 +152,7 @@ private:
         QVector<MathText::Placed> valueGlyphs;
     };
     std::vector<DimIndicator> m_indicators;
+    bool m_showPropertyLabels = true;
 
     // The explanation phase: one entry per bracket TERM. Each step builds ONE
     // face (border trace -> fill wipe -> caption) and PERSISTS, so after the

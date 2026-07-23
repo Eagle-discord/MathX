@@ -3,16 +3,27 @@
 #include <QThread>
 #include <atomic>
 
+#ifndef Q_OS_WIN
+#include <QFileSystemWatcher>
+#include <QString>
+#endif
+
 // -- RegistryWatcher -----------------------------------------------------------
-// Watches HKCU\Software\MathX for external changes (regedit, scripts, other
-// processes) and emits registryChanged() when any value is modified.
+// Watches the app's persisted settings for external changes (another process, a
+// hand edit) and emits registryChanged() when anything is modified.
 //
-// Runs on its own QThread using RegNotifyChangeKeyValue — a blocking Win32 API
-// that sleeps until the OS signals a change. This avoids polling entirely and
-// has effectively zero CPU cost at rest.
+// The NAME is historical -- on Windows the backing store is the registry
+// (HKCU\Software\MathX) and this uses RegNotifyChangeKeyValue, a blocking Win32
+// API that sleeps until the OS signals a change, on its own QThread for zero
+// CPU at rest.
 //
-// Only compiled on Windows. On other platforms the class is a no-op stub so
-// the rest of the codebase can unconditionally include this header.
+// On Linux/macOS QSettings::NativeFormat is not a registry -- it's an INI file
+// under ~/.config (Linux) or a plist (macOS). There is nothing to "watch" in a
+// registry sense, so the closest faithful recreation is a QFileSystemWatcher on
+// that settings file: same outcome (external edits trigger a live reload),
+// native mechanism, no thread needed because file watching is already
+// event-driven. The interface and the registryChanged() signal are identical
+// across platforms, so Settings.cpp needs no #ifdefs.
 
 class RegistryWatcher : public QObject {
     Q_OBJECT
@@ -21,23 +32,31 @@ public:
     explicit RegistryWatcher(QObject* parent = nullptr);
     ~RegistryWatcher();
 
-    // Starts the watcher on a background thread. Safe to call from any thread.
+    // Starts the watcher. Safe to call from any thread.
     void start();
 
-    // Signals the background thread to exit and waits for it to finish.
+    // Signals the watcher to stop and waits for it to finish.
     void stop();
 
 signals:
-    // Emitted on the watcher's thread — connect with Qt::QueuedConnection
-    // (or connect to a slot on the main thread, Qt handles the queue automatically).
-    // changedKey is a best-effort hint at what changed — may be empty if the
-    // OS only reported that *something* under the key changed.
+    // Emitted when the backing settings store changes externally.
+    // Windows: fires on the watcher thread -- connect with Qt::QueuedConnection.
+    // Other platforms: fires on the owning thread.
     void registryChanged();
 
 private slots:
-    void watch(); // runs on m_thread, blocks in RegNotifyChangeKeyValue loop
+    void watch(); // Windows: blocks in RegNotifyChangeKeyValue loop on m_thread
 
 private:
-    QThread        m_thread;
-    std::atomic<bool> m_stop{ false };
+    QThread            m_thread;
+    std::atomic<bool>  m_stop{ false };
+
+#ifndef Q_OS_WIN
+    // Linux/macOS: event-driven file watch, no thread. Rebound after every
+    // change because some editors replace the file (write-new-then-rename)
+    // rather than editing in place, which drops the original inode's watch.
+    QFileSystemWatcher m_fsWatcher;
+    QString            m_settingsPath;
+    void rebindFileWatch();
+#endif
 };

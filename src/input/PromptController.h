@@ -20,10 +20,10 @@
 // in one place instead of scattered across five methods.
 //
 // Signals:
-//   paramReady(param, value)  — a parameter was accepted; caller echoes it
-//   promptComplete(expr)      — all params collected; caller should call run(expr)
-//   promptCancelled()         — user pressed Escape; caller resets UI
-//   needsMoreInput(param)     — invalid input; caller should re-show the prompt
+//   paramReady(param, value)  - a parameter was accepted; caller echoes it
+//   promptComplete(expr)      - all params collected; caller should call run(expr)
+//   promptCancelled()         - user pressed Escape; caller resets UI
+//   needsMoreInput(param)     - invalid input; caller should re-show the prompt
 // -----------------------------------------------------------------------------
 class PromptController : public QObject {
     Q_OBJECT
@@ -48,7 +48,7 @@ public:
 
     // -- Start -----------------------------------------------------------------
     // Begin collecting parameters for the given prompt.
-    // Emits nothing — caller should call advanceUI() after to show first param.
+    // Emits nothing - caller should call advanceUI() after to show first param.
     void start(const ShapePrompt& prompt) {
         m_prompt = prompt;
         showCurrentParam();
@@ -79,7 +79,7 @@ public:
             // More parameters to collect
             showCurrentParam();
         } else {
-            // Done — build and hand off the complete expression
+            // Done - build and hand off the complete expression
             QString fullExpr = InputHandler::buildExpr(m_prompt);
             m_prompt = ShapePrompt{};
             hidePromptUI();

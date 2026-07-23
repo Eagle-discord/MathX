@@ -195,7 +195,7 @@ void MainWindow::handleGeoResult(const QString& expr, double calcTime) {
         if (m_batchRunning) {
             const QString missing = prompt.params.mid(prompt.currentIndex).join(", ");
             m_output->addResultLine(
-                QString("'%1' needs %2 — batch mode can't prompt. "
+                QString("'%1' needs %2 - batch mode can't prompt. "
                     "Try \"%1 %3 = ...\"")
                 .arg(prompt.command, missing, prompt.nextParam()),
                 ResultType::err, "", "", "", calcTime);
@@ -279,6 +279,12 @@ void MainWindow::run(const QString& expr) {
 
     m_sessionPanel->setLastExpression(expr);
     setRunState(RunState::Running);
+
+    // A big factorial takes far longer to FORMAT than to compute (base-2 ->
+    // base-10 of millions of digits), so show Stirling's estimate of its size
+    // immediately. It needs only n, so there's nothing to wait for and nothing
+    // to plumb through the worker.
+    m_output->showApproximation(BigNum::estimateForExpression(expr));
 
     const int id = ++m_nextJobId;
     m_pendingJobs[id] = expr;
@@ -1219,7 +1225,7 @@ void MainWindow::ensureFeaturePage() {
         m_centralStack->setCurrentWidget(m_terminalPage);
         });
 
-    // Clicking an example returns to the terminal and runs it — but never onto
+    // Clicking an example returns to the terminal and runs it - but never onto
     // a job already in flight.
     connect(m_featurePage, &FeatureViewerPage::runExample, this, [this](const QString& expr) {
         m_centralStack->setCurrentWidget(m_terminalPage);

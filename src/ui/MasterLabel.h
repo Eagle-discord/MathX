@@ -14,7 +14,7 @@
 // Subclasses get this for free just by inheriting MasterLabel (directly, or
 // via CopyableLabel) instead of QLabel. Any Q_PROPERTY a subclass declares
 // is automatically picked up by the Widget Editor via Qt's meta-object
-// system — no manual registration needed.
+// system - no manual registration needed.
 class MasterLabel : public QLabel {
     Q_OBJECT
 public:
@@ -27,7 +27,7 @@ signals:
 
 protected:
     // Subclasses that override mouse events should call this FIRST and
-    // return early if it returns true — inspector mode takes over the click.
+    // return early if it returns true - inspector mode takes over the click.
     bool handleInspectorClick(QMouseEvent* e) {
         if (!inspectorEnabled() || e->button() != Qt::LeftButton)
             return false;

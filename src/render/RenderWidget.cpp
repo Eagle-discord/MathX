@@ -58,6 +58,11 @@ void RenderWidget::setShapeColor(float r, float g, float b) {
     if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
         gl->setShapeColor(r, g, b);
 }
+void RenderWidget::setPropertyLabelsVisible(bool on) {
+    if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
+        gl->setPropertyLabelsVisible(on);
+}
+
 void RenderWidget::startFormulaAnimation(const QString& shapeType, const QString& formulaKey) {
     if (auto* gl = dynamic_cast<OpenGLRenderer*>(m_renderer.get()))
         gl->startFormulaAnimation(shapeType, formulaKey);

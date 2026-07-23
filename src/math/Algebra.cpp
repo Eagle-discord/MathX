@@ -32,7 +32,7 @@ static bool getQuadraticCoefficients(const QString& expr, double& a, double& b, 
 // Build a single Poly representing (lhs) - (rhs), if both sides are pure
 // single-variable polynomials. Returns false otherwise. Handles the common
 // case where sides contain parentheses/superscripts by leaning on Expr's
-// preprocessing then PolyEngine's flat parser — but since PolyEngine::parse
+// preprocessing then PolyEngine's flat parser - but since PolyEngine::parse
 // expects a flat form, we first try direct parse and fall back to expansion
 // via sampling for the degree<=2 path handled by the caller.
 static bool buildEquationPoly(const QString& lhs, const QString& rhs, Poly& out) {
@@ -123,14 +123,14 @@ QString Algebra::solveEquation(const QString& lhs, const QString& rhs) {
 }
 
 // ---------------------------------------------------------------------------
-//  Factoring — delegates to PolyEngine after parsing a single-variable poly.
+//  Factoring - delegates to PolyEngine after parsing a single-variable poly.
 // ---------------------------------------------------------------------------
 QString Algebra::factor(const QString& expr) {
     QString e = Expr::preprocess(expr).trimmed();
 
     // PolyEngine's parser is flat (no parentheses). If the whole expression is
-    // wrapped in a single redundant pair of parens — common after expanding a
-    // user function like factor(f(x)) into (x^2 - 5x + 6) — strip it so the
+    // wrapped in a single redundant pair of parens - common after expanding a
+    // user function like factor(f(x)) into (x^2 - 5x + 6) - strip it so the
     // flat polynomial underneath can be parsed.
     while (e.startsWith('(') && e.endsWith(')')) {
         // Verify the leading '(' matches the trailing ')' (not "(a)+(b)").
@@ -149,7 +149,7 @@ QString Algebra::factor(const QString& expr) {
 }
 
 // ---------------------------------------------------------------------------
-//  Linear systems — delegates to PolyEngine.
+//  Linear systems - delegates to PolyEngine.
 // ---------------------------------------------------------------------------
 QString Algebra::solveSystem(const QStringList& equations) {
     QStringList result = PolyEngine::solveLinearSystem(equations);

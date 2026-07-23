@@ -10,6 +10,7 @@
 #include <math/NaturalLanguage.h>
 #include <QTimer>
 #include "constants/ResultTypes.h"
+#include "cli/BatchCli.h"
 int main(int argc, char* argv[]) {
     // ResultType travels through a queued (cross-thread) signal
     // (PersistentWorker::resultReady, emitted on the worker thread). Queued
@@ -26,17 +27,28 @@ int main(int argc, char* argv[]) {
     app.setApplicationName("MATHX");
     app.setApplicationVersion("1.0");
 
+    // -- Headless batch mode: `--run-batch <file>` --------------------------------
+    // Run a file of expressions straight through the math engine and exit with a
+    // pass/fail code - no window, no worker thread, no event loop. Meant for the
+    // regression suite (see DEV_NOTES) and CI. Checked here, before the GUI is
+    // built, so nothing renders. See cli/BatchCli.h for the format and exit codes.
+    {
+        QString batchPath;
+        if (BatchCli::parseArgs(app.arguments(), batchPath))
+            return BatchCli::run(batchPath);
+    }
+
 
     // -- Font loading --------------------------------------------------------------
     // Scans the :/fonts/ resource directory and loads every font it finds,
-    // so you never need to manually list fonts here again — just add them to
+    // so you never need to manually list fonts here again - just add them to
     // your .qrc file and they'll be picked up automatically.
     bool allFontsLoaded = true;
     const QDir fontDir(":/fonts");
     const QStringList fontFiles = fontDir.entryList({ "*.ttf", "*.otf" }, QDir::Files);
 
     if (fontFiles.isEmpty()) {
-        qWarning("MATHX: no fonts found in :/fonts/ — check your .qrc file");
+        qWarning("MATHX: no fonts found in :/fonts/ - check your .qrc file");
         allFontsLoaded = false;
     }
 
@@ -54,7 +66,7 @@ int main(int argc, char* argv[]) {
         app.setFont(f);
     }
     // If fonts failed, Theme::fontFamily() falls back to Consolas / Courier New
-    // automatically, so the app still runs — just with the system monospace font.
+    // automatically, so the app still runs - just with the system monospace font.
 
 
     MainWindow w;

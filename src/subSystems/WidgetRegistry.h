@@ -6,7 +6,7 @@
 #include <QString>
 #include <QFont>
 #include <optional>
-#include "../settings/Settings.h"   // for VisibilityLevel — adjust path as needed
+#include "../settings/Settings.h"   // for VisibilityLevel - adjust path as needed
 
 // -- WidgetStyle ---------------------------------------------------------------
 // Per-widget override record. Every field is optional:
@@ -14,14 +14,14 @@
 //   has_value → this widget ignores the global value for that property
 struct WidgetStyle {
     std::optional<QString> accentColor;
-    std::optional<QString> stylesheet;   // full QSS — replaces role-derived sheet
+    std::optional<QString> stylesheet;   // full QSS - replaces role-derived sheet
     std::optional<int>     fontSize;
     std::optional<QString> fontFamily;
     std::optional<bool>    visible;
 };
 
 // -- WidgetRole ----------------------------------------------------------------
-// Semantic role flags — assigned at registration time, drive what the global
+// Semantic role flags - assigned at registration time, drive what the global
 // refresh does to this widget. Roles are combined with operator|.
 // WidgetRegistry.h
 enum class WidgetRole : uint32_t {
@@ -43,7 +43,7 @@ enum class WidgetRole : uint32_t {
     AdvancedPlus = 1 << 9,
     DeveloperOnly = 1 << 10,
 };
-// Back-compat alias — every existing WR_ADD(..., WidgetRole::FontUI) call
+// Back-compat alias - every existing WR_ADD(..., WidgetRole::FontUI) call
 // site still compiles and now maps to the general "Buttons & labels" bucket.
 // New call sites should prefer a specific Font* role where one applies.
 inline constexpr WidgetRole MonoFontCompat = WidgetRole::FontUI;

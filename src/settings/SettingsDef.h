@@ -7,13 +7,13 @@
 // -- ControlType ---------------------------------------------------------------
 // Drives which widget the settings UI renders for this setting.
 enum class ControlType {
-    Toggle,       // Boolean — red/green push button
-    Dropdown,     // Enum — styled dropdown
-    Slider,       // Int — adaptive step slider + inline edit
-    ColorPicker,  // Color — hex/rgb input + picker popup
-    FontInput,    // Font — typed input with autofill suggestions
-    TextInput,    // String — plain text input
-    Action,       // One-shot operation — styled button, no persistent state
+    Toggle,       // Boolean - red/green push button
+    Dropdown,     // Enum - styled dropdown
+    Slider,       // Int - adaptive step slider + inline edit
+    ColorPicker,  // Color - hex/rgb input + picker popup
+    FontInput,    // Font - typed input with autofill suggestions
+    TextInput,    // String - plain text input
+    Action,       // One-shot operation - styled button, no persistent state
 };
 
 // -- CategoryId ----------------------------------------------------------------
@@ -53,7 +53,7 @@ enum class SubcategoryId {
 struct SliderRange {
     double min = 0.0;
     double max = 100.0;
-    double step = 1.0;   // base step — adapts as the user drags further
+    double step = 1.0;   // base step - adapts as the user drags further
 };
 
 // -- SettingDef ----------------------------------------------------------------
@@ -72,18 +72,18 @@ struct SettingDef {
     // -- Value -----------------------------------------------------------------
     QVariant        defaultValue;     // value before the user touches anything
     ControlType     control;          // which widget renders this setting
-    QStringList     options;          // only for Dropdown — list of valid choices
-    SliderRange     range;            // only for Slider — min, max, base step
+    QStringList     options;          // only for Dropdown - list of valid choices
+    SliderRange     range;            // only for Slider - min, max, base step
 
     // -- Labels ----------------------------------------------------------------
-    // Two label variants — Basic uses plain English, Advanced/Developer uses
+    // Two label variants - Basic uses plain English, Advanced/Developer uses
     // the more technical label. If identical, set both to the same string.
     QString         labelBasic;       // "Text size"
     QString         labelAdvanced;    // "Font point size"
 
     // -- Descriptions ---------------------------------------------------------
-    // Basic    — always visible, plain English, one sentence
-    // Advanced — shown on hover, slightly more technical
+    // Basic    - always visible, plain English, one sentence
+    // Advanced - shown on hover, slightly more technical
     // Developer metadata is auto-generated from key + type + range + applyMode
     QString         descBasic;        // "Changes how large the text appears"
     QString         descAdvanced;     // "Adjusts the interface font point size (pt)"
@@ -110,24 +110,24 @@ struct SettingDef {
     // -- Preview metadata ------------------------------------------------------
     // Used to build the enriched pending queue preview:
     //   "{labelBasic} - {affects} : {old}{unit} → {new}{unit}"
-    // Both optional — if affects is empty, falls back to "{labelBasic}: old → new"
+    // Both optional - if affects is empty, falls back to "{labelBasic}: old → new"
     QString         affects = {};    // "Result labels", "Buttons & highlights", ""
-    QString         unit = {};    // "px", "ms", "" — appended to numeric values
+    QString         unit = {};    // "px", "ms", "" - appended to numeric values
 };
 
 // -- CategoryDef ---------------------------------------------------------------
-// Describes a master category — drives the category card rendering.
+// Describes a master category - drives the category card rendering.
 struct CategoryDef {
     CategoryId  id;
     QString     label;          // "Appearance"
     QString     accentColor;    // hex color string matching Theme constants
-    QString     iconName;       // logical icon name — mapped to an emoji glyph in CategoryCard
+    QString     iconName;       // logical icon name - mapped to an emoji glyph in CategoryCard
     QString     description;    // one line shown on the card in C_MUTED
     QString     hint;           // short purpose statement shown below description
 };
 
 // -- SubcategoryDef ------------------------------------------------------------
-// Describes a subcategory — drives the subcategory card rendering.
+// Describes a subcategory - drives the subcategory card rendering.
 struct SubcategoryDef {
     SubcategoryId   id;
     CategoryId      parentCategory; // which master category owns this
@@ -137,7 +137,7 @@ struct SubcategoryDef {
 };
 
 // -- Registries ----------------------------------------------------------------
-// Defined in SettingsDef.cpp — the single source of truth for everything.
+// Defined in SettingsDef.cpp - the single source of truth for everything.
 // All other systems read from these; nothing is hardcoded elsewhere.
 
 // All master categories, in display order

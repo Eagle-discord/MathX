@@ -24,7 +24,7 @@ Settings::Settings(QObject* parent)
     m_hasSeenPendingHint = m_store.value("__ui/hasSeenPendingHint", false).toBool();
     m_hasSeenPostAnimationHint = m_store.value("__ui/hasSeenPostAnimationHint", false).toBool();
 
-    // Debounce timer — used when animationMode == Never to apply silently
+    // Debounce timer - used when animationMode == Never to apply silently
     m_debounce = new QTimer(this);
     m_debounce->setSingleShot(true);
     m_debounce->setInterval(800);
@@ -32,11 +32,11 @@ Settings::Settings(QObject* parent)
         applyPending(true);
         });
 
-    // Build initial snapshot — baseline for diffing external changes
+    // Build initial snapshot - baseline for diffing external changes
     for (const SettingDef& def : allSettings())
         m_snapshot[def.key] = m_store.value(def.key, def.defaultValue);
 
-    // Start registry watcher — detects external writes to HKCU\Software\MathX
+    // Start registry watcher - detects external writes to HKCU\Software\MathX
     m_watcher = new RegistryWatcher;
     connect(m_watcher, &RegistryWatcher::registryChanged,
         this, &Settings::onRegistryChanged, Qt::QueuedConnection);
@@ -58,7 +58,7 @@ void Settings::set(const QString& key, const QVariant& value) {
     if (mode == ApplyMode::Immediate) { 
         const SettingDef* def = findSetting(key);
         PendingChange change;
-        // Write directly — no queue, no wait
+        // Write directly - no queue, no wait
         // In set(), Immediate branch:
         change.oldValue = get(key);     // capture BEFORE write
         m_store.setValue(key, value);   // write once
@@ -76,10 +76,10 @@ void Settings::set(const QString& key, const QVariant& value) {
         return;
     }
 
-    // Staged or Deferred — check if key already has a pending entry
+    // Staged or Deferred - check if key already has a pending entry
     for (PendingChange& existing : m_pending) {
         if (existing.key == key) {
-            // User reverted to the original value — remove the entry entirely
+            // User reverted to the original value - remove the entry entirely
             if (existing.oldValue == value) {
                 m_pending.removeOne(existing);
                 emit pendingChanged();
@@ -106,7 +106,7 @@ void Settings::set(const QString& key, const QVariant& value) {
     m_pending.append(change);
     emit pendingChanged();
 
-    // First pending change ever — show the "applies on leave" hint
+    // First pending change ever - show the "applies on leave" hint
     if (!m_hasSeenPendingHint)
         emit pendingHintNeeded();
 
@@ -188,7 +188,7 @@ bool Settings::shouldPlayApplyAnimation() {
     case AnimationMode::Never:
         return false;
     case AnimationMode::Once:
-        // First time — auto-downgrade to Never so it never plays again
+        // First time - auto-downgrade to Never so it never plays again
         // unless the user explicitly sets Always.
         setAnimationMode(AnimationMode::Never);
         return true;
@@ -271,9 +271,9 @@ void Settings::onRegistryChanged() {
 
         if (fresh == cached) continue;
 
-        // Something changed externally — treat it as an immediate apply.
+        // Something changed externally - treat it as an immediate apply.
         // We skip the pending queue entirely since this came from outside
-        // the app; there's nothing to "stage" — it's already in the registry.
+        // the app; there's nothing to "stage" - it's already in the registry.
         m_snapshot[def.key] = fresh;
         changedKeys.append(def.key);
 
@@ -300,7 +300,7 @@ ApplyMode Settings::applyModeFor(const QString& key) const {
 
 void Settings::applyChange(const PendingChange& change) {
     // The one place that maps setting keys to typed signals.
-    // Consumers connect to typed signals — never to a generic settingChanged().
+    // Consumers connect to typed signals - never to a generic settingChanged().
     const QString& k = change.key;
     const QVariant& v = change.newValue;
 
@@ -311,13 +311,15 @@ void Settings::applyChange(const PendingChange& change) {
     else if (k == "display/progress/style")               emit progressStyleChanged(v.toString());
     else if (k == "display/progress/showForHeavyOnly")    emit showProgressHeavyChanged(v.toBool());
     else if (k == "display/results/truncationLimit")      emit truncationLimitChanged(v.toInt());
-    else if (k == "display/geometry/autoRotate")          emit autoRotateChanged(v.toBool());
+    else if (k == "display/geometry/showPropertyLabels")  emit showPropertyLabelsChanged(v.toBool());
     else if (k == "display/geometry/defaultShapeColor")   emit defaultShapeColorChanged(v.toString());
     else if (k == "behavior/threading/splitThreads")      emit splitThreadsChanged(v.toBool());
     else if (k == "behavior/computation/angleUnit")       emit angleUnitChanged(v.toString());
     else if (k == "behavior/computation/bigNumThreshold") emit bigNumThresholdChanged(v.toInt());
     else if (k == "behavior/computation/streamChunkSize") emit streamChunkSizeChanged(v.toInt());
     else if (k == "behavior/memory/historySize")          emit historySizeChanged(v.toInt());
+    else if (k == "appearance/results/groupDigits")       emit groupDigitsChanged(v.toBool());
+    else if (k == "behavior/results/numberNames")         emit numberNamesChanged(v.toString());
     else if (k == "behavior/memory/confirmClear")         emit confirmClearChanged(v.toBool());
     else if (k == "appearance/typography/fontSizeUI")         emit fontSizeUIChanged(v.toInt());
     else if (k == "appearance/typography/fontSizeResults")    emit fontSizeResultsChanged(v.toInt());
@@ -350,8 +352,10 @@ int     Settings::bigNumThreshold()   const { return get("behavior/computation/b
 int     Settings::streamChunkSize()   const { return get("behavior/computation/streamChunkSize").toInt(); }
 QString Settings::angleUnit()         const { return get("behavior/computation/angleUnit").toString(); }
 int     Settings::historySize()       const { return get("behavior/memory/historySize").toInt(); }
+bool    Settings::groupDigits()       const { return get("appearance/results/groupDigits").toBool(); }
+QString Settings::numberNames()       const { return get("behavior/results/numberNames").toString(); }
 bool    Settings::confirmClear()      const { return get("behavior/memory/confirmClear").toBool(); }
-bool    Settings::autoRotate()        const { return get("display/geometry/autoRotate").toBool(); }
+bool    Settings::showPropertyLabels() const { return get("display/geometry/showPropertyLabels").toBool(); }
 QString Settings::defaultShapeColor() const { return get("display/geometry/defaultShapeColor").toString(); }
 int     Settings::decimalPlaces() const { return get("behavior/computation/decimalPlaces").toInt(); }
 int     Settings::fontSizeUI()         const { return get("appearance/typography/fontSizeUI").toInt(); }
@@ -376,7 +380,6 @@ void Settings::setStreamChunkSize(int v) { set("behavior/computation/streamChunk
 void Settings::setAngleUnit(const QString& v) { set("behavior/computation/angleUnit", v); }
 void Settings::setHistorySize(int v) { set("behavior/memory/historySize", v); }
 void Settings::setConfirmClear(bool v) { set("behavior/memory/confirmClear", v); }
-void Settings::setAutoRotate(bool v) { set("display/geometry/autoRotate", v); }
 void Settings::setDefaultShapeColor(const QString& v) { set("display/geometry/defaultShapeColor", v); }
 void Settings::setFontSizeUI(int v) { set("appearance/typography/fontSizeUI", v); }
 void Settings::setFontSizeResults(int v) { set("appearance/typography/fontSizeResults", v); }

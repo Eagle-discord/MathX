@@ -9,7 +9,7 @@
 //
 // Owns NO state. Takes context flags as parameters so callers decide
 // what is valid in the current situation. This means the router never
-// needs to know about prompts, history, or run state — it only maps keys.
+// needs to know about prompts, history, or run state - it only maps keys.
 //
 // Usage:
 //   InputAction action = InputRouter::translate(ke, promptActive, historyEmpty);
@@ -18,9 +18,9 @@
 class InputRouter {
 public:
     // Translate a key event into a semantic action given the current context.
-    //   promptActive  — true when a shape parameter prompt is in progress
-    //   historyEmpty  — true when there are no history entries to navigate
-    //   ghostVisible  — true when an inline completion is currently offered
+    //   promptActive  - true when a shape parameter prompt is in progress
+    //   historyEmpty  - true when there are no history entries to navigate
+    //   ghostVisible  - true when an inline completion is currently offered
     static InputAction translate(const QKeyEvent* ke,
         bool promptActive,
         bool historyEmpty,

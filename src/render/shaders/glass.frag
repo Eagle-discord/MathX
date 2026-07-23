@@ -12,10 +12,10 @@ void main() {
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(fragViewDir);
 
-    // Fresnel — edges more opaque than center
+    // Fresnel - edges more opaque than center
     float fresnel = pow(1.0 - max(dot(N, V), 0.0), 2.5);
 
-    // Specular highlight — single light from top-left
+    // Specular highlight - single light from top-left
     vec3 L = normalize(vec3(-0.5, 1.0, 0.8));
     vec3 H = normalize(L + V);
     float spec = pow(max(dot(N, H), 0.0), 64.0);

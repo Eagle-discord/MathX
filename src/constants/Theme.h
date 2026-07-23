@@ -6,7 +6,7 @@
 // -- Theme ---------------------------------------------------------------------
 // Static colors are compile-time constants.
 // Dynamic values (accent, font) are functions that read from Settings at call
-// time — so every call site automatically picks up runtime changes without any
+// time - so every call site automatically picks up runtime changes without any
 // extra wiring.
 //
 // Rule: never capture Theme::ACCENT() into a local QString at widget-creation
@@ -33,17 +33,17 @@ namespace Theme {
     inline const QString HOVER = "#1d2b22";
     inline const QString DRED = "#950606";
 
-    // -- Dynamic values — read from Settings at call time ----------------------
+    // -- Dynamic values - read from Settings at call time ----------------------
     // Defined in Theme.cpp to avoid a circular include with Settings.h.
     QString accentColor();   // Settings::accentColor() or "#00e87a"
     QString fontFamily();    // Settings::fontFamily() with mono fallback
     int     fontSize();      // Settings::fontSize() or 10
 
-    // Dimmed variant of the current accent — for hover states etc.
+    // Dimmed variant of the current accent - for hover states etc.
     // Computed from accentColor() so it always matches.
     QString dimAccent();
 
-    // Convenience — use these in stylesheets instead of the raw string above.
+    // Convenience - use these in stylesheets instead of the raw string above.
     // ACCENT() is a function so it's always fresh; the old `inline const ACCENT`
     // was baked in at compile time and never updated.
     inline QString ACCENT() { return accentColor(); }
@@ -60,7 +60,7 @@ namespace Theme {
 } // namespace Theme
 
 // -- C_ shorthand aliases ------------------------------------------------------
-// Static aliases are fine — they reference static Theme:: members.
+// Static aliases are fine - they reference static Theme:: members.
 // Do NOT add C_ACCENT here as a const QString; use Theme::ACCENT() at call sites.
 static const QString C_BG = Theme::BG;
 static const QString C_SURFACE = Theme::SURFACE;
@@ -79,7 +79,7 @@ static const QString C_PURPLE = Theme::PURPLE;
 static const QString C_ALG = Theme::ALG;
 static const QString C_ACCENT_DIM = Theme::ACCENT_DIM;
 
-// C_ACCENT — intentionally omitted as a const.
+// C_ACCENT - intentionally omitted as a const.
 // Use Theme::ACCENT() everywhere instead.
 // This macro lets existing C_ACCENT references keep compiling while being dynamic.
 #define C_ACCENT Theme::ACCENT()

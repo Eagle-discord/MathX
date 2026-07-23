@@ -1,11 +1,11 @@
 #pragma once
-//  PolyEngine — a dense, arbitrary-degree univariate polynomial over BigDec,
+//  PolyEngine - a dense, arbitrary-degree univariate polynomial over BigDec,
 //  plus the algebra operations built on top of it:
 //    * parsing "3x^2 - 5x + 6" (any single variable, any degree)
 //    * add / sub / mul / scalar / derivative
 //    * rational-root factoring over the integers
 //    * root finding (linear, quadratic exact; cubic+ numeric via deflation)
-//    * small linear-system solver (2–3 unknowns) via Gaussian elimination
+//    * small linear-system solver (2-3 unknowns) via Gaussian elimination
 //
 //  This sits ALONGSIDE the existing numeric-sampling path in Algebra.cpp.
 //  It uses BigDec (from BigNum.h) so results keep the same precision as the
@@ -73,8 +73,8 @@ namespace PolyEngine {
 
     // -- Parsing ---------------------------------------------------------------
     // Parse a flat polynomial in ONE variable: "5x^2 + 1", "x^3 - 2x + 4",
-    // "-x", "2x²" (superscripts already normalised upstream is fine, but we
-    // also handle x²/x³ here defensively). Returns false if the string is not
+    // "-x", "2xÂ²" (superscripts already normalised upstream is fine, but we
+    // also handle xÂ²/xÂ³ here defensively). Returns false if the string is not
     // a pure single-variable polynomial (e.g. it has functions, two variables,
     // or division by the variable).
     bool parse(const QString& expr, Poly& out);
@@ -89,7 +89,7 @@ namespace PolyEngine {
     // -- Root finding ----------------------------------------------------------
     // Solve p(x) = 0. Handles degree 1 & 2 exactly (real + complex), and
     // degree >= 3 by extracting rational roots then numerically solving the
-    // remainder via Durand–Kerner. Returns human-readable root lines.
+    // remainder via Durand-Kerner. Returns human-readable root lines.
     QStringList solveRoots(const Poly& p);
 
     // -- Linear systems --------------------------------------------------------

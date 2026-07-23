@@ -90,7 +90,7 @@ namespace {
     // Note: boost cpp_dec_float supports static_cast<double> (used throughout this
     // codebase, e.g. Solver.cpp) but not a direct cast to long long, so we round
     // via floor and convert through double. We cap at 2^53 so the double carries
-    // the integer exactly — rational-root search never needs larger constants.
+    // the integer exactly - rational-root search never needs larger constants.
     bool nearInteger(const BigDec& v, long long& out, const BigDec& eps = BigDec("1e-9")) {
         BigDec r = BigNum::floor(v + BigDec("0.5"));
         if (BigNum::abs(v - r) < eps) {
@@ -148,7 +148,7 @@ namespace {
             b = p.coeffs[k] + root * b;
             q[k - 1] = b;
         }
-        // Remainder — checked independently via eval for numerical stability.
+        // Remainder - checked independently via eval for numerical stability.
         BigDec rem = p.eval(root);
         exact = (BigNum::abs(rem) < BigDec("1e-7"));
         return Poly(q, p.var);
@@ -172,7 +172,7 @@ bool PolyEngine::parse(const QString& expr, Poly& out) {
     // Reject anything with function-like letters runs or a second variable.
     // First, find the single variable.
     QSet<QString> vars = Expr::detectVariables(s);
-    if (vars.size() > 1) return false;               // multivariable — not ours
+    if (vars.size() > 1) return false;               // multivariable - not ours
     QString var = vars.isEmpty() ? QString("x") : *vars.begin();
 
     // If there are letters that aren't the variable, it's a function etc.
@@ -185,7 +185,7 @@ bool PolyEngine::parse(const QString& expr, Poly& out) {
     if (s.contains('(') || s.contains(')')) return false;
 
     // Insert explicit '+' so we can split uniformly, but not for exponent signs
-    // (there shouldn't be any here) — we split on + / - that start a term.
+    // (there shouldn't be any here) - we split on + / - that start a term.
     QList<QString> terms;
     QString cur;
     for (int i = 0; i < s.size(); ++i) {
@@ -202,7 +202,7 @@ bool PolyEngine::parse(const QString& expr, Poly& out) {
     if (!cur.isEmpty()) terms.append(cur);
 
     QMap<int, BigDec> byPow;   // power -> coefficient
-    // Allow an optional '*' between coefficient and variable — Expr::preprocess
+    // Allow an optional '*' between coefficient and variable - Expr::preprocess
     // turns "5x" into "5*x", and without this the term wouldn't match and the
     // whole polynomial would fail to parse (so factor() reported "cannot factor").
     QRegularExpression termRe(
@@ -357,7 +357,7 @@ QString PolyEngine::factor(const Poly& pIn) {
 
     if (factors.size() < 1) return {};
     // If we only peeled one linear factor off a quadratic, that's still 2 factors
-    // total once the remainder is included — so require the whole thing to have
+    // total once the remainder is included - so require the whole thing to have
     // actually split (more than one factor, or a content != 1 in front).
     if (factors.size() == 1 && content == 1) return {};
 
@@ -404,7 +404,7 @@ static QStringList solveQuadraticPoly(const Poly& p) {
     }
 }
 
-// Durand–Kerner: find all complex roots of a polynomial numerically.
+// Durand-Kerner: find all complex roots of a polynomial numerically.
 // Used only for the non-rational remainder of degree >= 3. Operates on the
 // monic form of the polynomial (in double precision, which is plenty for the
 // approximate answers we label with "≈").
@@ -534,7 +534,7 @@ QStringList PolyEngine::solveRoots(const Poly& pIn) {
 }
 
 // ===========================================================================
-//  Linear systems (2–3 unknowns) via Gaussian elimination on BigDec
+//  Linear systems (2-3 unknowns) via Gaussian elimination on BigDec
 // ===========================================================================
 namespace {
 

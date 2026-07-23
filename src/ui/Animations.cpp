@@ -15,7 +15,7 @@ void Animations::fadeIn(QWidget* widget, int durationMs) {
 
     // Drop the effect once the fade is done. A QGraphicsOpacityEffect forces its
     // widget onto an offscreen composite path for as long as it's attached, so
-    // leaving it in place made every finished line a permanent render tax —
+    // leaving it in place made every finished line a permanent render tax -
     // noticeable by the third line and worse from there.
     QPointer<QWidget> safe(widget);
     QObject::connect(anim, &QPropertyAnimation::finished, widget, [safe]() {

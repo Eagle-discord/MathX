@@ -117,7 +117,7 @@ protected:
         }
 
         // Formula rendered through MathText (CMU glyph outlines) so it writes
-        // itself into view — same draw-on as the walkthrough readout. Hovering
+        // itself into view - same draw-on as the walkthrough readout. Hovering
         // it swaps the dark legibility halo for an accent one: the glow that
         // advertises "click me -> play the walkthrough".
         const QString text = QStringLiteral(" = ") + m_formula;
@@ -227,7 +227,7 @@ private:
         int w = base + hintW;
 
         if (m_formulaVisible && !m_formula.isEmpty()) {
-            // Formula width from MathText (CMU) — matches what paintEvent
+            // Formula width from MathText (CMU) - matches what paintEvent
             // actually renders.
             MathText::Line line;
             line.run(QStringLiteral(" = ") + m_formula);
@@ -237,7 +237,7 @@ private:
     }
 
     // Rows are always a single line now: an over-long formula shrinks to fit
-    // (see paintEvent) instead of wrapping — math reads badly broken across
+    // (see paintEvent) instead of wrapping - math reads badly broken across
     // lines, and the panel already grows to naturalWidth() first.
     int computeHeight(int /*w*/) const { return kLineH; }
 

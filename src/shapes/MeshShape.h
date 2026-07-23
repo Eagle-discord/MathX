@@ -25,7 +25,7 @@ protected:
     // Subclass fills m_vertices / m_indices and clears m_meshDirty.
     virtual void buildMesh() = 0;
 
-    // Vertex layout description — override if a shape differs from the
+    // Vertex layout description - override if a shape differs from the
     // default (position + normal, interleaved, drawn as triangles).
     virtual bool  hasNormals() const { return true; }
     virtual GLenum drawMode()  const { return GL_TRIANGLES; }

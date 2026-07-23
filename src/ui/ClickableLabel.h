@@ -5,7 +5,7 @@
 // -- ClickableLabel ------------------------------------------------------------
 // Result label that shows "Copy" on hover and copies plain text on right
 // click. Left double-click shows the conversion formula (if any) in a popup.
-// Now a thin CopyableLabel subclass — all copy/hover/timer logic lives there.
+// Now a thin CopyableLabel subclass - all copy/hover/timer logic lives there.
 class ClickableLabel : public CopyableLabel {
 public:
     ClickableLabel(const QString& html, const QString& plainText,
@@ -48,7 +48,7 @@ protected:
         setStyleSheet("background:transparent;" + m_extraStyle);
     }
     void applyCopiedStyle() override {
-        // Original swapped both text ("Copied!") and background pill style —
+        // Original swapped both text ("Copied!") and background pill style -
         // preserve the highlighted background on copy.
         setStyleSheet(QString("background:%1;border-radius:3px;%2")
             .arg(Theme::dimAccent(), m_extraStyle));

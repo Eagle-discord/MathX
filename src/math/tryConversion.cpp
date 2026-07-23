@@ -1,18 +1,18 @@
 ﻿// ----------------------------------------------------------------------
-//  tryConversion – universal unit conversion system
+//  tryConversion - universal unit conversion system
 //
 //  Architecture:
-//    1. SI_BASES  — one entry per physical quantity's base unit.
+//    1. SI_BASES  - one entry per physical quantity's base unit.
 //                   Prefixable bases get all 20 SI prefixes generated
 //                   automatically (km, mm, nm, Mm, etc.)
 //
-//    2. MANUAL    — non-SI units with known fixed factors, plus
+//    2. MANUAL    - non-SI units with known fixed factors, plus
 //                   aliases, plural forms, and common abbreviations.
 //
-//    3. NONLINEAR — temperature and other offset/reciprocal units
+//    3. NONLINEAR - temperature and other offset/reciprocal units
 //                   that can't be represented as a simple factor.
 //
-//    4. buildUnitMap() — called once, merges all three sources into a
+//    4. buildUnitMap() - called once, merges all three sources into a
 //                   single QMap<QString, ResolvedUnit> for O(log n) lookup.
 //
 //  To add a new SI-derived unit:  one row in SI_BASES (prefixes are free).
@@ -45,7 +45,7 @@ struct SIPrefix { QString sym; double factor; };
 // Order matters: the input reaches unit resolution already lower-cased, which
 // collapses the case-distinct SI prefixes M/m, P/p, Z/z, Y/y onto one key each.
 // We list the everyday *small* prefix (milli, pico, zepto, yocto) BEFORE its
-// uppercase partner (mega, peta, zetta, yotta) so the common unit wins — e.g.
+// uppercase partner (mega, peta, zetta, yotta) so the common unit wins - e.g.
 // "mm" resolves to millimetre, not megametre. (Reach mega/peta/... by spelling
 // the unit out, e.g. "megametre".) Non-colliding prefixes may appear in any order.
 static const QVector<SIPrefix> SI_PREFIXES = {
@@ -223,7 +223,7 @@ static const QVector<ManualUnit> MANUAL = {
     // Frequency (base: Hz)
     {"rpm",     "frequency",1.0 / 60.0,      {}},
     {"rps",     "frequency",1.0,           {}},
-    // Data (base: byte) — SI decimal
+    // Data (base: byte) - SI decimal
     // Data
     { "kb",      "data",   1000.0,          {"kilobyte","kilobytes","kilo byte","kilo bytes"} },
     { "mb",      "data",   1e6,             {"megabyte","megabytes","mega byte","mega bytes"} },
@@ -233,7 +233,7 @@ static const QVector<ManualUnit> MANUAL = {
     { "kib",     "data",   1024.0,          {"kibibyte","kibibytes"} },
     { "mib",     "data",   1048576.0,       {"mebibyte","mebibytes"} },
     { "gib",     "data",   1073741824.0,    {"gibibyte","gibibytes"} },
-    // Data — binary IEC
+    // Data - binary IEC
     {"kib",     "data",   1024.0,          {"kibibyte"}},
     {"mib",     "data",   1048576.0,       {"mebibyte"}},
     {"gib",     "data",   1073741824.0,    {"gibibyte"}},
@@ -313,7 +313,7 @@ static const QVector<NonLinearUnit> NONLINEAR = {
         [](double v) { return (v - 7.5) * 40.0 / 21.0 + 273.15; }, // Rømer → K
         [](double v) { return (v - 273.15) * 21.0 / 40.0 + 7.5; },  // K → Rømer
         {"romer"}},
-        // L/100km — reciprocal of km/L
+        // L/100km - reciprocal of km/L
         {"l/100km","fueleco",
             [](double v) { return 100.0 / v; },
             [](double v) { return 100.0 / v; },
@@ -338,21 +338,21 @@ static QMap<QString, ResolvedUnit> buildUnitMap() {
                 map[k] = { cat, 0, toFn, fromFn, true, true };
         };
 
-    // 1. Non-linear units (temperature etc.) – highest priority
+    // 1. Non-linear units (temperature etc.) - highest priority
     for (const NonLinearUnit& u : NONLINEAR) {
         addNonLinear(u.key, u.category, u.toBase, u.fromBase);
         for (const QString& alias : u.aliases)
             addNonLinear(alias, u.category, u.toBase, u.fromBase);
     }
 
-    // 2. Manual non-SI units – takes precedence over auto‑generated ones
+    // 2. Manual non-SI units - takes precedence over auto‑generated ones
     for (const ManualUnit& u : MANUAL) {
         addLinear(u.key, u.category, u.toBase);
         for (const QString& alias : u.aliases)
             addLinear(alias, u.category, u.toBase);
     }
 
-    // 3. SI bases + prefixes – only add if not already present
+    // 3. SI bases + prefixes - only add if not already present
     for (const SIBase& base : SI_BASES) {
         // Add the base unit itself (if not already taken)
         if (!map.contains(base.symbol.toLower()))
@@ -509,7 +509,7 @@ static const QMap<QString, QString> SI_PREFIX_WORDS = {
 
 
 // ----------------------------------------------------------------------
-// Helper: convert simple units (no '/') – handles linear and non‑linear
+// Helper: convert simple units (no '/') - handles linear and non‑linear
 // ----------------------------------------------------------------------
 static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const QString& toUnit,
     const QMap<QString, ResolvedUnit>& MAP) {
@@ -521,7 +521,7 @@ static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const Q
     double result;
     QString formula;
 
-    // Non‑linear units (temperature) – use stored conversion functions
+    // Non‑linear units (temperature) - use stored conversion functions
     if (uFrom.isNonLinear || uTo.isNonLinear) {
         double base = uFrom.toBaseFn ? uFrom.toBaseFn(val) : val * uFrom.toBase;
         result = uTo.fromBaseFn ? uTo.fromBaseFn(base) : base / uTo.toBase;
@@ -549,7 +549,7 @@ static CalcResult convertSimpleUnit(double val, const QString& fromUnit, const Q
 }
 
 // ----------------------------------------------------------------------
-// tryConversion – main entry point
+// tryConversion - main entry point
 // ----------------------------------------------------------------------
 CalcResult MathEngine::tryConversion(const QString& expr) {
     static const QMap<QString, ResolvedUnit> MAP = buildUnitMap();
@@ -617,7 +617,7 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
     }
 
     // Standard conversion pattern: "value unit to unit"
-// Allow letters, digits, spaces, slashes, dots, hyphens — but NOT "to" as standalone word
+// Allow letters, digits, spaces, slashes, dots, hyphens - but NOT "to" as standalone word
     static QRegularExpression re(
         R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([\w/.*\- ]+?)\s+to\s+([\w/.*\- ]+?)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
@@ -628,13 +628,13 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
     QString fromUnit = m.captured(2).toLower().trimmed().simplified();
     QString toUnit = m.captured(3).toLower().trimmed().simplified();
 
-    // Simple units (no '/') – use dedicated helper
+    // Simple units (no '/') - use dedicated helper
     if (!fromUnit.contains('/') && !toUnit.contains('/')) {
         return convertSimpleUnit(val, fromUnit, toUnit, MAP);
     }
 
     // --------------------------------------------------------------
-    // Compound units (contain '/') – use factor method (linear only)
+    // Compound units (contain '/') - use factor method (linear only)
     // --------------------------------------------------------------
     auto parseUnitExpr = [](const QString& s) -> QPair<QStringList, QStringList> {
         if (s.contains('/')) {

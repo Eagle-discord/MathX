@@ -39,7 +39,16 @@ public:
     }
 
 
-    // Live update hook (see CopyableLabel::setNormalText). refreshDisplay()
+    // Turn expand mode off (the result-click setting changed away from it).
+    // Reverts to the collapsed display so no half-expanded state lingers.
+    void clearExpandable() {
+        if (!m_expandable) return;
+        m_expandable = false;
+        m_expanded = false;
+        setNormalText(m_collapsedHtml);
+    }
+
+        // Live update hook (see CopyableLabel::setNormalText). refreshDisplay()
     // rebuilds the label from normalText() on every hover and copy-flash reset,
     // so a bare setText() would be silently reverted.
     void setNormalText(const QString& html) override {

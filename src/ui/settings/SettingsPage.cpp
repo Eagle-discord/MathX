@@ -37,7 +37,7 @@ static QFont MF(int pt, int w = QFont::Normal) {
     return f;
 }
 
-// Looks up a category's display label by ID — used for back button text
+// Looks up a category's display label by ID - used for back button text
 static QString categoryLabel(CategoryId id) {
     for (const CategoryDef& c : allCategories())
         if (c.id == id) return c.label;
@@ -63,11 +63,11 @@ static void fadeWidget(QWidget* w, bool in, int ms = 180) {
 }
 
 // -- CategoryCard --------------------------------------------------------------
-// Inline — small enough to live here rather than its own file
+// Inline - small enough to live here rather than its own file
 
 class CategoryCard : public QWidget {
     Q_OBJECT
-        // Drives the hover transition — interpolated 0→1 over 150ms.
+        // Drives the hover transition - interpolated 0→1 over 150ms.
         // Used for border glow intensity, border inset ("expand" effect),
         // and abstract background vibrancy.
         Q_PROPERTY(qreal hoverProgress READ hoverProgress WRITE setHoverProgress)
@@ -88,7 +88,7 @@ public:
         m_hoverAnim->setDuration(150);
         m_hoverAnim->setEasingCurve(QEasingCurve::OutCubic);
 
-        // Geometry grow animation — makes the card visibly larger on hover
+        // Geometry grow animation - makes the card visibly larger on hover
         // by overriding its layout-assigned rect, expanded by GROW_PX on
         // each side. raise() in enterEvent keeps it drawn above neighbors.
         m_growAnim = new QPropertyAnimation(this, "geometry", this);
@@ -121,7 +121,7 @@ public:
         m_desc->setAlignment(Qt::AlignCenter);
         m_desc->setWordWrap(false);
 
-        // Hint — short purpose statement, muted, below the description
+        // Hint - short purpose statement, muted, below the description
         m_hint = new QLabel(def.hint);
         m_hint->setFont(MF(8));
         m_hint->setStyleSheet(QString(
@@ -160,7 +160,7 @@ protected:
         m_hoverAnim->setEndValue(1.0);
         m_hoverAnim->start();
 
-        // Grow beyond the layout cell — raise() so it overlaps neighbors
+        // Grow beyond the layout cell - raise() so it overlaps neighbors
         // on top instead of being clipped/pushed by them.
         raise();
         m_growAnim->stop();
@@ -234,7 +234,7 @@ protected:
             p.drawRoundedRect(base.adjusted(-spread, -spread, spread, spread), 14, 14);
         }
 
-        // Crisp edge on top — brightens slightly on hover via thicker stroke
+        // Crisp edge on top - brightens slightly on hover via thicker stroke
         p.setPen(QPen(accent, 1.5 + 0.5 * m_hoverProgress));
         p.drawRoundedRect(base, 14, 14);
     }
@@ -242,7 +242,7 @@ protected:
 private:
     void updateStyle(bool hovered) {
         m_hovered = hovered;
-        // Background-only stylesheet — border is hand-painted in paintEvent
+        // Background-only stylesheet - border is hand-painted in paintEvent
         // so we can layer a soft glow behind a crisp 1.5px edge.
         setStyleSheet(QString(
             "CategoryCard { background:%1; border-radius:14px; }"
@@ -339,19 +339,19 @@ public:
         layout->setContentsMargins(16, 0, 16, 0);
         layout->setSpacing(12);
 
-        // Label — uses Basic or Advanced depending on visibility level
+        // Label - uses Basic or Advanced depending on visibility level
         m_label = new QLabel;
         m_label->setFont(MF(9));
         m_label->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::TEXT));
         layout->addWidget(m_label, 1);
 
-        // Description — always visible in Basic, hover-only in Advanced/Developer
+        // Description - always visible in Basic, hover-only in Advanced/Developer
         m_desc = new QLabel;
         m_desc->setFont(MF(8));
         m_desc->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::MUTED));
         layout->addWidget(m_desc, 1);
 
-        // Control area — built by buildControl() based on def.control
+        // Control area - built by buildControl() based on def.control
         m_controlContainer = new QWidget;
         auto* ctrlLayout = new QHBoxLayout(m_controlContainer);
         ctrlLayout->setContentsMargins(0, 0, 0, 0);
@@ -360,7 +360,7 @@ public:
         buildControl(ctrlLayout);
         layout->addWidget(m_controlContainer);
 
-        // Pending indicator — small dot + label shown when this key has a
+        // Pending indicator - small dot + label shown when this key has a
         // staged/deferred change waiting. Sits below the control.
         m_pendingDot = new QLabel;
         m_pendingDot->setFont(MF(7));
@@ -456,7 +456,7 @@ private:
         }
     }
 
-    // -- Toggle — red/green push button ---------------------------------------
+    // -- Toggle - red/green push button ---------------------------------------
     void buildToggle(QHBoxLayout* ctrlLayout) {
         auto* btn = new QPushButton;
         btn->setFixedSize(72, 26);
@@ -482,7 +482,7 @@ private:
         ctrlLayout->addWidget(btn);
     }
 
-    // -- Dropdown — styled QComboBox from def.options -------------------------
+    // -- Dropdown - styled QComboBox from def.options -------------------------
     void buildDropdown(QHBoxLayout* ctrlLayout) {
         auto* combo = new QComboBox;
         combo->addItems(m_def.options);
@@ -513,7 +513,7 @@ private:
         ctrlLayout->addWidget(combo);
     }
 
-    // -- Slider — adaptive-step slider + click-to-edit value label -----------
+    // -- Slider - adaptive-step slider + click-to-edit value label -----------
     void buildSlider(QHBoxLayout* ctrlLayout) {
         auto* slider = new QSlider(Qt::Horizontal);
         slider->setFixedWidth(110);
@@ -575,7 +575,7 @@ private:
         ctrlLayout->addWidget(valueLabel);
     }
 
-    // -- ColorPicker — swatch + multi-format text input + picker button ------
+    // -- ColorPicker - swatch + multi-format text input + picker button ------
     void buildColorPicker(QHBoxLayout* ctrlLayout) {
         auto* swatch = new QLabel;
         swatch->setFixedSize(20, 20);
@@ -632,7 +632,7 @@ private:
         ctrlLayout->addWidget(pickBtn);
     }
 
-    // -- FontInput — text field with QCompleter over installed font families -
+    // -- FontInput - text field with QCompleter over installed font families -
     void buildFontInput(QHBoxLayout* ctrlLayout) {
         auto* edit = new QLineEdit;
         edit->setFixedWidth(150);
@@ -660,7 +660,7 @@ private:
                 Settings::instance().set(m_def.key, name);
             }
             else {
-                // Invalid font — revert to last valid value
+                // Invalid font - revert to last valid value
                 edit->setText(Settings::instance().get(m_def.key).toString());
             }
             });
@@ -669,7 +669,7 @@ private:
         ctrlLayout->addWidget(edit);
     }
 
-    // -- TextInput — plain text field -----------------------------------------
+    // -- TextInput - plain text field -----------------------------------------
     void buildTextInput(QHBoxLayout* ctrlLayout) {
         auto* edit = new QLineEdit;
         edit->setFixedWidth(150);
@@ -694,7 +694,7 @@ private:
         ctrlLayout->addWidget(edit);
     }
 
-    // -- Action — one-shot button, no persisted state -------------------------
+    // -- Action - one-shot button, no persisted state -------------------------
     void buildAction(QHBoxLayout* ctrlLayout) {
         auto* btn = new QPushButton(m_def.labelBasic);
         btn->setFont(MF(8));
@@ -832,7 +832,7 @@ public:
         layout->setContentsMargins(16, 6, 16, 6);
         layout->setSpacing(2);
 
-        // Breadcrumb — "Appearance → Typography" in category accent + muted
+        // Breadcrumb - "Appearance → Typography" in category accent + muted
         QString accent = Theme::ACCENT();
         QString catLabel, subLabel;
         for (const CategoryDef& c : allCategories()) {
@@ -851,14 +851,14 @@ public:
         breadcrumb->setStyleSheet("background:transparent;");
         layout->addWidget(breadcrumb);
 
-        // Setting label — Basic or Advanced depending on visibility level
+        // Setting label - Basic or Advanced depending on visibility level
         const bool basic = (Settings::instance().visibilityLevel() == VisibilityLevel::Basic);
         m_label = new QLabel(basic ? def.labelBasic : def.labelAdvanced);
         m_label->setFont(MF(10, QFont::Bold));
         m_label->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::TEXT));
         layout->addWidget(m_label);
 
-        // Description — Basic description, always shown in search results
+        // Description - Basic description, always shown in search results
         auto* desc = new QLabel(def.descBasic);
         desc->setFont(MF(8));
         desc->setStyleSheet(QString("color:%1; background:transparent;").arg(Theme::MUTED));
@@ -925,7 +925,7 @@ VisibilityControl::VisibilityControl(QWidget* parent) : QWidget(parent) {
 
     // Connect level button
     connect(m_levelBtn, &QPushButton::clicked, this, [this]() {
-        // Cycle through levels for now — dropdown popup in follow-up
+        // Cycle through levels for now - dropdown popup in follow-up
         VisibilityLevel current = Settings::instance().visibilityLevel();
         VisibilityLevel next;
         switch (current) {
@@ -980,7 +980,7 @@ void VisibilityControl::enterPassiveState() {
 }
 
 void VisibilityControl::enterDormantState() {
-    // Bare label — no border, no glow, no ? button
+    // Bare label - no border, no glow, no ? button
     m_levelBtn->setStyleSheet(QString(
         "QPushButton { background:none; border:none; color:%1;"
         "padding:2px 10px; }"
@@ -1108,7 +1108,7 @@ void PendingQueueFooter::playApplySequence(std::function<void()> onComplete) {
     if (playAnim) {
         Settings::instance().applyPending(true);
 
-        // This was the first-ever Once playback — show the one-shot message
+        // This was the first-ever Once playback - show the one-shot message
         // pointing the user to where to re-enable it.
         if (wasOnce && !Settings::instance().hasSeenPostAnimationHint()) {
             Settings::instance().markPostAnimationHintSeen();
@@ -1138,9 +1138,9 @@ public:
         setGeometry(parent->rect());
     }
 
-    // changes         — snapshot of what was just applied (already committed
-    //                   to Settings before this plays — purely visual reassurance)
-    // showDisableHint — true the first time "Once" auto-downgrades to "Never"
+    // changes         - snapshot of what was just applied (already committed
+    //                   to Settings before this plays - purely visual reassurance)
+    // showDisableHint - true the first time "Once" auto-downgrades to "Never"
     void play(const QList<PendingChange>& changes, bool showDisableHint,
         std::function<void()> onComplete)
     {
@@ -1170,7 +1170,7 @@ public:
 
 private:
     // Small label per pending change, starting stacked near the bottom
-    // (roughly where the footer used to sit) — these fly up in step 1.
+    // (roughly where the footer used to sit) - these fly up in step 1.
     void buildEntryRow() {
         const int startY = height() - 80;
         int i = 0;
@@ -1187,7 +1187,7 @@ private:
         }
     }
 
-    // Small counter label — this is what visually "becomes" the heading.
+    // Small counter label - this is what visually "becomes" the heading.
     void buildHeading() {
         m_heading = new QLabel(this);
         m_heading->setAlignment(Qt::AlignCenter);
@@ -1215,7 +1215,7 @@ private:
         m_subtitle->hide();
     }
 
-    // Step 1 — entries fly from bottom to a centered horizontal row near the top.
+    // Step 1 - entries fly from bottom to a centered horizontal row near the top.
     void flyEntriesToTop() {
         const int topY = 60, spacing = 24;
         int totalWidth = 0;
@@ -1237,7 +1237,7 @@ private:
         group->start(QAbstractAnimation::DeleteWhenStopped);
     }
 
-    // Step 2 — the small counter label grows into the centered page heading.
+    // Step 2 - the small counter label grows into the centered page heading.
     void expandHeading() {
         auto* posAnim = new QPropertyAnimation(m_heading, "pos", this);
         posAnim->setDuration(380);
@@ -1246,7 +1246,7 @@ private:
         posAnim->setEndValue(QPoint((width() - m_heading->width()) / 2, 140));
 
         connect(posAnim, &QPropertyAnimation::finished, this, [this]() {
-            // Font size isn't animatable — grow it in one step right as the
+            // Font size isn't animatable - grow it in one step right as the
             // move lands, then re-center for the new (larger) width.
             m_heading->setFont(QFont(Theme::fontFamily(), 20, QFont::Bold));
             m_heading->setText("APPLYING CHANGES");
@@ -1266,7 +1266,7 @@ private:
         posAnim->start(QAbstractAnimation::DeleteWhenStopped);
     }
 
-    // Step 3 — walk through each change: point the arrow at its entry label,
+    // Step 3 - walk through each change: point the arrow at its entry label,
     // show applyingLabel, then appliedLabel, then advance.
     void processNext() {
         if (m_index >= m_changes.size()) { finish(); return; }
@@ -1307,7 +1307,7 @@ private:
         move->start(QAbstractAnimation::DeleteWhenStopped);
     }
 
-    // Step 4 — done. First time only: show the disable-hint + Continue button.
+    // Step 4 - done. First time only: show the disable-hint + Continue button.
     void finish() {
         m_arrow->hide();
         m_subtitle->setText("All changes applied");
@@ -1367,7 +1367,7 @@ SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
     buildChrome();
     root->addWidget(m_chrome);
 
-    // Content area — scrollable
+    // Content area - scrollable
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -1378,7 +1378,7 @@ SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
     scroll->setWidget(m_contentStack);
     root->addWidget(scroll, 1);
 
-    // One-shot hint — "Changes apply automatically when you leave this page."
+    // One-shot hint - "Changes apply automatically when you leave this page."
     // Shown the very first time the pending queue goes from empty → non-empty.
     m_pendingHintBar = new QLabel(
         "Changes will automatically be applied once you leave the page.");
@@ -1395,7 +1395,7 @@ SettingsPage::SettingsPage(QWidget* parent) : QWidget(parent) {
         Settings::instance().markPendingHintSeen();
         });
 
-    // Footer — bottom right, outside the scroll area
+    // Footer - bottom right, outside the scroll area
     m_footer = new PendingQueueFooter(this);
     m_footer->setStyleSheet(QString(
         "background:%1; border-top:1px solid %2;"
@@ -1426,7 +1426,7 @@ void SettingsPage::buildChrome() {
 
     
 
-    // Search bar — top of the page, centered, no grey backdrop
+    // Search bar - top of the page, centered, no grey backdrop
     m_searchBar = new QLineEdit;
     m_searchBar->setPlaceholderText("Search settings...");
     m_searchBar->setFont(MF(9));
@@ -1446,7 +1446,7 @@ void SettingsPage::buildChrome() {
     searchRow->addStretch(1);
     layout->addLayout(searchRow);
 
-    // Visibility control — directly below the search bar, also centered
+    // Visibility control - directly below the search bar, also centered
     m_visControl = new VisibilityControl;
     connect(m_visControl, &VisibilityControl::levelChanged,
         this, &SettingsPage::onVisibilityChanged);
@@ -1458,7 +1458,7 @@ void SettingsPage::buildChrome() {
     visRow->addStretch(1);
     layout->addLayout(visRow);
 
-    // Address bar — below search/visibility, left aligned
+    // Address bar - below search/visibility, left aligned
     m_addressBar = new QLabel("Settings");
     m_addressBar->setFont(MF(9));
     m_addressBar->setStyleSheet(
@@ -1474,7 +1474,7 @@ void SettingsPage::buildCategoryView() {
     layout->setContentsMargins(24, 32, 24, 32);
     layout->setSpacing(16);
 
-    // Centered heading — all caps, DejaVu Sans, accent green with glow
+    // Centered heading - all caps, DejaVu Sans, accent green with glow
     auto* heading = new QLabel("SETTINGS");
     QFont headingFont("DejaVu Sans", 22, QFont::Bold);
     heading->setFont(headingFont);
@@ -1526,7 +1526,7 @@ void SettingsPage::buildSubcategoryView(CategoryId cat) {
         if (c.id == cat) { catDef = &c; break; }
     }
 
-    // Back button — top left, returns to category overview (level 0)
+    // Back button - top left, returns to category overview (level 0)
     auto* backBtn = new QPushButton("← Settings");
     backBtn->setFont(MF(9));
     backBtn->setCursor(Qt::PointingHandCursor);
@@ -1552,7 +1552,7 @@ void SettingsPage::buildSubcategoryView(CategoryId cat) {
     layout->addWidget(heading);
     layout->addSpacing(8);
 
-    // Subcategory cards — capped at 3 per category for layout consistency
+    // Subcategory cards - capped at 3 per category for layout consistency
     auto* cardRow = new QHBoxLayout;
     cardRow->setSpacing(16);
 
@@ -1598,7 +1598,7 @@ void SettingsPage::buildSettingView(SubcategoryId sub) {
         if (subDef && c.id == subDef->parentCategory) { backAccent = c.accentColor; break; }
     }
 
-    // Back button — top left, returns to subcategory overview (level 1)
+    // Back button - top left, returns to subcategory overview (level 1)
     auto* backBtn = new QPushButton(subDef ? "← " + categoryLabel(subDef->parentCategory) : "← Back");
     backBtn->setFont(MF(9));
     backBtn->setCursor(Qt::PointingHandCursor);
@@ -1817,7 +1817,7 @@ void SettingsPage::onSearchChanged(const QString& query) {
 
     m_addressBar->setText(
         QString("<span style='color:%1;'>Search: </span>"
-            "<span style='color:%2;'>\"%3\" — %4 result%5</span>")
+            "<span style='color:%2;'>\"%3\" - %4 result%5</span>")
         .arg(Theme::MUTED, Theme::TEXT)
         .arg(query.toHtmlEscaped())
         .arg(results.size())
@@ -1831,7 +1831,7 @@ void SettingsPage::onSearchChanged(const QString& query) {
         fadeWidget(m_searchView, true, 150);
     }
     else {
-        // Already showing a (now-replaced) search view — just fade in the new one
+        // Already showing a (now-replaced) search view - just fade in the new one
         fadeWidget(m_searchView, true, 150);
     }
 }
@@ -1849,7 +1849,7 @@ void SettingsPage::onPendingChanged() {
 
 void SettingsPage::onActionTriggered(QString key) {
     if (key == "behavior/memory/copyHistory") {
-        // SettingsPage has no access to MainWindow::m_history — bubble the
+        // SettingsPage has no access to MainWindow::m_history - bubble the
         // request up so MainWindow can do the actual clipboard write.
         emit copyHistoryRequested();
         return;
@@ -1882,7 +1882,7 @@ void SettingsPage::onActionTriggered(QString key) {
 
         const QJsonObject obj = doc.object();
         for (auto it = obj.begin(); it != obj.end(); ++it) {
-            // Only import keys that are actually registered settings —
+            // Only import keys that are actually registered settings -
             // ignores stale/unknown keys from older or hand-edited files.
             if (findSetting(it.key()))
                 Settings::instance().set(it.key(), it.value().toVariant());
@@ -1909,7 +1909,7 @@ void SettingsPage::prepareToLeave(std::function<void()> onComplete) {
         return;
     }
 
-    // Snapshot before applying — applyPending() clears the queue, so grab
+    // Snapshot before applying - applyPending() clears the queue, so grab
     // what we need for the animation first.
     const QList<PendingChange> snapshot = Settings::instance().pendingChanges();
     const bool wasOnce = (Settings::instance().animationMode() == AnimationMode::Once);

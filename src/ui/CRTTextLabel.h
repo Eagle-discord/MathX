@@ -6,7 +6,7 @@
 #include <QTimer>
 #include <QFontDialog>
 #include <QPushButton>
-#include "..\constants\Theme.h"
+#include "../constants/Theme.h"
 #include <QRgb>
 
 class CRTTextLabel : public QWidget {
@@ -36,7 +36,7 @@ public:
     QColor glowColor() const { return m_glowColor; }
     void setGlowColor(const QColor& color);
     int glowLayers() const { return m_glowLayers; }
-    void setGlowLayers(int layers);     // 0 = no glow, 1–5 recommended
+    void setGlowLayers(int layers);     // 0 = no glow, 1-5 recommended
 
     // CRT
     bool crtEnabled() const { return m_crtEnabled; }
@@ -44,7 +44,7 @@ public:
     bool flickerEnabled() const { return m_flickerEnabled; }
     void setFlickerEnabled(bool enabled);
     int scanlineOpacity() const { return m_scanlineOpacity; }
-    void setScanlineOpacity(int opacity); // 0–255, recommended 30–60
+    void setScanlineOpacity(int opacity); // 0-255, recommended 30-60
     void setFlickerInterval(int ms);      // default 80ms
 
     // Subtitle (e.g. "UNLIMITED CALCULATOR")

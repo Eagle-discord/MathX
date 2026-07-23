@@ -1,5 +1,5 @@
 #pragma once
-//  TreeSolver — solve equations using the AST, covering:
+//  TreeSolver - solve equations using the AST, covering:
 //    1. Polynomial equations with terms on BOTH sides:  2x + 3 = x - 5
 //    2. Bracketed / factored forms:                     (x-1)(x-2)(x-3) = 0
 //    3. Rational equations (variable in denominator):    x/(x-2) = 3

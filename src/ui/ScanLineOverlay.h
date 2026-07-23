@@ -1,6 +1,6 @@
 #include <QPainter>
 #include <QWidget>
-#include "..\constants\Theme.h"
+#include "../constants/Theme.h"
 
 
 // Transparent overlay widget sitting on top of MainWindow

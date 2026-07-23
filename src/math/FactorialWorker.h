@@ -14,7 +14,7 @@ signals:
     void finished(const QString& result);
 
 #ifdef __INTELLISENSE__
-    // Dummy definitions to silence IntelliSense – never compiled
+    // Dummy definitions to silence IntelliSense - never compiled
     void progress(cpp_int) {}
     void finished(const QString&) {}
 #endif

@@ -1,4 +1,5 @@
 ﻿#include "GeoModeWidget.h"
+#include "../settings/Settings.h"
 #include "../render/RenderWidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -53,7 +54,7 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     m_renderWidget->setStyleSheet("border: none; background: black;");
     mainLayout->addWidget(m_renderWidget, 1); // takes all space
 
-    // Top bar overlay (shape selector) – child of render widget, floats on top
+    // Top bar overlay (shape selector) - child of render widget, floats on top
     m_topBar = new QWidget(m_renderWidget);
     m_topBar->setStyleSheet("background: rgba(0,0,0,150); border-radius: 8px;");
     QHBoxLayout* topLayout = new QHBoxLayout(m_topBar);
@@ -69,7 +70,7 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     topLayout->addWidget(m_shapeSelector);
     m_topBar->adjustSize();
 
-    // Control panel – now a child of the render widget (overlay)
+    // Control panel - now a child of the render widget (overlay)
     m_controlPanel = new QWidget(m_renderWidget);
     m_controlPanel->setFixedWidth(280);
     m_controlPanel->setStyleSheet("background: transparent;"); // semi‑transparent
@@ -142,7 +143,7 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     colorLayout->addRow(bgRow);
 
     m_ctrlLayout->addWidget(colorGroup);
-    // Back button – also a child of render widget (overlay)
+    // Back button - also a child of render widget (overlay)
     m_backButton = new QPushButton("Back", m_renderWidget);
     m_backButton->setFixedSize(100, 32);
     m_backButton->setStyleSheet(
@@ -167,6 +168,9 @@ GeoModeWidget::GeoModeWidget(QWidget* parent) : QWidget(parent) {
     m_ctrlLayout->addWidget(rotCheck);
     // Store pointer for later updates
     m_rotateCheckbox = rotCheck;
+
+    wireGeometrySettings();
+    applyGeometrySettings();
     // Set the horizontal offset for the renderer (to center the shape)
     if (m_propsCard)m_propsCard->deleteLater();
     if(m_propertiesPanel)m_propertiesPanel->deleteLater();
@@ -188,8 +192,8 @@ void GeoModeWidget::enableMouseCtrl(bool enabled) {
 }
 
 // FIX (new): centralizes properties-panel sizing. Queries the current
-// props card's sizeHint() — which now reflects the widest ResultRow's
-// natural, unwrapped width — and grows the panel to fit, clamped to
+// props card's sizeHint() - which now reflects the widest ResultRow's
+// natural, unwrapped width - and grows the panel to fit, clamped to
 // [kPropsPanelMinWidth, kPropsPanelMaxWidth]. This replaces the old
 // approach of forcing a fixed 260px and letting long formula text clip.
 void GeoModeWidget::updatePropsPanelWidth() {
@@ -270,7 +274,7 @@ void GeoModeWidget::resizeEvent(QResizeEvent*) {
         m_topBar->raise();
     }
     if (m_propertiesPanel) {
-        // FIX: was hardcoded `260` here too — duplicated the constant
+        // FIX: was hardcoded `260` here too - duplicated the constant
         // from the constructor and would silently override any dynamic
         // width set by updatePropsPanelWidth(). Now uses the single
         // stored m_propsPanelWidth.
@@ -392,4 +396,32 @@ GeoModeWidget::~GeoModeWidget()
     m_propsPanelLayout = nullptr;
 
     qDebug() << "~GeoModeWidget";
+}
+// -- Settings -----------------------------------------------------------------
+// These three were registered in SettingsDef and shown in the settings UI, but
+// nothing ever read them, so toggling them did nothing. Applied once on init and
+// re-applied whenever they change.
+void GeoModeWidget::applyGeometrySettings() {
+    if (!m_renderWidget) return;
+    Settings& st = Settings::instance();
+
+    // Rotation stays per-shape (info.defaultRotate + the checkbox) - there is
+    // intentionally no global auto-rotate setting.
+    const QColor c(st.defaultShapeColor());
+    if (c.isValid())
+        m_renderWidget->setShapeColor(float(c.redF()), float(c.greenF()), float(c.blueF()));
+
+    m_renderWidget->setPropertyLabelsVisible(st.showPropertyLabels());
+}
+
+void GeoModeWidget::wireGeometrySettings() {
+    Settings& st = Settings::instance();
+    connect(&st, &Settings::defaultShapeColorChanged, this, [this](const QString& hex) {
+        const QColor c(hex);
+        if (m_renderWidget && c.isValid())
+            m_renderWidget->setShapeColor(float(c.redF()), float(c.greenF()), float(c.blueF()));
+        });
+    connect(&st, &Settings::showPropertyLabelsChanged, this, [this](bool on) {
+        if (m_renderWidget) m_renderWidget->setPropertyLabelsVisible(on);
+        });
 }

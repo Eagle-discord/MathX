@@ -79,7 +79,7 @@ private:
     int          m_errorCount = 0;
     State        m_state = State::Idle;
 
-    // safety timeout — if a job takes longer than this, skip it
+    // safety timeout - if a job takes longer than this, skip it
     QTimer* m_timeoutTimer = nullptr;
     static constexpr int TIMEOUT_MS = 30'000;
 

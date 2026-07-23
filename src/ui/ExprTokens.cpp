@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 //  We scan for runs of digits with an optional single '.' and an optional
 //  exponent suffix (1e5, 2.5e-3). A leading '-' is folded into the literal ONLY
-//  when it is unambiguously a sign rather than a binary minus — i.e. when the
+//  when it is unambiguously a sign rather than a binary minus - i.e. when the
 //  previous non-space character is start-of-string, an operator, or '('.
 //  Otherwise "5-3" would scrub the 3 as "-3" and produce "5--4".
 // ---------------------------------------------------------------------------
