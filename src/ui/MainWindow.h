@@ -20,6 +20,7 @@
 #include "../input/InputAction.h"
 #include "../input/PromptController.h"
 #include "../thread/PersistentWorker.h"
+#include "../plot/PlotCanvas.h"
 
 class QPropertyAnimation;
 class BatchPanel;
@@ -34,6 +35,7 @@ class SessionPanel;
 class SettingsPage;
 class SidebarPanel;
 class WidgetEditorPage;
+class PlotCanvas;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -64,6 +66,7 @@ private slots:
     void onShowGeometryMode(const QString& type, const QMap<QString, double>& params);
     void destroyGeometryMode();
     void onShowWidgetEditor(QWidget* target);
+    void onShowPlot();
     void destroyWidgetEditor();
 
     void setRunState(RunState state);
@@ -93,9 +96,11 @@ private:
     void pulsePromptBtn();   // draw the eye to the '>>' batch toggle
     void ensureSettingsPage();
     void ensureFeaturePage();
+    void ensurePlotPage();
     void wireSettings();
     void wireWorker();
     void wireBatch();
+
 
     // -- Pipeline --------------------------------------------------------------
     void submitExpression(const QString& expr);
@@ -120,6 +125,7 @@ private:
     GeoModeWidget* m_geoModeWidget = nullptr;
     WidgetEditorPage* m_widgetEditorPage = nullptr;
     FeatureViewerPage* m_featurePage = nullptr;
+    PlotCanvas* m_plotCanvas = nullptr;
 
     QMargins m_originalMargins;
     int      m_originalSpacing = 0;
@@ -131,6 +137,7 @@ private:
     QPushButton* m_settingsBtn = nullptr;
     QPushButton* m_settingsBackBtn = nullptr;
     QPushButton* m_featuresBtn = nullptr;
+    QPushButton* m_plotBtn = nullptr;
 
     // -- Terminal --------------------------------------------------------------
     QWidget* m_terminal = nullptr;
@@ -160,7 +167,13 @@ private:
 
     // -- Worker ----------------------------------------------------------------
     QThread* m_workerThread = nullptr;
-    PersistentWorker* m_worker = nullptr;
+    // QPointer, not a raw pointer: the worker deletes itself on its own thread
+    // via QThread::finished -> deleteLater (see wireWorker). closeEvent() stops
+    // the thread, so by the time ~MainWindow runs the worker is usually already
+    // gone - a raw pointer would be dangling and `m_worker->stop()` a
+    // use-after-free. QPointer nulls itself on destruction, so the existing
+    // `if (m_worker)` guards become real checks instead of always-true ones.
+    QPointer<PersistentWorker> m_worker;
     QMap<int, QString> m_pendingJobs;
     int m_nextJobId = 0;
 
@@ -191,4 +204,5 @@ private:
     int m_settingsBtnId = -1;
     int m_settingsBackBtnId = -1;
     int m_featuresBtnId = -1;
+    int m_plotBtnId = -1;
 };

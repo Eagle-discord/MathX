@@ -109,15 +109,17 @@ int WidgetRegistry::add(QWidget* widget, WidgetRole roles, bool applyNow) {
 
     // Auto-deregister on destroy - no dangling entries, no dangling pointers
     connect(widget, &QObject::destroyed, this, [this, id]() {
-        m_entries.remove(id);
+        remove(id);
         });
 
     if (applyNow) applyEntry(e);
+    emit countChanged();
     return id;
 }
 
 void WidgetRegistry::remove(int id) {
-    m_entries.remove(id);
+
+    if( m_entries.remove(id) <= 1) emit countChanged();
 }
 
 // -- Per-widget overrides ------------------------------------------------------
@@ -190,6 +192,10 @@ void WidgetRegistry::applyVisibilityLevel(VisibilityLevel level) {
         else if (hasRole(e.roles, WidgetRole::BasicOnly))
             e.widget->setVisible(level == VisibilityLevel::Basic);
     }
+}
+
+int WidgetRegistry::count()const {
+    return m_entries.size();
 }
 
 // -- applyEntry - core dispatch ------------------------------------------------

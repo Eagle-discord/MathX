@@ -132,7 +132,7 @@ static const QVector<ManualUnit> MANUAL = {
     {"st",      "mass",   6.35029318,      {"stone","stones"}},
     {"dr",      "mass",   0.0017718452,    {"dram","drams"}},
     {"gr",      "mass",   6.47989e-5,      {"grain","grains"}},
-    {"tonne",   "mass",   1000.0,          {"metric_ton","metric_tons"}},
+    {"tonne",   "mass",   1000.0,          {"tonnes","metric_ton","metric_tons"}},
     {"longton", "mass",   1016.0469088,    {"longtons"}},
     {"shortton","mass",   907.18474,       {"shorttons"}},
     {"cwt",     "mass",   50.80234544,     {"hundredweight"}},
@@ -168,6 +168,13 @@ static const QVector<ManualUnit> MANUAL = {
     {"bushel",  "volume", 35.23907,        {"bushels","bu"}},
     {"peck",    "volume", 8.809768,        {"pecks"}},
     // Area (base: m²)
+    // The base unit itself was never registered. Every other area unit is
+    // defined as a multiple of m², but "m2" was not a key in the map, so
+    // "1 acre to m2" reported `Undefined: acre, m2, to` (DEV_NOTES BUG-021) and
+    // the bare "1 acre" form had no target to convert INTO at all.
+    {"m2",      "area",   1.0,             {"sqm","sqmeter","sqmeters","sqmetre","sqmetres",
+                                            "squaremeter","squaremeters","squaremetre","squaremetres",
+                                            "m^2"}},
     {"ha",      "area",   10000.0,         {"hectare","hectares"}},
     {"are",     "area",   100.0,           {"ares"}},
     {"acre",    "area",   4046.8564224,    {"acres"}},
@@ -563,15 +570,29 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
             {"speed", "m/s"}, {"temperature", "c"}, {"current", "A"},
             {"amount", "mol"}, {"luminosity", "cd"}, {"frequency", "Hz"},
             {"force", "N"}, {"pressure", "Pa"}, {"energy", "J"},
-            {"power", "W"}, {"charge", "C"}, {"voltage", "V"},
-            {"capacitance", "F"}, {"resistance", "Ohm"}, {"conductance", "S"},
+            {"power", "W"}, {"charge", "Col"}, {"voltage", "V"},
+            {"capacitance", "Far"}, {"resistance", "Ohm"}, {"conductance", "S"},
             {"magnetic_flux", "Wb"}, {"magnetic_flux_density", "T"},
             {"inductance", "H"}, {"luminous_flux", "lm"}, {"illuminance", "lx"},
             {"radioactivity", "Bq"}, {"absorbed_dose", "Gy"}, {"effective_dose", "Sv"},
             {"catalytic", "kat"}, {"volume", "L"}, {"data", "b"},
-            {"angle", "deg"}, {"fueleco", "km/L"}
+            {"angle", "deg"}, {"fueleco", "km/L"}, {"area", "m2"}
         };
-        return defaults.value(category);
+        // .toLower() is load-bearing, not cosmetic. buildUnitMap() stores every
+        // key lowercased (map[rawKey.toLower()]), but the symbols above are
+        // written in their correct SI casing - so MAP.contains("L"),
+        // MAP.contains("Pa"), MAP.contains("Hz") were all FALSE and the bare
+        // "<number> <unit>" form silently failed for every category whose
+        // default symbol has a capital in it. That was 17 of the 31 categories:
+        // "2 pints", "1 hectare", "5 kPa" all reported the unit as undefined
+        // while "2 tonne" (default "kg", already lowercase) worked fine.
+        //
+        // "charge" and "capacitance" were also pointing at symbols that do not
+        // exist: SI_BASES registers coulomb as "Col" and farad as "Far" (plain
+        // "C" and "F" are taken by Celsius and Fahrenheit), so those two stayed
+        // broken even ignoring case. "area" was missing from this table
+        // entirely.
+        return defaults.value(category).toLower();
         };
 
     // Special case: "mach X" -> "X mach"
@@ -579,14 +600,42 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
     QString processed = expr;
     processed.replace(machRe, "\\1 mach");
 
+    // Resolve a user-typed unit name to a key in MAP.
+    //
+    // Multi-word units are stored with the spaces removed ("nauticalmile",
+    // "lightyear", "fluidounce"), but users type them with spaces. Try the
+    // literal form first so exact keys always win, then the despaced form.
+    // Returns an empty string when neither is known, which callers treat as
+    // "not a unit" and fall through to the next handler.
+    // No capture: MAP has static storage duration, so it is already in scope.
+    auto resolveUnitKey = [](const QString& raw) -> QString {
+        const QString direct = raw.toLower().trimmed().simplified();
+        if (MAP.contains(direct)) return direct;
+        const QString despaced = QString(direct).remove(' ');
+        if (MAP.contains(despaced)) return despaced;
+        return {};
+        };
+
     // Raw unit conversion: "value unit" (no "to")
+    // The unit group allows spaces so multi-word units ("2 nautical miles",
+    // "1 light year") can match; resolveUnitKey collapses them to the stored
+    // key. A non-unit that happens to fit the shape just fails the lookup and
+    // falls through, exactly as before.
     static QRegularExpression rawRe(
-        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([A-Za-z0-9/]+)\s*$)",
+        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([A-Za-z0-9/ ]+?)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
     auto rawMatch = rawRe.match(processed.trimmed());
-    if (rawMatch.hasMatch()) {
+    const QString rawUnitKey =
+        rawMatch.hasMatch() ? resolveUnitKey(rawMatch.captured(2)) : QString();
+
+    // The unit must RESOLVE, not merely match the shape. Now that the pattern
+    // allows spaces, "5 km in meters" also fits it (unit = "km in meters"), and
+    // this block ends in `return {}` - so matching on shape alone would consume
+    // the input and stop the "value unit to/in unit" handler below from ever
+    // seeing it. Requiring a known unit here keeps the two forms disjoint.
+    if (!rawUnitKey.isEmpty()) {
         double val = rawMatch.captured(1).toDouble();
-        QString fromUnit = rawMatch.captured(2).toLower();
+        QString fromUnit = rawUnitKey;
 
         // Try simple unit first
         if (MAP.contains(fromUnit)) {
@@ -616,10 +665,16 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
         return {};
     }
 
-    // Standard conversion pattern: "value unit to unit"
-// Allow letters, digits, spaces, slashes, dots, hyphens - but NOT "to" as standalone word
+    // Standard conversion pattern: "value unit to unit" / "value unit in unit"
+    // Allow letters, digits, spaces, slashes, dots, hyphens - but NOT the
+    // keyword itself as a standalone word.
+    //
+    // "in" is accepted alongside "to" because it reads more naturally for a lot
+    // of inputs ("5 km in meters") and the deleted shadow table in MathEngine
+    // used to quietly handle exactly that form - dropping it without adding
+    // "in" here would have been a visible regression.
     static QRegularExpression re(
-        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([\w/.*\- ]+?)\s+to\s+([\w/.*\- ]+?)\s*$)",
+        R"(^\s*([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)\s+([\w/.*\- ]+?)\s+(?:to|in)\s+([\w/.*\- ]+?)\s*$)",
         QRegularExpression::CaseInsensitiveOption);
     auto m = re.match(processed.trimmed());
     if (!m.hasMatch()) return {};
@@ -627,6 +682,12 @@ CalcResult MathEngine::tryConversion(const QString& expr) {
     double val = m.captured(1).toDouble();
     QString fromUnit = m.captured(2).toLower().trimmed().simplified();
     QString toUnit = m.captured(3).toLower().trimmed().simplified();
+
+    // Same despacing the raw path does, so "5 nautical miles to km" resolves
+    // the same way "5 nautical miles" does. Only applied when the spaced form
+    // is not itself a key, so compound units ("km/h") are untouched.
+    if (const QString k = resolveUnitKey(fromUnit); !k.isEmpty()) fromUnit = k;
+    if (const QString k = resolveUnitKey(toUnit);   !k.isEmpty()) toUnit = k;
 
     // Simple units (no '/') - use dedicated helper
     if (!fromUnit.contains('/') && !toUnit.contains('/')) {

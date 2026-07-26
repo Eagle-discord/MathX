@@ -16,10 +16,11 @@ class SessionPanel : public QFrame {
     Q_OBJECT
 public:
     explicit SessionPanel(QWidget* parent = nullptr);
-
+    ~SessionPanel();
     void setCalcCount(int n);
     void setLastResult(const QString& result);
     void setLastExpression(const QString& expr);
+
     void reset();
 
 signals:

@@ -1,3 +1,4 @@
+#pragma once
 #include <QPropertyAnimation>
 #include <QRect>
 #include <QObject>

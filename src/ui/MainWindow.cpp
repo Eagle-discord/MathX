@@ -53,16 +53,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     wireWorker();
     wireBatch();
 
+
     m_input->setFocus();
 }
 
 MainWindow::~MainWindow() {
+    // Order matters. stop() breaks process() out of its condition-variable wait
+    // so the worker returns to its event loop; only then can quit() land.
+    //
+    // We do NOT call deleteLater() on m_worker here. m_worker lives on
+    // m_workerThread, and by this point that thread's event loop has already
+    // exited - a deferred-delete event posted to a dead loop is never
+    // delivered, so the old code leaked the worker every shutdown. The worker
+    // is destroyed by the QThread::finished -> deleteLater connection set up in
+    // wireWorker(), which fires while the loop is still alive. m_workerThread
+    // itself is parented to `this`, so ~QObject deletes it.
     if (m_worker) m_worker->stop();
     if (m_workerThread) {
         m_workerThread->quit();
         m_workerThread->wait(5000);
-        m_worker->deleteLater();
-        m_workerThread->deleteLater();
     }
 }
 
@@ -83,6 +92,10 @@ void MainWindow::wireWorker() {
     m_worker->moveToThread(m_workerThread);
 
     connect(m_workerThread, &QThread::started, m_worker, &PersistentWorker::process);
+    // Destroy the worker on its OWN thread, while that thread's event loop is
+    // still running. ~MainWindow cannot do it: it runs after quit()+wait(), by
+    // which point a posted deleteLater would never be delivered.
+    connect(m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
     connect(m_worker, &PersistentWorker::resultReady, this, &MainWindow::onWorkerFinish);
     // NOTE: this connection is effectively dead and kept only so the signal has
     // a receiver. m_worker lives on m_workerThread, so this is a QUEUED
@@ -142,6 +155,7 @@ void MainWindow::wireBatch() {
         m_output->addBatchHeading(heading);
         });
 }
+
 
 void MainWindow::applySettings() {
     setStyleSheet(QString(
@@ -526,6 +540,16 @@ void MainWindow::onShowWidgetEditor(QWidget* target) {
     m_centralStack->setCurrentWidget(m_widgetEditorPage);
 }
 
+void MainWindow::onShowPlot()
+{
+    if (!m_plotCanvas) ensurePlotPage();
+
+    m_centralStack->setCurrentWidget(m_plotCanvas);
+    QLayout* root = centralWidget()->layout();
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+}
+
 void MainWindow::destroyWidgetEditor() {
     if (!m_widgetEditorPage) return;
     m_centralStack->removeWidget(m_widgetEditorPage);
@@ -770,6 +794,28 @@ void MainWindow::setupHeader() {
         });
 
     hl->addWidget(m_featuresBtn, 0, Qt::AlignVCenter);
+
+    // -- Plot button (temp) -------------------------------------------------------
+    m_plotBtn = new QPushButton(QStringLiteral("Plot"));
+    m_plotBtn->setFixedSize(32, 32);
+    m_plotBtn->setFont(MF(13));
+    m_plotBtn->setCursor(Qt::PointingHandCursor);
+    m_plotBtn->setToolTip("Plot");
+
+    WR_ADD(m_plotBtnId, m_plotBtn, WidgetRole::FontUI);
+    WidgetRegistry::instance().setStylesheet(m_plotBtnId, QString(
+        "QPushButton{background:none;border:1px solid %1;color:%2;"
+        "border-radius:6px;padding:0px;}"
+        "QPushButton:hover{border-color:%3;color:%3;}"
+    ).arg(C_BORDER, Theme::MUTED, Theme::ACCENT()));
+
+    connect(m_plotBtn, &QPushButton::clicked, this, [this]() {
+        ensurePlotPage();
+        onShowPlot();
+//        m_centralStack->setCurrentWidget(m_plotCanvas);
+        });
+
+    hl->addWidget(m_plotBtn, 0, Qt::AlignVCenter);
 
     // -- Settings gear ---------------------------------------------------------
     m_settingsBtn = new QPushButton(QStringLiteral("\u2699"));
@@ -1235,4 +1281,11 @@ void MainWindow::ensureFeaturePage() {
         m_input->clear();
         m_input->setFocus();
         });
+}
+
+void MainWindow::ensurePlotPage() {
+    if (m_plotCanvas) return;
+
+    m_plotCanvas = new PlotCanvas(this);
+    m_centralStack->addWidget(m_plotCanvas);
 }

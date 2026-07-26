@@ -15,23 +15,40 @@
 namespace Theme {
 
     // -- Static colors (never change at runtime) --------------------------------
-    inline const QString BG = "#0b0d0c";
-    inline const QString SURFACE = "#111413";
-    inline const QString CARD = "#161918";
-    inline const QString BORDER = "#252927";
-    inline const QString ACCENT_DIM = "#00b860";   // fallback dim; prefer dimAccent()
-    inline const QString TEXT = "#ddeae0";
-    inline const QString MUTED = "#5a6b5f";
-    inline const QString DIM = "#2e3530";
-    inline const QString ERROR = "#ff6b5b";
-    inline const QString ERR = ERROR;
-    inline const QString INFO = "#5bc8ff";
-    inline const QString WARN = "#ffc44d";
-    inline const QString PURPLE = "#c77dff";
-    inline const QString ALG = "#ffd166";
-    inline const QString FTEXT = "#ffd166";
-    inline const QString HOVER = "#1d2b22";
-    inline const QString DRED = "#950606";
+    // QLatin1StringView, not QString, and constexpr rather than const.
+    //
+    // These were `inline const QString`, which meant every one of them was a
+    // heap-allocating object built during dynamic initialisation. Two costs:
+    //
+    //   1. The C_ aliases below were `static const QString`, so each of the ~90
+    //      translation units constructed its OWN copy of all 17 - roughly 1400
+    //      redundant QString allocations before main() ran.
+    //   2. Worse, a `static` at namespace scope has ORDERED dynamic init within
+    //      its TU, while an `inline` variable has UNORDERED init. Nothing in the
+    //      standard sequenced `C_BG = Theme::BG` after `Theme::BG` itself, so
+    //      the aliases were reading a possibly-unconstructed QString. It worked
+    //      by luck, not by rule.
+    //
+    // QLatin1StringView is constant-initialised: no allocation, no dynamic init,
+    // therefore no ordering question at all. It converts implicitly to QString
+    // and Qt 6's QString::arg() takes it directly, so call sites are unchanged.
+    inline constexpr QLatin1StringView BG{ "#0b0d0c" };
+    inline constexpr QLatin1StringView SURFACE{ "#111413" };
+    inline constexpr QLatin1StringView CARD{ "#161918" };
+    inline constexpr QLatin1StringView BORDER{ "#252927" };
+    inline constexpr QLatin1StringView ACCENT_DIM{ "#00b860" };  // fallback dim; prefer dimAccent()
+    inline constexpr QLatin1StringView TEXT{ "#ddeae0" };
+    inline constexpr QLatin1StringView MUTED{ "#5a6b5f" };
+    inline constexpr QLatin1StringView DIM{ "#2e3530" };
+    inline constexpr QLatin1StringView ERROR{ "#ff6b5b" };
+    inline constexpr QLatin1StringView ERR = ERROR;
+    inline constexpr QLatin1StringView INFO{ "#5bc8ff" };
+    inline constexpr QLatin1StringView WARN{ "#ffc44d" };
+    inline constexpr QLatin1StringView PURPLE{ "#c77dff" };
+    inline constexpr QLatin1StringView ALG{ "#ffd166" };
+    inline constexpr QLatin1StringView FTEXT{ "#ffd166" };
+    inline constexpr QLatin1StringView HOVER{ "#1d2b22" };
+    inline constexpr QLatin1StringView DRED{ "#950606" };
 
     // -- Dynamic values - read from Settings at call time ----------------------
     // Defined in Theme.cpp to avoid a circular include with Settings.h.
@@ -60,24 +77,30 @@ namespace Theme {
 } // namespace Theme
 
 // -- C_ shorthand aliases ------------------------------------------------------
-// Static aliases are fine - they reference static Theme:: members.
-// Do NOT add C_ACCENT here as a const QString; use Theme::ACCENT() at call sites.
-static const QString C_BG = Theme::BG;
-static const QString C_SURFACE = Theme::SURFACE;
-static const QString C_CARD = Theme::CARD;
-static const QString C_BORDER = Theme::BORDER;
-static const QString C_TEXT = Theme::TEXT;
-static const QString C_MUTED = Theme::MUTED;
-static const QString C_ERR = Theme::ERROR;
-static const QString C_VRED = "#dc1e14";
-static const QString C_DRED = "#ad102f";
-static const QString C_OUT = "#0d100e";
-static const QString C_DIM = Theme::DIM;
-static const QString C_INFO = Theme::INFO;
-static const QString C_WARN = Theme::WARN;
-static const QString C_PURPLE = Theme::PURPLE;
-static const QString C_ALG = Theme::ALG;
-static const QString C_ACCENT_DIM = Theme::ACCENT_DIM;
+// `inline constexpr`, never `static const QString`. See the note on the Theme::
+// colors above: the old `static` form gave every translation unit its own
+// heap-allocated copy AND created an unsequenced dependency on the Theme::
+// inline variables. These are constant-initialised, so both problems are gone
+// and the symbols are shared program-wide.
+//
+// Do NOT add C_ACCENT here as a constant; it is runtime-dependent (it reads
+// Settings), so it stays the macro at the bottom of this file.
+inline constexpr QLatin1StringView C_BG = Theme::BG;
+inline constexpr QLatin1StringView C_SURFACE = Theme::SURFACE;
+inline constexpr QLatin1StringView C_CARD = Theme::CARD;
+inline constexpr QLatin1StringView C_BORDER = Theme::BORDER;
+inline constexpr QLatin1StringView C_TEXT = Theme::TEXT;
+inline constexpr QLatin1StringView C_MUTED = Theme::MUTED;
+inline constexpr QLatin1StringView C_ERR = Theme::ERROR;
+inline constexpr QLatin1StringView C_VRED{ "#dc1e14" };
+inline constexpr QLatin1StringView C_DRED{ "#ad102f" };
+inline constexpr QLatin1StringView C_OUT{ "#0d100e" };
+inline constexpr QLatin1StringView C_DIM = Theme::DIM;
+inline constexpr QLatin1StringView C_INFO = Theme::INFO;
+inline constexpr QLatin1StringView C_WARN = Theme::WARN;
+inline constexpr QLatin1StringView C_PURPLE = Theme::PURPLE;
+inline constexpr QLatin1StringView C_ALG = Theme::ALG;
+inline constexpr QLatin1StringView C_ACCENT_DIM = Theme::ACCENT_DIM;
 
 // C_ACCENT - intentionally omitted as a const.
 // Use Theme::ACCENT() everywhere instead.

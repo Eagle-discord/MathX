@@ -86,6 +86,29 @@ The apply pipeline uses `Settings::applyPending()` called when run state becomes
 - **Theming (light/dark)** � full light theme support (currently dark only).  
 - **Undo/redo** � for expression input and shape parameter changes.  
 
+### Plot grid: the two-tier design is functional, not decorative (2026-07-24)
+
+The plot grid (`PlotCanvas::drawGrid`) draws a faint MINOR grid and a brighter
+MAJOR grid (every 4th/5th line). The two tiers are not just aesthetics - the
+major lines are what suppress the **Hermann / scintillating grid illusion**: a
+perfectly uniform field of faint light lines on the black background makes the
+visual system invent shimmering smudges at the intersections ("boxes leaking
+into boxes"). It's lateral inhibition in the retina, not a rendering bug - the
+framebuffer is correct. Confirmed by commenting out the major pass, at which
+point the illusion appears; restoring it collapses the effect, because the eye
+locks onto a strong anchor every 5th line and the field stops being uniform.
+So: do NOT "simplify" this back to a single grid tier. If the shimmer ever needs
+further taming, the lever is CONTRAST - push the minor lines fainter; the effect
+scales with the brightness of the uniform lines.
+
+Related perception notes from the same build: grid/axis lines are pixel-snapped
+(`std::round` on the screen coord) to kill frame-to-frame crawl during pan, and
+antialiasing is deliberately OFF for axis-aligned lines (crisp 1px) but WILL be
+ON for curves later - at which point thin strokes want `integer + 0.5`, not a
+whole integer, to stay crisp under AA. TODO (deferred): residual ±1px cell-size
+variation because the world step doesn't divide into a whole number of pixels;
+harmless, masked by the major grid, not worth fixing yet.
+
 ### Formula Walkthroughs & MathText (pending, added 2026-07-11)
 
 Current state: clicking a formula on the geometry-mode properties card (formula glows on hover)
@@ -164,8 +187,17 @@ matching and the sentinel escapes as a parse error.
 
 ---
 
-### BUG-008 - '%' is both binary mod and postfix percent; postfix always wins
+### BUG-008 - '%' is both binary mod and postfix percent -- FIXED 2026-07-24
 **Found:** 2026-07-15 (regression suite)
+**Fixed:** the suggested rule below, implemented literally. `Tokenizer` gained a
+one-token `peek()`; `applyPostfix` now declines to consume a `%` when the next
+token starts an operand (Number / Variable / `(`) and leaves it for
+`parseMulDiv`, whose `Mod` branch was previously unreachable because `readToken`
+maps `%` to `Percent` unconditionally - that branch now also accepts `Percent`.
+Add/Sub are deliberately NOT counted as operand-starters: `50% + 20` and
+`50 % +20` tokenise identically and the percent reading is the common one, so
+`10 % -3` stays percent. Use `mod(10,-3)` for a signed remainder.
+Covered by `tests/mathx_regression.txt` (both readings, 11 assertions).
 **Recreation:** `10%3` -> "Cannot parse expression".
 **Root cause:** `applyPostfix` (`Expr.cpp:445`) consumes `%` immediately after a
 number and divides by 100, so `10%` becomes 0.1 and the following `3` is an
@@ -360,6 +392,83 @@ tables, same session.
 units` (furlong, parsec, km, feet, ...) that duplicates and shadows
 `tryConversion.cpp`'s 200+ unit database. `km` and `feet` appear in both.
 **Fix:** delete the shadow table; make tryConversion own all units.
+**FIXED 2026-07-24 - but the fix was bigger than "delete it".** Deleting the
+table alone broke 11 working inputs, because it was silently compensating for
+three real gaps in `tryConversion`:
+  1. `defaultUnitForCategory()` returned SI-cased symbols (`"L"`, `"Pa"`,
+     `"Hz"`) while `buildUnitMap()` stores every key lowercased - so
+     `MAP.contains(...)` was false and the bare `<number> <unit>` form was dead
+     for 17 of 31 categories. It also pointed at `"C"`/`"F"` for charge and
+     capacitance, which do not exist (SI_BASES registers `Col`/`Far`, since
+     C and F are taken by Celsius/Fahrenheit), and omitted `"area"` entirely.
+  2. There was no `m2` unit at all - the area base was implied but never
+     registered, which is also why `1 acre to m2` reported `Undefined` (BUG-021).
+  3. `in` was not accepted as a synonym for `to`, and neither the raw nor the
+     `to` path could resolve multi-word units (stored despaced as
+     `nauticalmile`, `lightyear`, `fluidounce`).
+All three are fixed and the shadow table is gone. Coverage went 24/25 -> 25/25
+on the unit probe suite.
+**STILL OPEN (see BUG-025):** bare-form pressure lookups remain broken.
+
+---
+
+### BUG-026 - Conversions AND word problems cannot be asserted; the suite can't see them
+**Found:** 2026-07-24
+**Symptom:** both of these report a PASS:
+```
+1 km to m = 1000                                              -> Error (not an assertion)
+Tom has 3 apples. Sara has 5. How many altogether? = 999       -> ok  (!)
+```
+**Root cause:** two different failures with the same consequence.
+  * Conversions: `dispatchEvaluate` runs `tryConversion` before the algebra
+    path, and `tryConversion` rejects anything containing `=`, so the assertion
+    never reaches the converter and dies as arithmetic instead.
+  * Word problems: the question patterns end in `.*$`, so a trailing `= 999` is
+    absorbed into the question sentence and silently discarded.
+**Why it matters:** these are the two largest natural-language features in the
+app and NEITHER can be regression-tested by value. The batch runner counts an
+unasserted line as "ok" for merely not throwing, so a wrong number is invisible.
+This is why BUG-021/BUG-022 survived as long as they did.
+**Workaround in place:** `--run-batch -v` prints every result, and
+`tests/mathx_regression.txt` marks these sections liveness-only with expected
+values in comments. That makes them checkable by eye, not by CI.
+**Fix (not done):** the assertion layer needs to compare against the result of a
+FULL dispatch rather than an arithmetic parse. A dedicated suite-only syntax
+(`expect <input> == <value>`) would sidestep the `=` ambiguity with assignments
+and equations entirely, and is probably the cheaper route.
+
+---
+
+### BUG-025 - Bare-form pressure lookups fail; "pa" is absent from the unit MAP
+**Found:** 2026-07-24 (while fixing BUG-022)
+**Recreation:**
+```
+1 Pa to kPa   -> Error: Undefined: kpa, pa, to
+1 Pa to m2    -> Error: Undefined: m2, pa, to
+2 pascal      -> Error: 'pascal' is not defined
+1 bar         -> Error: 'bar' is not defined
+1 psi         -> Error: 'psi' is not defined
+5 kilopascal  -> Error: 'kilopascal' is not defined
+```
+**But these work:** `1 kPa to bar`, `1 pascal to pascal`, `1 kPa to Pa` is the
+one that still fails.
+**What is confirmed:** `convertSimpleUnit` early-returns unless
+`MAP.contains(fromUnit) && MAP.contains(toUnit)`, and `1 kPa to bar` succeeds -
+so `kpa` and `bar` ARE keys. Yet `1 Pa to kPa` reports `pa` undefined, so the
+bare lowercased base symbol `pa` is NOT a key, even though `Pa` is declared in
+`SI_BASES` with `allowPrefixes = true` and its prefixed form `kpa` clearly got
+registered. Whatever registers prefixed keys is running; whatever registers the
+bare base symbol and its aliases (`pascal`, `pascals`) is not.
+**Ruled out:** a lowercase collision with an area unit - `1 Pa to acre` and
+`1 pa to hectare` both fail on `pa` too, so nothing else has claimed the key.
+**Not yet explained:** `1 Pa` alone returned ok in one probe, which is
+inconsistent with `pa` being absent. Re-confirm that before theorising.
+**Next step:** instrument `buildUnitMap()` to dump its keys per category and
+diff pressure against a category that works (mass/length). Suspect the
+first-come-wins `if (!map.contains(...))` guards around the base-symbol and
+alias insertion loops.
+**Scope:** this is the remaining half of BUG-021; the `m2`/`in`/multi-word/
+default-casing half is fixed.
 
 ---
 

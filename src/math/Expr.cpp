@@ -267,6 +267,21 @@ public:
         m_curr = readToken();
     }
 
+    // One-token lookahead. Needed to disambiguate '%': it is postfix percent in
+    // "50%" but binary modulo in "10 % 3", and the two are only distinguishable
+    // by what FOLLOWS the '%'. Saving and restoring both the cursor and the
+    // current token makes this a pure query - the parser's position is
+    // unchanged, so callers can peek freely.
+    Token peek() {
+        const int   savedPos = m_pos;
+        const Token savedCurr = m_curr;
+        next();
+        const Token ahead = m_curr;
+        m_pos = savedPos;
+        m_curr = savedCurr;
+        return ahead;
+    }
+
 private:
     QString m_str;
     int m_pos;
@@ -380,6 +395,22 @@ private:
     Tokenizer& m_tok;
     const VarMap& m_vars;
 
+    // Can this token begin an operand? Used to resolve the '%' ambiguity:
+    // "10 % 3" (operand follows -> modulo) vs "50%" or "50% * 2" (no operand
+    // follows -> postfix percent).
+    //
+    // Deliberately EXCLUDES Add/Sub. "50% + 20" and "50 % +20" tokenise
+    // identically, and the percent reading is overwhelmingly the common one, so
+    // counting a leading sign as an operand would break ordinary arithmetic to
+    // rescue a form nobody writes. Consequence: "10 % -3" is read as percent.
+    // That is the documented trade (DEV_NOTES BUG-008) - use mod(10,-3) if you
+    // mean the remainder.
+    static bool startsOperand(TokenType t) {
+        return t == TokenType::Number
+            || t == TokenType::Variable
+            || t == TokenType::LParen;
+    }
+
     void consume(TokenType expected) {
         if (m_tok.current().type != expected)
             throw std::runtime_error("Unexpected token");
@@ -417,7 +448,12 @@ private:
                 if (right == 0.0) throw std::runtime_error("Division by zero");
                 left /= right;
             }
-            else if (tt == TokenType::Mod) {
+            // Percent as well as Mod: the tokenizer never actually emits Mod
+            // (readToken maps '%' to Percent unconditionally), so this branch
+            // was unreachable for every real input. applyPostfix now declines
+            // to swallow a '%' that is followed by an operand and leaves it
+            // here instead, which is what makes "10 % 3" reach this code.
+            else if (tt == TokenType::Mod || tt == TokenType::Percent) {
                 m_tok.next();
                 double right = parseUnary();
                 if (right == 0.0) throw std::runtime_error("Modulo by zero");
@@ -469,6 +505,12 @@ private:
                 val = static_cast<double>(res);
             }
             else if (m_tok.current().type == TokenType::Percent) {
+                // '%' is ambiguous: postfix percent ("50%") or binary modulo
+                // ("10 % 3"). The tokenizer emits Percent for both, so decide
+                // here by looking at what comes next. If an operand follows,
+                // this is modulo - leave the token for parseMulDiv to consume.
+                // Otherwise it terminates a value, so divide by 100.
+                if (startsOperand(m_tok.peek().type)) break;
                 m_tok.next();
                 val /= 100.0;
             }

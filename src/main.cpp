@@ -1,4 +1,5 @@
 ﻿#include <math/MathEngine.h>
+#include <plot/Viewport.h>
 #include <QApplication>
 #include <QFontDatabase>
 #include "ui/MainWindow.h"
@@ -18,7 +19,11 @@ int main(int argc, char* argv[]) {
     // worker thread starts.
     qRegisterMetaType<ResultType>("ResultType");
 
-    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
+    // Desktop OpenGL, not GLES: the shaders in resources/shaders are all
+    // `#version 330 core` and the legacy path uses fixed-function calls, neither
+    // of which exist under GLES. Setting both attributes (as this used to) is
+    // contradictory - Qt picks one and the other is silently ignored, so which
+    // backend you got depended on Qt's internal ordering rather than on us.
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -34,8 +39,9 @@ int main(int argc, char* argv[]) {
     // built, so nothing renders. See cli/BatchCli.h for the format and exit codes.
     {
         QString batchPath;
-        if (BatchCli::parseArgs(app.arguments(), batchPath))
-            return BatchCli::run(batchPath);
+        bool batchVerbose = false;
+        if (BatchCli::parseArgs(app.arguments(), batchPath, batchVerbose))
+            return BatchCli::run(batchPath, batchVerbose);
     }
 
 
@@ -71,16 +77,16 @@ int main(int argc, char* argv[]) {
 
     MainWindow w;
     w.show();
+    // Warm the lazy tables once the window is up, so the first thing the user
+    // types doesn't pay for building them. Runs on the GUI thread before the
+    // worker has any job to race against.
     QTimer::singleShot(0, []() {
         NaturalLanguage::warmUp();
-        });
-    QTimer::singleShot(0, []() {
-        NaturalLanguage::warmUp();
-        bool ok;
         MathEngine::evaluate("2+2");           // Expr + BigDec paths
         MathEngine::evaluate("1 km to m");     // builds the unit DB
         MathEngine::evaluate("x = 1");         // assignment path
         MathEngine::clearVariables();          // undo the side effect
         });
+    Viewport::selfTest();
     return app.exec();
 }

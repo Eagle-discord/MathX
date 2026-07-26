@@ -70,14 +70,17 @@ private:
     void drawScanlines(QPainter& p, QImage& img);
     void drawVignette(QPainter& p, QImage& img);
     void drawSubtitle(QPainter& p, const QRect& r);
-    QRgb background = QColor("#0b0d0c").rgb();
+    QRgb background = QColor(C_BG).rgb();   // was a hardcoded "#0b0d0c" copy of C_BG
     QString  m_text;
     QString  m_subtitle;
     int      m_subtitleSize = 9;
     QFont    m_font;
     QFont    m_subtitleFont;
     QColor   m_glowColor{ 0, 255, 65 };
-    QColor     m_blackReplaceColor = QColor(C_BG.toStdString().c_str());
+    // QColor takes QAnyStringView in Qt 6, so the old
+    // C_BG.toStdString().c_str() round-trip (QString -> std::string -> char*)
+    // was three conversions and a heap allocation to reach the same value.
+    QColor     m_blackReplaceColor = QColor(C_BG);
     int      m_glowLayers = 3;
     bool     m_crtEnabled = true;
     bool     m_flickerEnabled = true;

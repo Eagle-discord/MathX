@@ -91,6 +91,12 @@ public:
     void refresh(int id);      // re-apply to one widget
     void applyVisibilityLevel(VisibilityLevel level);
 
+    int count() const;
+
+    signals:
+     void countChanged();
+
+
 private:
     explicit WidgetRegistry(QObject* parent = nullptr);
     void refreshFontRoles();

@@ -7,8 +7,8 @@
 namespace {
 
 // Below this, grouping is clutter: four-digit numbers read fine unaided and
-// most style guides leave them alone.
-constexpr int kMinDigits = 5;
+// most style guides leave them alone. We are not the "most"
+constexpr int kMinDigits = 4;
 
 // Past this, three-digit grouping inflates the string by a third - painful when
 // a result is already being truncated for display. Long digit strings are
@@ -132,8 +132,8 @@ QString groupRun(const QString& digits)
     const int  block = longRun ? kLongBlock : 3;
 
     // Long runs use a plain space rather than the locale separator: a comma
-    // every five digits reads as punctuation, not as grouping.
-    const QString sep = longRun ? QStringLiteral(" ")
+    // every five digits reads as punctuation, not as grouping, but still use a comma to not interrupt workflow
+    const QString sep = longRun ? QStringLiteral(",")
         : QLocale::system().groupSeparator();
 
     QString out;
@@ -181,6 +181,34 @@ QString NumberFormat::groupNumbers(const QString& text)
         last = m.capturedEnd();
     }
     out += QStringView{ text }.mid(last);
+    return out;
+}
+
+QString NumberFormat::groupUnconditional(const QString& text)
+{
+
+
+    // Only runs that are clearly a whole number get touched:
+    //   (?<![\w.])  not preceded by a word char or a decimal point - so
+    //               identifiers ("x1234567") and fractional parts ("0.1234567")
+    //               are left alone
+    //   (?![\w])    not running straight into letters or more digits
+    static const QRegularExpression run(R"((?<![\w.])(\d{3,})(?![\w]))");
+
+    auto it = run.globalMatch(text);
+    if (!it.hasNext()) return text;      // overwhelmingly the common case
+
+    QString out;
+    out.reserve(text.size() + text.size() / 3);
+    int last = 0;
+    while (it.hasNext()) {
+        const auto m = it.next();
+        out += QStringView{ text }.mid(last, m.capturedStart() - last);
+        out += groupRun(m.captured(1));
+        last = m.capturedEnd();
+    }
+    out += QStringView{ text }.mid(last);
+    qDebug() << out;
     return out;
 }
 

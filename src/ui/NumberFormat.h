@@ -21,7 +21,7 @@ namespace NumberFormat {
 // error messages, proofs, word-problem working, identifiers - passes through
 // untouched.
 QString groupNumbers(const QString& text);
-
+QString groupUnconditional(const QString& text);
 // A human-scale reading of a large number: "3.3 trillion" for 3298534883330.
 // Empty when the value is too small to need one (below a million, where the
 // digits speak for themselves) or too large for any common name - a factorial

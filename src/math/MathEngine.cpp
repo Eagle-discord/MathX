@@ -9,6 +9,8 @@
 #include "WordProblem.h"
 #include <QRegularExpression>
 #include <QStringList>
+#include <QRecursiveMutex>
+#include <QMutexLocker>
 #include <cmath>
 #include <stdexcept>
 #include <algorithm>
@@ -838,6 +840,35 @@ CalcResult MathEngine::trySystem(const QString& expr) {
 //  User-defined functions:  f(x) = x + 5      P(x) = 5x^2 + 1
 //  Defining one stores it; afterwards f(3), P(-2), f(2*x+1), etc. all work.
 // ----------------------------------------------------------------------
+// -- Engine lock ---------------------------------------------------------------
+// The variable and function registries below are plain function-local statics,
+// and they are reached from TWO threads:
+//
+//   * the worker thread  - PersistentWorker::process() -> evaluate()
+//   * the GUI thread     - OutputArea's recompute-on-edit -> evaluate(), plus
+//                          MathEngine::setVariable() from WordProblem
+//
+// QMap is implicitly shared and is NOT safe for concurrent mutation, so two
+// evaluations overlapping could corrupt the map or leave a detached copy with a
+// bad refcount. Nothing about the old code prevented that overlap; it simply
+// took a user scrubbing a result while a background job ran to hit it.
+//
+// Recursive, because evaluation genuinely re-enters itself: tryStatements()
+// evaluates each statement, and WordProblem::solve() calls setVariable() from
+// inside dispatchEvaluate(). A plain QMutex would self-deadlock on the first
+// multi-statement input.
+//
+// Coarse (held across a whole evaluate()) rather than per-accessor, because the
+// registry accessors hand out references - locking inside them would protect
+// the lookup and not the use. The cost is that a GUI-thread evaluate() waits
+// for a worker-thread one; that is acceptable here because the heavy paths
+// (bigFactorial, bigPow) are intercepted by PersistentWorker BEFORE evaluate()
+// is called, so what is held is milliseconds of parsing, not a long computation.
+static QRecursiveMutex& engineMutex() {
+    static QRecursiveMutex m;
+    return m;
+}
+
 static QMap<QString, FunctionDef>& functionRegistry() {
     static QMap<QString, FunctionDef> reg;   // keyed by lower-cased name
     return reg;
@@ -1048,20 +1079,33 @@ CalcResult MathEngine::tryFunctionCall(const QString& expr) {
 }
 
 // -- Public accessors for user-defined functions ----------------------------
+// Each takes engineMutex(): these are called from the GUI thread (completer,
+// settings, panels) while the worker thread may be mid-evaluate() mutating the
+// same registry. The lock is recursive, so the calls made from inside
+// evaluate() re-enter harmlessly.
 QStringList MathEngine::definedFunctionNames() {
+    QMutexLocker locker(&engineMutex());
     QStringList names;
     for (const FunctionDef& d : functionRegistry())
         names << d.name;
     return names;
 }
 bool MathEngine::isFunctionDefined(const QString& name) {
+    QMutexLocker locker(&engineMutex());
     return functionRegistry().contains(name.toLower());
 }
 const FunctionDef* MathEngine::functionDef(const QString& name) {
+    // NOTE: returns a pointer INTO the registry, so the pointee is only valid
+    // while no other thread mutates the map - the lock here cannot extend to
+    // the caller's use of it. Safe today because every caller is inside
+    // evaluate() (and so already holds the lock); if this ever gains an
+    // external caller, change it to return FunctionDef by value.
+    QMutexLocker locker(&engineMutex());
     auto it = functionRegistry().find(name.toLower());
     return it == functionRegistry().end() ? nullptr : &it.value();
 }
 void MathEngine::clearFunctions() {
+    QMutexLocker locker(&engineMutex());
     functionRegistry().clear();
 }
 
@@ -1145,18 +1189,29 @@ static QString substitutePhrases(const QString& expr) {
     return out;
 }
 
-QStringList MathEngine::definedVariableNames() { return variableRegistry().keys(); }
+// Same reasoning as the function accessors above - all take engineMutex().
+// setVariable() in particular is called by WordProblem::solve() from inside
+// dispatchEvaluate() on the worker thread, which is exactly why the mutex has
+// to be recursive.
+QStringList MathEngine::definedVariableNames() {
+    QMutexLocker locker(&engineMutex());
+    return variableRegistry().keys();
+}
 bool MathEngine::isVariableDefined(const QString& name) {
+    QMutexLocker locker(&engineMutex());
     return variableRegistry().contains(name.toLower());
 }
 QString MathEngine::variableValue(const QString& name) {
+    QMutexLocker locker(&engineMutex());
     return variableRegistry().value(name.toLower());
 }
 void MathEngine::clearVariables() {
+    QMutexLocker locker(&engineMutex());
     variableRegistry().clear();
     variableRegistry()[QStringLiteral("ans")] = QStringLiteral("0");
 }
 void MathEngine::setVariable(const QString& name, const QString& value) {
+    QMutexLocker locker(&engineMutex());
     const QString key = phraseKey(name);
     if (!key.isEmpty()) variableRegistry()[key] = value;
 }
@@ -1530,40 +1585,14 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
     // on an already-normalised string was pure wasted work on every keystroke.
     const QString& processed = expr;
 
-    // -- Common measurement conversions (natural language) --------------------
-// Handles: "1 furlong", "3 furlongs in meters", "2 nautical miles"
-// These are fixed-unit lookups - no "to" keyword needed
-
-
-
-    static const QVector<UnitDef> units = {
-        { {"furlong","furlongs"},           201.168,    "meters"   },
-        { {"nautical mile","nautical miles",
-           "nauticalmile","nauticalmiles",
-           "nmi"},                          1852.0,     "meters"   },
-        { {"light year","light years",
-           "lightyear","lightyears","ly"},  9.461e15,   "meters"   },
-        { {"parsec","parsecs","pc"},         3.086e16,   "meters"   },
-        { {"fathom","fathoms"},              1.8288,     "meters"   },
-        { {"league","leagues"},              4828.032,   "meters"   },
-        { {"rod","rods"},                    5.0292,     "meters"   },
-        { {"chain","chains"},                20.1168,    "meters"   },
-        { {"hand","hands"},                  0.1016,     "meters"   },
-        { {"cubit","cubits"},                0.4572,     "meters"   },
-        { {"acre","acres"},                  4046.856,   "meters²"  },
-        { {"hectare","hectares","ha"},        10000.0,    "meters²"  },
-        { {"pint","pints","pt"},              0.473176,   "Liters"   },
-        { {"quart","quarts","qt"},            0.946353,   "Liters"   },
-        { {"fluid ounce","fl oz","floz"},     0.0295735,  "Liters"   },
-        { {"stone","stones","st"},            6.35029,    "kilograms"  },
-        { {"tonne","tonnes","metric ton"},    1000.0,     "kilograms"  },
-        { {"mph"},                            0.44704,    "meters/second" },
-        { {"knot","knots","kn"},              0.514444,   "meters/second" },
-        { {"kilometers", "km", "kilometres", "kilometer", "kilometre"}, 1000, "meters"},
-        {{"feet", "ft"}, 0.3048, "meters"},
-
-    };
-
+    // NOTE (BUG-022): a hardcoded `static const QVector<UnitDef> units` used to
+    // live here - furlong, parsec, acre, km, feet and ~16 others - duplicating
+    // and SHADOWING the 200+ unit database in tryConversion.cpp. Because
+    // tryConversion runs first in dispatchEvaluate, whichever table answered
+    // depended on which spelling you typed: "1 parsec" came back 3.086e16 from
+    // this table while the real DB has 30856775814913673, and `km` and `feet`
+    // existed in both with different precision. Two tables, one session, two
+    // answers. It is deleted; tryConversion owns units now.
 
     // Integer exponentiation: a^b where both a and b are integers
     static QRegularExpression intPowRe(R"(^\s*(\d+)\s*\^\s*(\d+)\s*$)");
@@ -1581,33 +1610,11 @@ CalcResult MathEngine::tryArithmetic(const QString& expr) {
         }
     }
 
-    static QRegularExpression measRe(
-        R"(^([\d.]+)\s+(.+)$)",
-        QRegularExpression::CaseInsensitiveOption);
-    auto mm = measRe.match(processed.trimmed());
-    if (mm.hasMatch()) {
-        double val = mm.captured(1).toDouble();
-        QString unit = mm.captured(2).trimmed().toLower();
-        // Strip trailing "in meters/in km/etc" if present
-        static QRegularExpression inRe(R"(\s+in\s+\w+$)",
-            QRegularExpression::CaseInsensitiveOption);
-        unit.remove(inRe);
-        unit = unit.trimmed();
+    // The "<number> <unit>" / "<number> <unit> in <unit>" lookup that consumed
+    // the deleted shadow table lived here. It is gone with it: tryConversion
+    // already handles both forms (it runs earlier in dispatchEvaluate), so this
+    // was only ever reachable for units the real database also knew about.
 
-        for (const UnitDef& ud : units) {
-            for (const QString& name : ud.names) {
-                if (unit == name.toLower()) {
-                    double si = val * ud.toMeters;
-                    return {
-                        QString("%1 %2 = %3 %4")
-                            .arg(val).arg(name)
-                            .arg(fmt(si)).arg(ud.siUnit),
-                        ResultType::conv
-                    };
-                }
-            }
-        }
-    }
     // General arithmetic via BigDec - arbitrary precision, so results are no
     // longer capped at the double overflow point (~1.8e308). The collapsed form
     // (~15 sig figs, auto-scientific) is shown; the full-digit form rides along
@@ -1686,6 +1693,12 @@ static bool isValidIdentifier(const QString& name, const VarMap& vars) {
 //  Main dispatcher
 // ----------------------------------------------------------------------
 CalcResult MathEngine::evaluate(const QString& expr) {
+    // Guards the whole evaluation, not just the `ans` write below: every
+    // registry mutation (assignments, function definitions, phrase variables)
+    // happens inside dispatchEvaluate. See engineMutex() for why it is coarse
+    // and recursive.
+    QMutexLocker locker(&engineMutex());
+
     CalcResult r = dispatchEvaluate(expr);
     // Record the last numeric answer as `ans` - only when the result is a bare
     // number we can reuse (skips assignment confirmations, equality proofs,

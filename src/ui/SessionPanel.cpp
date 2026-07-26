@@ -76,13 +76,17 @@ SessionPanel::SessionPanel(QWidget* parent) : QFrame(parent) {
     connect(m_pollTimer, &QTimer::timeout, this, [this]() {
         updateUptime();
         updateMemory();
-        updateWidgetCount();
+
     });
+    connect(&WidgetRegistry::instance(), &WidgetRegistry::countChanged, this, &SessionPanel::updateWidgetCount);
     m_pollTimer->start(1000);
 
     updateUptime();       // populate immediately; don't wait for the first tick
     updateMemory();
     updateWidgetCount();
+}
+SessionPanel::~SessionPanel() {
+    WidgetRegistry::instance().disconnect(this);   // no countChanged can arrive after this
 }
 
 QLabel* SessionPanel::addRow(const QString& caption, const QString& valueColor) {
@@ -122,6 +126,7 @@ void SessionPanel::setLastExpression(const QString& expr) {
     m_lastExprLbl->setText(elide(expr));
 }
 
+
 void SessionPanel::reset() {
     m_countLbl->setText("0");
     m_lastResultLbl->setText(QStringLiteral("\u2014"));
@@ -155,5 +160,5 @@ void SessionPanel::updateMemory() {
 }
 
 void SessionPanel::updateWidgetCount() {
-    m_widgetCntLbl->setText(QString::number(QApplication::allWidgets().size()));
+    m_widgetCntLbl->setText(QString::number(WidgetRegistry::instance().count()));
 }

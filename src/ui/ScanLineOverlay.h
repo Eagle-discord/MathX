@@ -1,3 +1,4 @@
+#pragma once
 #include <QPainter>
 #include <QWidget>
 #include "../constants/Theme.h"
