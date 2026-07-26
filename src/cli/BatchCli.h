@@ -35,10 +35,18 @@ namespace BatchCli {
 // Scans the process arguments for `--run-batch <file>` / `--run-batch=<file>`.
 // Returns true if the flag is present (the app should run headless and exit);
 // `outPath` receives the file path, or "" if the flag was given without one.
-bool parseArgs(const QStringList& args, QString& outPath);
+// `outVerbose` is set when `-v` / `--verbose` is also present.
+bool parseArgs(const QStringList& args, QString& outPath, bool& outVerbose);
 
 // Runs the batch file and returns a process exit code (see codes above).
 // Attaches a console on Windows so output is visible from a GUI-subsystem build.
-int run(const QString& filePath);
+//
+// `verbose` prints the RESULT of every line, not just failures. Without it a
+// line that carries no `= expected` assertion is reported as "ok" purely for not
+// throwing, so its value is never seen - which is how a wrong unit conversion or
+// a word problem answering the wrong number passes a green run. Use it when
+// eyeballing behaviour or building a suite; leave it off in CI, where the exit
+// code is what matters.
+int run(const QString& filePath, bool verbose = false);
 
 } // namespace BatchCli

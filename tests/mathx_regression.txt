@@ -1,0 +1,168 @@
+# MathX regression suite
+#
+# Run:  MathX.exe --run-batch tests\mathx_regression.txt
+#       ./MathX --run-batch tests/mathx_regression.txt      (Linux)
+#
+# Exit code 0 = everything passed, 1 = a failure or error, 2 = usage/file error.
+#
+# ---------------------------------------------------------------------------
+# HOW TO READ A PASS
+# ---------------------------------------------------------------------------
+# A line written as `expr = expected` is a real ASSERTION - the engine compares
+# both sides and prints a pass/fail glyph.
+#
+# A line with no `=` is only a LIVENESS check: the runner reports it as "ok" if
+# evaluating it did not throw. It does NOT verify the value. Keep those in a
+# clearly-marked section so a green run is never mistaken for full coverage.
+#
+# Unit conversions currently CANNOT be asserted: dispatchEvaluate tries
+# tryConversion before the algebra path, and tryConversion rejects any input
+# containing '=', so `1 km to m = 1000` never reaches the converter and instead
+# fails as arithmetic. Until that is fixed, every conversion below is a
+# liveness check only. This is the single biggest coverage gap in the suite.
+
+# ---------------------------------------------------------------------------
+# Arithmetic
+# ---------------------------------------------------------------------------
+2+2 = 4
+2 * 3 + 4 = 10
+2 + 3 * 4 = 14
+(2 + 3) * 4 = 20
+10 / 4 = 2.5
+2^10 = 1024
+-2^2 = -4                  # unary minus binds looser than ^
+2^3^2 = 512                # ^ is right-associative
+
+# ---------------------------------------------------------------------------
+# Percent vs modulo  (DEV_NOTES BUG-008)
+# ---------------------------------------------------------------------------
+# '%' is postfix percent when nothing follows it, binary modulo when an operand
+# does. Both readings must keep working.
+10 % 3 = 1
+10%3 = 1
+100 % 7 = 2
+20 % 5 = 0
+2 * (10 % 4) = 4
+50% = 0.5
+50% * 200 = 100
+50% + 20 = 20.5
+100 - 10% = 90             # contextual percent: "100 minus 10 percent OF 100"
+mod(10,3) = 1
+
+# ---------------------------------------------------------------------------
+# Built-in functions
+# ---------------------------------------------------------------------------
+sqrt(16) = 4
+hypot(3,4) = 5
+gcd(12,18) = 6
+lcm(4,6) = 12              # BUG-005: used to return 0 for every input
+logbase(8,2) = 3           # BUG-006: arguments used to be reversed
+ncr(5,2) = 10
+npr(5,2) = 20
+sin(0) = 0
+
+# ---------------------------------------------------------------------------
+# Algebra
+# ---------------------------------------------------------------------------
+88x = 704
+x^2 + 5x + 6 = 0
+2x + 3x + (4x - x)
+
+# ---------------------------------------------------------------------------
+# Variables, functions, statements  (re-entrancy through evaluate())
+# ---------------------------------------------------------------------------
+# These re-enter MathEngine::evaluate() while it already holds engineMutex();
+# a non-recursive lock would deadlock the whole suite here.
+x = 5; y = 10; x + y = 15
+a = 2 then b = 3 then a * b = 6
+x + 1 where x = 41
+f(x) = x + 5
+f(10) = 15
+g(x, y) = x^2 + y
+g(3, 1) = 10
+n = 7
+n * 6 = 42
+no. of apples with timmy = 5
+no. of apples with timmy * 2 = 10
+clear vars
+
+# ---------------------------------------------------------------------------
+# Natural language
+# ---------------------------------------------------------------------------
+5 percent of 200 = 10
+25% of 80 = 20
+half of 80 = 40
+3 times 7 = 21
+
+# ---------------------------------------------------------------------------
+# LIVENESS ONLY - no value is checked (see header)
+# ---------------------------------------------------------------------------
+# Big numbers
+fact(20)
+2^64
+5!
+
+# Word problems. Also unverifiable by assertion - a trailing "= 8" is absorbed
+# into the question sentence and ignored, so `... altogether? = 999` passes too.
+# They are still worth running: an unparsed sentence comes back as an ERROR, so
+# these do catch the main regression risk (a pattern that stops matching).
+# Expected answers are in the comments; check them with -v.
+#
+# Facts and relations
+Tom has 3 apples. Sara has 5 apples. How many apples does Tom have?          # 3
+Tom has 3 apples. Sara has 5 apples. How many apples do they have altogether?  # 8
+Tom has 3 apples. Sara has 5 apples. How many more apples does Sara have than Tom?  # 2
+Tom has 3 apples. Sara has 2 more apples than Tom. How many apples does Sara have?  # 5
+Tom has 3 apples. Sara has 4 times as many apples as Tom. How many apples does Sara have?  # 12
+Tom has 10 apples. Sara has 3 fewer apples than Tom. How many apples does Sara have?  # 7
+Tom has five apples. How many apples does Tom have?                          # 5
+# Compound clauses joined by "and"
+Tom has 3 apples and Sara has 5 apples. How many apples in total?            # 8
+Tom has 20 apples and gives 5 to Sara and eats 3. How many apples does Tom have?  # 12
+# Question phrasings: omitted noun, no verb, trailing words
+Tom has 3 apples. Sara has 5 apples. How many do they have together?         # 8
+Tom has 3 apples. Sara has 5 apples. What is the total number of apples?     # 8
+Tom has 3 apples. How many apples does Tom have now?                         # 3
+Tom has 7 apples. How many does he have?                                     # 7
+# Actions: gain, lose, transfer. No semantic check - "ate bricks" is fine.
+Tom has 5 apples. He eats 2 apples. How many apples does Tom have?           # 3
+Tom has 5 apples. He buys 3 more apples. How many apples does Tom have?      # 8
+Tom has 9 bricks. He ate 3 bricks. How many bricks does Tom have?            # 6
+Tom has 5 apples. He gives 2 to Sara. How many apples does Tom have?         # 3
+Tom has 10 apples. He gives 4 to Sara. How many apples do they have altogether?  # 10
+Tom has 5 apples. Sara gives him 3 apples. How many apples does Tom have?    # 8
+Tom has 10 apples. He eats 2 apples. He buys 5 apples. How many apples does Tom have?  # 13
+# Existential and rates
+There are 12 apples in the basket. How many apples are in the basket?        # 12
+There are 4 boxes. Each box has 6 apples. How many apples are there?         # 24
+Each box has 6 apples. There are 4 boxes. How many apples are there in total?  # 24
+Tom has 3 bags. Each bag has 4 apples. How many apples does Tom have?        # 12
+# Pronouns and multiple attributes
+Tom has 3 apples. He has 2 oranges. How many oranges does Tom have?          # 2
+Tom has 1 apple. Sara has 3 apples. How many apples do they have in total?   # 4
+Tom has 4 red apples. Sara has 2 red apples. How many red apples do they have altogether?  # 6
+
+# Unit conversions. Every line here is unverified; they only prove the
+# converter does not throw and that the unit resolves at all.
+1 furlong
+3 furlongs in meters                 # "in" as a synonym for "to"
+2 nautical miles                     # multi-word unit
+1 light year
+5 fluid ounce
+1 parsec
+1 acre                               # needs the m2 base unit to exist
+1 hectare
+2 pints
+3 quarts
+2 tonnes
+1 stone
+60 mph
+10 knots
+5 km in meters
+2 stone in kg
+100 mph in km/h
+1 liter to ml
+1 acre to m2                         # BUG-021
+100 km/h to m/s                      # compound units
+72 fahrenheit to celsius             # non-linear
+mach 2 to km/h

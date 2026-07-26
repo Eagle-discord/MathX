@@ -113,24 +113,34 @@ QStringList parseExpressions(const QStringList& lines) {
 
 namespace BatchCli {
 
-bool parseArgs(const QStringList& args, QString& outPath) {
+bool parseArgs(const QStringList& args, QString& outPath, bool& outVerbose) {
     static const QString flag = QStringLiteral("--run-batch");
     static const QString flagEq = QStringLiteral("--run-batch=");
+
+    outVerbose = args.contains(QStringLiteral("-v"))
+              || args.contains(QStringLiteral("--verbose"));
+
+    bool found = false;
     for (int i = 1; i < args.size(); ++i) {
         const QString& a = args[i];
         if (a == flag) {
-            outPath = (i + 1 < args.size()) ? args[i + 1] : QString();
-            return true;
+            // Don't swallow a following switch as the path: `--run-batch -v f`
+            // would otherwise take "-v" as the filename.
+            const QString next = (i + 1 < args.size()) ? args[i + 1] : QString();
+            outPath = next.startsWith(QLatin1Char('-')) ? QString() : next;
+            found = true;
+            break;
         }
         if (a.startsWith(flagEq)) {
             outPath = a.mid(flagEq.size());
-            return true;
+            found = true;
+            break;
         }
     }
-    return false;
+    return found;
 }
 
-int run(const QString& filePath) {
+int run(const QString& filePath, bool verbose) {
     attachConsole();
 
     QTextStream out(stdout);
@@ -177,9 +187,11 @@ int run(const QString& filePath) {
 
         out << glyph << " [" << (i + 1) << '/' << exprs.size() << "] " << e << "\n";
 
-        // Success is quiet; only expand the full result for a failure/error so
-        // the reason is visible without drowning a passing run in output.
-        if (isErr || isFail) {
+        // Success is quiet by default; only expand the full result for a
+        // failure/error so the reason is visible without drowning a passing run
+        // in output. -v expands everything, which is the only way to see the
+        // value of a line that carries no assertion.
+        if (isErr || isFail || verbose) {
             const QStringList body = r.result.split('\n');
             for (const QString& bl : body)
                 out << "        " << bl << "\n";
