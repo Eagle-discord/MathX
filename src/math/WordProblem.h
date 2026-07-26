@@ -15,19 +15,41 @@
 //  bindings live in the ordinary variable registry and the rest of the engine
 //  can use them afterwards.
 //
-//  v1 pattern set
-//  --------------
+//  Pattern set
+//  -----------
 //  Facts:      "<X> has <N> <things>"
 //              "<X> has <N> more|fewer|less <things> than <Y>"
 //              "<X> has <N> times as many <things> as <Y>"
-//  Questions:  "How many <things> does <X> have?"
-//              "How many <things> do they have altogether|in total|in all?"
+//              "There are <N> <things> [in|on|at <place>]"
+//              "Each|Every <container> has <N> <things>"      (a rate)
+//  Actions:    "<X> eats|loses|spends|... <N> [<things>]"     (subtract)
+//              "<X> buys|finds|gets|... <N> [more] [<things>]"(add)
+//              "<X> gives <N> [<things>] to <Y>"              (transfer)
+//              "<X> gives <Y> <N> [<things>]"                 (transfer, dative)
+//  Questions:  "How many [<things>] does <X> have [now|left|...]?"
+//              "How many [<things>] do they have altogether|in total|...?"
 //              "How many more <things> does <X> have than <Y>?"
+//              "How many <things> are there|are in the <place>?"
+//              "What is the total [number of] <things>?"
 //
-//  Design stance: FAIL LOUDLY. A sentence that matches no pattern aborts the
+//  Sentences split on '.', '?', '!' and further on "and" when what follows
+//  starts a new clause. A subject may be a pronoun or omitted entirely, in
+//  which case it resolves to the most recently mentioned owner; the noun may be
+//  omitted too when the problem only counts one kind of thing.
+//
+//  Design stance 1: FAIL LOUDLY. A sentence that matches no pattern aborts the
 //  solve and is reported verbatim, rather than being silently dropped and
 //  yielding a confidently wrong number. Every refusal is a precise bug report
-//  for the next pattern to add.
+//  for the next pattern to add. Likewise an ambiguity ("how many does Tom
+//  have?" with both apples and oranges on the table) asks which, rather than
+//  picking one.
+//
+//  Design stance 2: VERBS ARE ARITHMETIC, NOTHING MORE. "ate" subtracts; it
+//  does not check the object is edible. "Tom has 9 bricks. He ate 3 bricks."
+//  answers 6. Guarding that would mean shipping and maintaining a noun ontology
+//  to reject sentences nobody types by accident, and the cost lands on every
+//  legitimate problem. The verb tables in the .cpp are therefore the whole
+//  feature - adding a verb is one word, no new code path.
 // ---------------------------------------------------------------------------
 namespace WordProblem {
 
